@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useDeferredValue } from "react";
 import { useParams } from "next/navigation";
 import { useAccountStore } from "@/lib/stores/account-store";
 import { useVideos } from "@/lib/hooks/use-videos";
@@ -18,10 +18,13 @@ export default function VideosPage() {
   const [estado, setEstado] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
 
+  // Debounce search — React defers this value so typing doesn't trigger immediate API calls
+  const deferredSearch = useDeferredValue(search);
+
   const { data: videos = [], isLoading } = useVideos({
     accountId: currentAccount?.id,
     estado: estado || undefined,
-    search: search || undefined,
+    search: deferredSearch || undefined,
   });
 
   return (

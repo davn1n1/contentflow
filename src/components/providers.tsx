@@ -9,7 +9,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 60 * 1000,
+            staleTime: 5 * 60 * 1000, // 5 minutes — Airtable data doesn't change often
+            gcTime: 10 * 60 * 1000, // Keep unused cache for 10 minutes
             refetchOnWindowFocus: false,
           },
         },

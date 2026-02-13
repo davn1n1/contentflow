@@ -60,7 +60,7 @@ export async function airtableFetch<T = Record<string, unknown>>(
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${pat}` },
-    cache: "no-store",
+    next: { revalidate: 60 }, // Cache responses for 60s, then revalidate
   });
 
   if (!res.ok) {
