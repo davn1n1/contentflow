@@ -1,0 +1,91 @@
+// Airtable table IDs
+export const TABLES = {
+  ACCOUNT: "tbldXugZINS2ZE0OG",
+  VIDEOS: "tbl16hfZSQhbjj6XS",
+  ESCENAS: "tbl8SooJsyirSeczB",
+  AE_RENDERS: "tblEZWZMzvL6t1Xj2",
+  IDEAS: "tblZZUQi5ythI5zze",
+  RESEARCH: "tblokkoR3fWLmv5It",
+  USUARIOS: "tblgVFWLrEqmMpKiT",
+} as const;
+
+interface AirtableResponse<T = Record<string, unknown>> {
+  records: AirtableRecord<T>[];
+  offset?: string;
+}
+
+export interface AirtableRecord<T = Record<string, unknown>> {
+  id: string;
+  createdTime: string;
+  fields: T;
+}
+
+export async function airtableFetch<T = Record<string, unknown>>(
+  tableId: string,
+  options?: {
+    fields?: string[];
+    filterByFormula?: string;
+    maxRecords?: number;
+    sort?: { field: string; direction?: "asc" | "desc" }[];
+    offset?: string;
+  }
+): Promise<AirtableResponse<T>> {
+  const baseId = process.env.AIRTABLE_BASE_ID;
+  const pat = process.env.AIRTABLE_PAT;
+
+  if (!baseId || !pat) {
+    throw new Error("Airtable credentials not configured");
+  }
+
+  const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableId}`);
+
+  if (options?.fields) {
+    options.fields.forEach((f) => url.searchParams.append("fields[]", f));
+  }
+  if (options?.filterByFormula) {
+    url.searchParams.set("filterByFormula", options.filterByFormula);
+  }
+  if (options?.maxRecords) {
+    url.searchParams.set("maxRecords", String(options.maxRecords));
+  }
+  if (options?.sort) {
+    options.sort.forEach((s, i) => {
+      url.searchParams.set(`sort[${i}][field]`, s.field);
+      url.searchParams.set(`sort[${i}][direction]`, s.direction || "asc");
+    });
+  }
+  if (options?.offset) {
+    url.searchParams.set("offset", options.offset);
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${pat}` },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Airtable error: ${res.status} ${JSON.stringify(err)}`);
+  }
+
+  return res.json();
+}
+
+// Fetch specific records by their IDs
+export async function airtableFetchByIds<T = Record<string, unknown>>(
+  tableId: string,
+  recordIds: string[],
+  fields?: string[]
+): Promise<AirtableRecord<T>[]> {
+  if (recordIds.length === 0) return [];
+
+  // Airtable formula: OR(RECORD_ID()='id1', RECORD_ID()='id2', ...)
+  const formula = `OR(${recordIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
+
+  const result = await airtableFetch<T>(tableId, {
+    filterByFormula: formula,
+    fields,
+  });
+
+  return result.records;
+}

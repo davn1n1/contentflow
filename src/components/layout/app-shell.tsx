@@ -1,0 +1,122 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { Sidebar } from "@/components/layout/sidebar";
+import { Header } from "@/components/layout/header";
+import { useUIStore } from "@/lib/stores/ui-store";
+import { useAccountStore } from "@/lib/stores/account-store";
+import { useAuthUser } from "@/lib/hooks/use-auth-user";
+import type { Account } from "@/types/database";
+import { cn } from "@/lib/utils";
+
+function getAccountSlug(account: Account): string {
+  return (account.nameapp || account.name || "").toLowerCase().replace(/\s+/g, "-");
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const { sidebarCollapsed } = useUIStore();
+  const { setAccounts, setCurrentAccount, currentAccount, setAirtableUser } = useAccountStore();
+  const { data: authData, isLoading: authLoading } = useAuthUser();
+  const router = useRouter();
+  const pathname = usePathname();
+  const hasNavigated = useRef(false);
+
+  // Reset navigation flag when user changes (logout→login with different user)
+  const prevUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentUserId = authData?.profile?.id || null;
+    if (currentUserId && currentUserId !== prevUserRef.current) {
+      hasNavigated.current = false; // Allow auto-navigate for new user
+      prevUserRef.current = currentUserId;
+    }
+  }, [authData?.profile?.id]);
+
+  // Store Airtable user when loaded
+  useEffect(() => {
+    if (authData?.airtableUser) {
+      setAirtableUser(authData.airtableUser);
+    }
+  }, [authData?.airtableUser, setAirtableUser]);
+
+  // Load accounts — filtered by user's Airtable data when available
+  useEffect(() => {
+    // Wait until auth query has finished (not loading)
+    if (authLoading) return;
+    // Need at least a profile (user is logged in)
+    if (!authData) return;
+
+    async function loadAccounts() {
+      const res = await fetch("/api/data/accounts");
+      if (!res.ok) {
+        console.error("[AppShell] Failed to fetch accounts:", res.status);
+        return;
+      }
+      const allAccounts: Account[] = await res.json();
+
+      let accountsToSet = allAccounts;
+
+      // Filter by user's linked accounts if Airtable user data is available
+      if (authData!.airtableUser) {
+        const userAccountIds = authData!.airtableUser.account_ids;
+        if (userAccountIds.length > 0) {
+          const filtered = allAccounts.filter((a) =>
+            userAccountIds.includes(a.airtable_id || a.id)
+          );
+          if (filtered.length > 0) {
+            accountsToSet = filtered;
+          }
+          console.log("[AppShell] Filtered accounts:", filtered.length, "of", allAccounts.length);
+        }
+      } else {
+        console.warn("[AppShell] No Airtable user data — showing all accounts");
+      }
+
+      setAccounts(accountsToSet);
+
+      // Select first account if none selected or current not in list
+      let selectedAccount = currentAccount;
+      if (accountsToSet.length > 0 && !accountsToSet.find((a) => a.id === currentAccount?.id)) {
+        selectedAccount = accountsToSet[0];
+        setCurrentAccount(selectedAccount);
+      }
+
+      // Auto-navigate to account URL if on /dashboard or root
+      if (selectedAccount && !hasNavigated.current && (pathname === "/dashboard" || pathname === "/")) {
+        hasNavigated.current = true;
+        const slug = getAccountSlug(selectedAccount);
+        if (slug) {
+          router.replace(`/${slug}/videos`);
+        }
+      }
+    }
+
+    loadAccounts();
+  }, [authData, authLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Sidebar />
+      <div
+        className={cn(
+          "transition-all duration-300",
+          sidebarCollapsed ? "ml-16" : "ml-64"
+        )}
+      >
+        <Header />
+        <main className="p-6">{children}</main>
+      </div>
+    </div>
+  );
+}
