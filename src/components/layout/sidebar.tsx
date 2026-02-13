@@ -152,6 +152,14 @@ const sections: NavSection[] = [
       { name: "Transacciones", href: "/gestion/transacciones", icon: TrendingUp },
     ],
   },
+  {
+    title: "Test",
+    key: "test",
+    collapsible: true,
+    items: [
+      { name: "Remotion Preview", href: "/remotion", icon: Film, global: true },
+    ],
+  },
 ];
 
 const bottomNav: NavItem[] = [
