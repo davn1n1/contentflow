@@ -11,7 +11,6 @@ import {
   Video,
   Lightbulb,
   FileText,
-  Film,
   Settings,
   Users,
   ChevronLeft,
@@ -28,6 +27,28 @@ import {
   BadgeDollarSign,
   TrendingUp,
   Database,
+  FolderOpen,
+  LayoutTemplate,
+  Target,
+  PenTool,
+  Headphones,
+  Film,
+  PlaySquare,
+  UserCircle,
+  UserCog,
+  Phone,
+  Mic,
+  BookOpen,
+  Dna,
+  FlaskConical,
+  Shield,
+  AtSign,
+  Banknote,
+  Tag,
+  Palette,
+  Share2,
+  SlidersHorizontal,
+  Eye,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────
@@ -47,6 +68,7 @@ interface NavSection {
 }
 
 // ─── Navigation Structure ────────────────────────────────
+// Mirrors the Airtable Interface menu exactly
 
 const sections: NavSection[] = [
   {
@@ -54,6 +76,30 @@ const sections: NavSection[] = [
     key: "overview",
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, global: true },
+    ],
+  },
+  {
+    title: "Ads & Reels",
+    key: "ads-reels",
+    collapsible: true,
+    items: [
+      { name: "Campañas", href: "/campanas", icon: FolderOpen },
+      { name: "Cartel", href: "/cartel", icon: LayoutTemplate },
+      { name: "Selección de Angulos", href: "/angulos", icon: Target },
+      { name: "Creación de Copy", href: "/copy-ads", icon: PenTool },
+    ],
+  },
+  {
+    title: "Producción Reels & ADs",
+    key: "produccion-reels",
+    collapsible: true,
+    items: [
+      { name: "Ideas Inspiración", href: "/ideas-reels", icon: Lightbulb },
+      { name: "Script & Audio", href: "/scripts-reels", icon: Headphones },
+      { name: "Video Completo", href: "/videos-reels", icon: Film },
+      { name: "Montaje Reels", href: "/montaje-reels", icon: Scissors },
+      { name: "Montaje Completos", href: "/montaje-reels-completos", icon: PlaySquare },
+      { name: "Listado Completo", href: "/listado-reels", icon: ListVideo },
     ],
   },
   {
@@ -66,17 +112,33 @@ const sections: NavSection[] = [
       { name: "Script & Audio", href: "/scripts", icon: FileText },
       { name: "Video Completo", href: "/videos", icon: Video },
       { name: "Miniatura & Publish", href: "/thumbnails", icon: ImageIcon },
-      { name: "Clips Opus", href: "/clips", icon: Scissors },
+      { name: "Clips Opus", href: "/clips", icon: Clapperboard },
       { name: "Listado Todos", href: "/all-videos", icon: ListVideo },
     ],
   },
   {
-    title: "Reels & ADs",
-    key: "reels-ads",
+    title: "App Data",
+    key: "app-data",
     collapsible: true,
     items: [
-      { name: "Ads & Reels", href: "/ads-reels", icon: Megaphone },
-      { name: "Producción Reels", href: "/produccion-reels", icon: Clapperboard },
+      { name: "Avatares", href: "/app-data/avatares", icon: UserCircle },
+      { name: "Avatares Set", href: "/app-data/avatares-set", icon: Users },
+      { name: "Persona", href: "/app-data/persona", icon: UserCog },
+      { name: "CTAs", href: "/app-data/ctas", icon: Phone },
+      { name: "Broll Custom", href: "/app-data/broll", icon: Film },
+      { name: "Voices", href: "/app-data/voices", icon: Mic },
+      { name: "Fuentes Inspiración", href: "/app-data/fuentes", icon: BookOpen },
+      { name: "VoiceDNA", href: "/app-data/voicedna", icon: Dna },
+      { name: "VoiceDNA Sources", href: "/app-data/voicedna-sources", icon: FlaskConical },
+      { name: "Audiencia", href: "/app-data/audiencia", icon: Megaphone },
+      { name: "GuardaRails", href: "/app-data/guardarails", icon: Shield },
+      { name: "Comentario Pineado", href: "/app-data/comentario-pineado", icon: AtSign },
+      { name: "Sponsors", href: "/app-data/sponsors", icon: Banknote },
+      { name: "Brands", href: "/app-data/brands", icon: Tag },
+      { name: "Identidad Visual", href: "/app-data/identidad-visual", icon: Palette },
+      { name: "Social Profiles", href: "/app-data/social-profiles", icon: Share2 },
+      { name: "Default Settings", href: "/app-data/default-settings", icon: SlidersHorizontal },
+      { name: "Spy Ads & Reels", href: "/app-data/spy", icon: Eye },
     ],
   },
   {
@@ -93,9 +155,7 @@ const sections: NavSection[] = [
 ];
 
 const bottomNav: NavItem[] = [
-  { name: "App Data", href: "/app-data", icon: Database },
   { name: "Settings", href: "/settings", icon: Settings },
-  { name: "Team", href: "/team", icon: Users },
 ];
 
 // ─── Component ───────────────────────────────────────────
@@ -147,7 +207,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-3 px-2 overflow-y-auto">
+      <nav className="flex-1 py-3 px-2 overflow-y-auto scrollbar-thin">
         {sections.map((section) => {
           const isCollapsed = collapsedSections[section.key] ?? false;
           const hasActiveItem = isSectionActive(section);
@@ -200,11 +260,11 @@ export function Sidebar() {
 
                     return (
                       <Link
-                        key={item.name}
+                        key={`${section.key}-${item.name}`}
                         href={href}
                         onClick={disabled ? (e) => e.preventDefault() : undefined}
                         className={cn(
-                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                          "flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
                           active
                             ? "bg-primary/10 text-primary border border-primary/20"
                             : disabled
@@ -246,7 +306,7 @@ export function Sidebar() {
               href={href}
               onClick={disabled ? (e) => e.preventDefault() : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                "flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
                 active
                   ? "bg-primary/10 text-primary border border-primary/20"
                   : disabled

@@ -197,6 +197,44 @@ export interface Idea {
   priority_level: string | null;
 }
 
+export interface Research {
+  id: string;
+  titulo: string | null;
+  fecha: string | null;
+  status: string | null;
+  account_id: string | null;
+  // Research Últimas 24 Horas
+  tendencia_hoy: string | null;
+  temas_recomendados: string | null;
+  formatos_propuestos: string | null;
+  // Links
+  soporte_url: string | null;
+  ideas_inspiracion_url: string | null;
+  // Linked records
+  ideas_inspiracion_ids: string[];
+  finalistas_ids: string[];
+  // Conclusion
+  conclusion: string | null;
+  // Meta
+  created: string;
+}
+
+// Expanded idea data for Research "Ideas Seleccionadas" tab
+export interface ResearchSelectedIdea {
+  id: string;
+  idea_title: string | null;
+  thumb_url: string | null;
+  research_puesto: number | null;
+  yt_new: string | null;
+  fuentes_inspiracion: string | null;
+  logo_url: string | null;
+  research_evaluacion: string | null;
+  research_resumen: string | null;
+  yt_duration: string | null;
+  yt_views_count: number | null;
+  yt_video_id: string | null;
+}
+
 export type PipelineStep = "copy" | "audio" | "video" | "render";
 
 export interface PipelineStatus {

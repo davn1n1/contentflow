@@ -9,7 +9,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "ContentFlow365 - Video Production Platform",
+  title: {
+    default: "ContentFlow365",
+    template: "%s | ContentFlow365",
+  },
   description: "Automated video production SaaS",
 };
 
