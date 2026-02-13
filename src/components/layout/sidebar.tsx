@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useAccountStore } from "@/lib/stores/account-store";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 import {
   LayoutDashboard,
   Video,
@@ -15,7 +16,6 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
-  Zap,
   Clapperboard,
 } from "lucide-react";
 
@@ -46,9 +46,13 @@ export function Sidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center px-4 border-b border-border">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center flex-shrink-0">
-            <Zap className="w-4 h-4 text-primary" />
-          </div>
+          <Image
+            src="/logo.png"
+            alt="ContentFlow365"
+            width={32}
+            height={32}
+            className="flex-shrink-0"
+          />
           {!sidebarCollapsed && (
             <span className="font-bold text-sm gradient-text whitespace-nowrap">
               ContentFlow365
