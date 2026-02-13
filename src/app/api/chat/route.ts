@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { streamText, type UIMessage } from "ai";
+import { streamText, convertToModelMessages, type UIMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 
 // OpenRouter: unified API for Claude, GPT, Gemini, etc.
@@ -13,6 +13,11 @@ import { buildSystemPrompt } from "@/lib/chat/system-prompt";
 import { checkRateLimit } from "@/lib/chat/rate-limit";
 import { airtableFetch, TABLES } from "@/lib/airtable/client";
 import { createClient } from "@/lib/supabase/server";
+import { embedText } from "@/lib/rag/embeddings";
+import { searchMemoriesWithEmbedding } from "@/lib/rag/memory";
+import { buildEnrichedContext } from "@/lib/chat/context-builder";
+import { windowMessages } from "@/lib/chat/window-manager";
+import { summarizeAndStoreConversation } from "@/lib/rag/summarizer";
 
 export const maxDuration = 60;
 
@@ -65,27 +70,55 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. Build system prompt with user context
+    // 5. Extract last user message text for embedding
+    const lastUserMessage = [...messages].reverse().find((m: UIMessage) => m.role === "user");
+    const lastMessageText = lastUserMessage ? getTextFromMessage(lastUserMessage) : "";
+
+    // 6. Embed query ONCE — reuse for memory search AND tool calls
+    let queryEmbedding: number[] | undefined;
+    try {
+      if (lastMessageText) {
+        queryEmbedding = await embedText(lastMessageText);
+      }
+    } catch {
+      // If embedding fails, continue without it — tools will use keyword fallback
+    }
+
+    // 7. Parallel fetches: enriched context + conversation memories
+    const [enriched, memories] = await Promise.all([
+      buildEnrichedContext(accountId || undefined, userAccountIds).catch(() => null),
+      queryEmbedding
+        ? searchMemoriesWithEmbedding(auth.user.userId, queryEmbedding, 3).catch(() => [])
+        : Promise.resolve([]),
+    ]);
+
+    // 8. Convert UIMessages → ModelMessages, then window if too long
+    const modelMessages = await convertToModelMessages(messages);
+    const windowed = await windowMessages(modelMessages);
+
+    // 9. Build system prompt with all context
     const systemPrompt = buildSystemPrompt(
       { email: auth.user.email },
       {
         accountId: accountId || undefined,
         accountName: accountName || undefined,
         accountIds: userAccountIds,
-      }
+      },
+      enriched,
+      memories,
+      windowed.summary
     );
 
-    // 6. Create tools scoped to user's accounts
-    const tools = createChatTools(userAccountIds);
+    // 10. Create tools scoped to user's accounts + pre-computed embedding
+    const tools = createChatTools(userAccountIds, { queryEmbedding });
 
-    // 7. Manage conversation persistence
+    // 11. Manage conversation persistence
     const supabase = await createClient();
     let activeConversationId = conversationId;
 
     if (!activeConversationId) {
       // Create new conversation
-      const lastUserMsg = [...messages].reverse().find((m: UIMessage) => m.role === "user");
-      const title = lastUserMsg ? getTextFromMessage(lastUserMsg).slice(0, 100) : "New conversation";
+      const title = lastMessageText ? lastMessageText.slice(0, 100) : "New conversation";
 
       const { data: newConv } = await supabase
         .from("chat_conversations")
@@ -106,21 +139,20 @@ export async function POST(request: NextRequest) {
         .eq("id", activeConversationId);
     }
 
-    // 8. Save user message to DB
-    const lastUserMessage = [...messages].reverse().find((m: UIMessage) => m.role === "user");
+    // 12. Save user message to DB
     if (lastUserMessage && activeConversationId) {
       await supabase.from("chat_messages").insert({
         conversation_id: activeConversationId,
         role: "user",
-        content: getTextFromMessage(lastUserMessage),
+        content: lastMessageText,
       });
     }
 
-    // 9. Stream AI response
+    // 13. Stream AI response
     const result = streamText({
-      model: openrouter(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4-5"),
+      model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4-5"),
       system: systemPrompt,
-      messages,
+      messages: windowed.messages,
       tools,
       onFinish: async ({ text }) => {
         if (activeConversationId && text) {
@@ -129,6 +161,15 @@ export async function POST(request: NextRequest) {
             role: "assistant",
             content: text,
           });
+
+          // Async: summarize conversation if it has enough messages (non-blocking)
+          summarizeAndStoreConversation(
+            activeConversationId,
+            auth.user.userId,
+            accountId || null
+          ).catch((err) =>
+            console.warn("[Chat] Summarization failed:", err instanceof Error ? err.message : err)
+          );
         }
       },
     });

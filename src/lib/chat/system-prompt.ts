@@ -1,12 +1,18 @@
+import type { EnrichedContext } from "./context-builder";
+import type { ConversationMemory } from "@/lib/rag/memory";
+
 export function buildSystemPrompt(
   user: { email: string },
   context: {
     accountId?: string;
     accountName?: string;
     accountIds: string[];
-  }
+  },
+  enriched?: EnrichedContext | null,
+  memories?: ConversationMemory[],
+  olderMessagesSummary?: string | null
 ): string {
-  return `Eres el asistente de soporte de ContentFlow365, una plataforma SaaS de produccion automatizada de video para YouTube y redes sociales.
+  let prompt = `Eres el asistente de soporte de ContentFlow365, una plataforma SaaS de produccion automatizada de video para YouTube y redes sociales.
 
 ## Tu Rol
 Ayudas a los usuarios a entender y gestionar su pipeline de produccion de video. Puedes consultar el estado de videos, buscar videos, obtener informacion de cuentas, buscar articulos de ayuda y reintentar pasos fallidos del pipeline.
@@ -61,7 +67,56 @@ Los videos pasan por estos estados en cada fase:
 ## Contexto del Usuario
 - Email: ${user.email}
 - Cuenta activa: ${context.accountName || "ninguna seleccionada"} (${context.accountId || "ninguno"})
-- Cuentas accesibles: ${context.accountIds.length} cuenta(s)
+- Cuentas accesibles: ${context.accountIds.length} cuenta(s)`;
+
+  // Dynamic section: enriched account context
+  if (enriched) {
+    prompt += `\n\n## Contexto de la Cuenta Activa`;
+
+    if (enriched.account) {
+      prompt += `\n- Nombre: ${enriched.account.name}`;
+      if (enriched.account.industry) prompt += `\n- Industria: ${enriched.account.industry}`;
+      if (enriched.account.youtubeChannel) prompt += `\n- Canal YouTube: ${enriched.account.youtubeChannel}`;
+      if (enriched.account.status) prompt += `\n- Estado: ${enriched.account.status}`;
+    }
+
+    if (enriched.persona) {
+      prompt += `\n- Persona: ${enriched.persona}`;
+    }
+
+    if (enriched.voices.length > 0) {
+      prompt += `\n- Voces configuradas: ${enriched.voices.join(", ")}`;
+    }
+
+    if (enriched.recentVideos.length > 0) {
+      prompt += `\n\n### Videos Recientes`;
+      prompt += `\n| # | Nombre | Copy | Audio | Video | Render |`;
+      prompt += `\n|---|--------|------|-------|-------|--------|`;
+      for (const v of enriched.recentVideos) {
+        const s = (val: string) => val === "done" || val === "completed" ? "done" : val;
+        prompt += `\n| ${v.number} | ${v.name.slice(0, 40)} | ${s(v.pipeline.copy)} | ${s(v.pipeline.audio)} | ${s(v.pipeline.video)} | ${s(v.pipeline.render)} |`;
+      }
+    }
+  }
+
+  // Dynamic section: cross-conversation memories
+  if (memories && memories.length > 0) {
+    prompt += `\n\n## Contexto de Conversaciones Anteriores`;
+    for (const m of memories) {
+      const date = new Date(m.created_at);
+      const daysAgo = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+      const timeLabel = daysAgo === 0 ? "Hoy" : daysAgo === 1 ? "Ayer" : `Hace ${daysAgo} dias`;
+      const topics = m.topics.length > 0 ? ` (Temas: ${m.topics.join(", ")})` : "";
+      prompt += `\n- ${timeLabel}: ${m.summary}${topics}`;
+    }
+  }
+
+  // Dynamic section: summary of older messages in current conversation
+  if (olderMessagesSummary) {
+    prompt += `\n\n## Resumen de Mensajes Anteriores en Esta Conversacion\n${olderMessagesSummary}`;
+  }
+
+  prompt += `
 
 ## Directrices
 - Responde SIEMPRE en el mismo idioma que use el usuario (espanol o ingles)
@@ -74,4 +129,6 @@ Los videos pasan por estos estados en cada fase:
 - No expongas IDs internos de registros a menos que el usuario los pida
 - No puedes modificar contenido de videos (scripts, titulos) — solo consultar estado y reintentar pasos
 - Si no puedes resolver algo, sugiere al usuario contactar soporte tecnico`;
+
+  return prompt;
 }

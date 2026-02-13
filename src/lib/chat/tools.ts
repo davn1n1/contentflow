@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { airtableFetch, TABLES } from "@/lib/airtable/client";
-import { createClient as createSupabaseServer } from "@/lib/supabase/server";
+import { searchArticlesSemantic, searchArticlesWithEmbedding } from "@/lib/rag/search";
 
 // Map pipeline step names to n8n orchestrator action names
 const PIPELINE_ACTION_MAP: Record<string, string> = {
@@ -10,7 +10,10 @@ const PIPELINE_ACTION_MAP: Record<string, string> = {
   render: "ProcesoFinalRender",
 };
 
-export function createChatTools(userAccountIds: string[]) {
+export function createChatTools(
+  userAccountIds: string[],
+  options?: { queryEmbedding?: number[] }
+) {
   // Build Airtable filter to scope queries to user's accounts
   const accountFilter = userAccountIds.length > 0
     ? `OR(${userAccountIds.map((id) => `FIND('${id}', ARRAYJOIN({🏢Account}))`).join(",")})`
@@ -171,60 +174,25 @@ export function createChatTools(userAccountIds: string[]) {
 
     search_help_articles: {
       description:
-        "Search the knowledge base for help articles. Use this when the user asks how to do something or needs help with a feature.",
+        "Search the knowledge base for help articles using semantic search. Use this when the user asks how to do something or needs help with a feature.",
       inputSchema: z.object({
         query: z.string().describe("Search terms in Spanish or English"),
         category: z.string().optional().describe("Category filter: getting-started, copy-script, audio, video, render, troubleshooting, account, remotion"),
       }),
       execute: async ({ query, category }: { query: string; category?: string }) => {
         try {
-          const supabase = await createSupabaseServer();
-
-          let dbQuery = supabase
-            .from("help_articles")
-            .select("id, slug, title, summary, category")
-            .eq("published", true)
-            .order("sort_order");
-
-          if (category) {
-            dbQuery = dbQuery.eq("category", category);
-          }
-
-          if (query) {
-            dbQuery = dbQuery.textSearch(
-              "title",
-              query.split(" ").join(" | "),
-              { type: "plain", config: "spanish" }
-            );
-          }
-
-          const { data, error } = await dbQuery.limit(5);
-
-          if (error) {
-            // Fallback: simple ILIKE search if full-text fails
-            const { data: fallbackData } = await supabase
-              .from("help_articles")
-              .select("id, slug, title, summary, category")
-              .eq("published", true)
-              .or(`title.ilike.%${query}%,summary.ilike.%${query}%,content.ilike.%${query}%`)
-              .order("sort_order")
-              .limit(5);
-
-            return {
-              articles: (fallbackData || []).map((a) => ({
-                title: a.title,
-                summary: a.summary,
-                category: a.category,
-                url: `/help/articles/${a.slug}`,
-              })),
-            };
-          }
+          // Use pre-computed embedding if available (avoids re-embedding the query)
+          const results = options?.queryEmbedding
+            ? await searchArticlesWithEmbedding(options.queryEmbedding, { category, limit: 5 })
+            : await searchArticlesSemantic(query, { category, limit: 5 });
 
           return {
-            articles: (data || []).map((a) => ({
+            articles: results.map((a) => ({
               title: a.title,
               summary: a.summary,
+              content: a.content?.slice(0, 500) || "",
               category: a.category,
+              similarity: a.similarity,
               url: `/help/articles/${a.slug}`,
             })),
           };

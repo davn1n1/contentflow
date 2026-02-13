@@ -34,7 +34,13 @@ export function ChatWidget() {
     sendMessage,
     status,
     setMessages,
-  } = useChat({ transport });
+    error,
+  } = useChat({
+    transport,
+    onError: (err) => {
+      console.error("[Chat] Error:", err);
+    },
+  });
 
   const isLoading = status === "submitted" || status === "streaming";
 
@@ -139,6 +145,13 @@ export function ChatWidget() {
 
           {/* Messages */}
           <ChatMessages messages={messages} isLoading={isLoading} />
+
+          {/* Error banner */}
+          {error && (
+            <div className="px-3 py-2 text-xs text-destructive bg-destructive/10 border-t border-destructive/20">
+              Error: {error.message || "No se pudo conectar con el asistente"}
+            </div>
+          )}
 
           {/* Input */}
           <ChatInput
