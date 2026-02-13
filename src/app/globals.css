@@ -106,3 +106,20 @@ body {
 .pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
 }
+
+/* Chat widget animations */
+@keyframes chat-slide-up {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.chat-slide-up {
+  animation: chat-slide-up 0.2s ease-out;
+}
+
+@keyframes chat-typing {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+.chat-typing-dot {
+  animation: chat-typing 1.4s infinite;
+}

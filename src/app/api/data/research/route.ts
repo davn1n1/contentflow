@@ -2,60 +2,51 @@ import { NextRequest, NextResponse } from "next/server";
 import { airtableFetch, airtableFetchByIds, TABLES } from "@/lib/airtable/client";
 import { authenticateApiRequest } from "@/lib/auth/api-guard";
 
-// Field names in Airtable Research table (tblokkoR3fWLmv5It)
-// Note: These need to match exactly. If a field doesn't exist, Airtable ignores it silently.
 const RESEARCH_FIELDS = [
-  "Titulo Investigacion",
+  "Título Investigación",
   "Fecha",
   "Status",
   "🏢Account",
-  "Tendencia Hoy",
-  "Temas Recomendados Hoy",
-  "Formatos Propuestos",
+  "Web_TendenciasPrincipales",
+  "Web_TemasRecomendados",
+  "Web_FormatosPrincipales",
+  "Web_Fuentes",
+  "Web_Query Investigación",
+  "Web_ConclusionPerplexity",
+  "Conclusion",
   "Soporte",
   "Ideas Inspiracion",
   "💡Ideas Inspiracion",
   "Finalistas💡Ideas Inspiracion",
-  "Conclusion",
+  "Logo (from 🏢Account)",
+  "Thumb (from Finalistas💡Ideas Inspiracion)",
   "Created",
 ];
 
 interface ResearchFields {
-  "Titulo Investigacion"?: string;
+  "Título Investigación"?: string;
   Fecha?: string;
   Status?: string;
   "🏢Account"?: string[];
-  "Tendencia Hoy"?: string;
-  "Temas Recomendados Hoy"?: string;
-  "Formatos Propuestos"?: string;
+  Web_TendenciasPrincipales?: string;
+  Web_TemasRecomendados?: string;
+  Web_FormatosPrincipales?: string;
+  Web_Fuentes?: string;
+  "Web_Query Investigación"?: string;
+  Web_ConclusionPerplexity?: string;
+  Conclusion?: string;
   Soporte?: string;
   "Ideas Inspiracion"?: string;
   "💡Ideas Inspiracion"?: string[];
   "Finalistas💡Ideas Inspiracion"?: string[];
-  Conclusion?: string;
+  "Logo (from 🏢Account)"?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  "Thumb (from Finalistas💡Ideas Inspiracion)"?: { url: string; thumbnails?: { large?: { url: string } } }[];
   Created?: string;
 }
 
-// Fields to expand from linked Idea records (for the finalistas/selected ideas)
-const IDEA_EXPANDED_FIELDS = [
-  "Idea Title", "Thumb", "Research Puesto", "YT_New",
-  "Fuentes Inspiracion", "Logo (from Fuentes Inspiracion)",
-  "Research Evaluación", "Research Resumen",
-  "YT_ Duration", "YT_ViewsCount", "YT_ VideoID",
-];
-
+// Fetch ALL fields from ideas to discover lookups (including fuentes names)
 interface IdeaExpandedFields {
-  "Idea Title"?: string;
-  Thumb?: { url: string; thumbnails?: { large?: { url: string } } }[];
-  "Research Puesto"?: number;
-  YT_New?: string;
-  "Fuentes Inspiracion"?: string[];
-  "Logo (from Fuentes Inspiracion)"?: { url: string; thumbnails?: { large?: { url: string } } }[];
-  "Research Evaluación"?: string;
-  "Research Resumen"?: string;
-  "YT_ Duration"?: string;
-  YT_ViewsCount?: number;
-  "YT_ VideoID"?: string;
+  [key: string]: unknown;
 }
 
 export async function GET(request: NextRequest) {
@@ -74,7 +65,7 @@ export async function GET(request: NextRequest) {
       return await getResearchWithIdeas(researchId);
     }
 
-    // Build filters
+    // ALWAYS filter by account
     const filters: string[] = [];
 
     if (accountId) {
@@ -94,24 +85,24 @@ export async function GET(request: NextRequest) {
       : undefined;
 
     const { records } = await airtableFetch<ResearchFields>(TABLES.RESEARCH, {
-      fields: RESEARCH_FIELDS,
       filterByFormula,
       maxRecords: limit,
-      sort: [{ field: "Fecha", direction: "desc" }],
+      sort: [{ field: "Created", direction: "desc" }],
     });
 
     return NextResponse.json(records.map(mapResearch));
   } catch (error) {
     console.error("Airtable research error:", error);
-    return NextResponse.json({ error: "Failed to fetch research" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch research", details: String(error) },
+      { status: 500 }
+    );
   }
 }
 
 async function getResearchWithIdeas(researchId: string) {
-  // Fetch the research record
   const { records } = await airtableFetch<ResearchFields>(TABLES.RESEARCH, {
     filterByFormula: `RECORD_ID()='${researchId}'`,
-    fields: RESEARCH_FIELDS,
     maxRecords: 1,
   });
 
@@ -121,62 +112,117 @@ async function getResearchWithIdeas(researchId: string) {
 
   const research = mapResearch(records[0]);
 
-  // Expand the finalist ideas
   const finalistaIds = records[0].fields["Finalistas💡Ideas Inspiracion"] || [];
   let selectedIdeas: ReturnType<typeof mapSelectedIdea>[] = [];
 
   if (finalistaIds.length > 0) {
     const ideaRecords = await airtableFetchByIds<IdeaExpandedFields>(
       TABLES.IDEAS,
-      finalistaIds,
-      IDEA_EXPANDED_FIELDS
+      finalistaIds
     );
     selectedIdeas = ideaRecords.map(mapSelectedIdea);
-    // Sort by Research Puesto
     selectedIdeas.sort((a, b) => (a.research_puesto || 99) - (b.research_puesto || 99));
   }
 
   return NextResponse.json({ ...research, selected_ideas: selectedIdeas });
 }
 
+// ─── Helpers ─────────────────────────────────────────────
+
 function mapResearch(r: { id: string; createdTime: string; fields: ResearchFields }) {
+  const f = r.fields;
   return {
     id: r.id,
-    titulo: r.fields["Titulo Investigacion"] || null,
-    fecha: r.fields.Fecha || r.createdTime,
-    status: r.fields.Status || null,
-    account_id: r.fields["🏢Account"]?.[0] || null,
-    tendencia_hoy: r.fields["Tendencia Hoy"] || null,
-    temas_recomendados: r.fields["Temas Recomendados Hoy"] || null,
-    formatos_propuestos: r.fields["Formatos Propuestos"] || null,
-    soporte_url: r.fields.Soporte || null,
-    ideas_inspiracion_url: r.fields["Ideas Inspiracion"] || null,
-    ideas_inspiracion_ids: r.fields["💡Ideas Inspiracion"] || [],
-    finalistas_ids: r.fields["Finalistas💡Ideas Inspiracion"] || [],
-    conclusion: r.fields.Conclusion || null,
-    created: r.fields.Created || r.createdTime,
+    titulo: f["Título Investigación"] || null,
+    fecha: f.Fecha || f.Created || r.createdTime,
+    status: f.Status || null,
+    account_id: f["🏢Account"]?.[0] || null,
+    tendencia_hoy: f.Web_TendenciasPrincipales || null,
+    temas_recomendados: f.Web_TemasRecomendados || null,
+    formatos_propuestos: f.Web_FormatosPrincipales || null,
+    web_fuentes: f.Web_Fuentes || null,
+    web_query_investigacion: f["Web_Query Investigación"] || null,
+    web_conclusion_perplexity: f.Web_ConclusionPerplexity || null,
+    soporte_url: f.Soporte || null,
+    ideas_inspiracion_url: f["Ideas Inspiracion"] || null,
+    ideas_inspiracion_ids: f["💡Ideas Inspiracion"] || [],
+    finalistas_ids: f["Finalistas💡Ideas Inspiracion"] || [],
+    conclusion: f.Conclusion || null,
+    logo_url:
+      f["Logo (from 🏢Account)"]?.[0]?.thumbnails?.large?.url ||
+      f["Logo (from 🏢Account)"]?.[0]?.url ||
+      null,
+    thumb_url:
+      f["Thumb (from Finalistas💡Ideas Inspiracion)"]?.[0]?.thumbnails?.large?.url ||
+      f["Thumb (from Finalistas💡Ideas Inspiracion)"]?.[0]?.url ||
+      null,
+    created: f.Created || r.createdTime,
   };
 }
 
+function getStr(f: IdeaExpandedFields, ...keys: string[]): string | null {
+  for (const k of keys) {
+    const v = f[k];
+    if (typeof v === "string" && v.length > 0) return v;
+  }
+  return null;
+}
+
+function getNum(f: IdeaExpandedFields, ...keys: string[]): number | null {
+  for (const k of keys) {
+    const v = f[k];
+    if (typeof v === "number") return v;
+  }
+  return null;
+}
+
+function getAttachmentUrl(f: IdeaExpandedFields, ...keys: string[]): string | null {
+  for (const k of keys) {
+    const v = f[k];
+    if (Array.isArray(v) && v.length > 0) {
+      const att = v[0] as { url?: string; thumbnails?: { large?: { url?: string } } };
+      return att?.thumbnails?.large?.url || att?.url || null;
+    }
+  }
+  return null;
+}
+
+function getStrArray(f: IdeaExpandedFields, ...keys: string[]): string[] {
+  for (const k of keys) {
+    const v = f[k];
+    if (Array.isArray(v)) return v as string[];
+  }
+  return [];
+}
+
 function mapSelectedIdea(r: { id: string; fields: IdeaExpandedFields }) {
+  const f = r.fields;
+
+  // Try to find Fuente name from lookup fields
+  const fuenteName = getStr(f,
+    "Name (from Fuentes Inspiracion)",
+    "Nombre (from Fuentes Inspiracion)",
+    "Fuente Inspiracion Name",
+  );
+  // Fall back to Fuentes Inspiracion ID if no name lookup exists
+  const fuenteId = getStrArray(f, "Fuentes Inspiracion")[0] || null;
+
   return {
     id: r.id,
-    idea_title: r.fields["Idea Title"] || null,
-    thumb_url:
-      r.fields.Thumb?.[0]?.thumbnails?.large?.url ||
-      r.fields.Thumb?.[0]?.url ||
-      null,
-    research_puesto: r.fields["Research Puesto"] || null,
-    yt_new: r.fields.YT_New || null,
-    fuentes_inspiracion: r.fields["Fuentes Inspiracion"]?.[0] || null,
-    logo_url:
-      r.fields["Logo (from Fuentes Inspiracion)"]?.[0]?.thumbnails?.large?.url ||
-      r.fields["Logo (from Fuentes Inspiracion)"]?.[0]?.url ||
-      null,
-    research_evaluacion: r.fields["Research Evaluación"] || null,
-    research_resumen: r.fields["Research Resumen"] || null,
-    yt_duration: r.fields["YT_ Duration"] || null,
-    yt_views_count: r.fields.YT_ViewsCount || null,
-    yt_video_id: r.fields["YT_ VideoID"] || null,
+    idea_title: getStr(f, "Idea Title") || null,
+    thumb_url: getAttachmentUrl(f, "Thumb"),
+    research_puesto: getNum(f, "Research Puesto"),
+    yt_new: getStr(f, "YT_New"),
+    fuentes_inspiracion: fuenteName || fuenteId,
+    fuentes_inspiracion_is_id: !fuenteName && !!fuenteId,
+    logo_url: getAttachmentUrl(f, "Logo (from Fuentes Inspiracion)"),
+    research_evaluacion: getStr(f, "Research Evaluación"),
+    research_resumen: getStr(f, "Research Resumen"),
+    yt_duration: getStr(f, "YT_ Duration"),
+    yt_views_count: getNum(f, "YT_ViewsCount"),
+    yt_video_id: getStr(f, "YT_ VideoID"),
+    yt_channel_name: getStr(f, "YT_ChannelName"),
+    // Pass all field names for debugging (only in dev)
+    _debug_fields: process.env.NODE_ENV === "development" ? Object.keys(f) : undefined,
   };
 }

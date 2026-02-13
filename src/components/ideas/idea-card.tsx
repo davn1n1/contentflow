@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import type { Idea } from "@/types/database";
 import { Star, ExternalLink, Image as ImageIcon } from "lucide-react";
+import { CreateVideoButton } from "@/components/shared/create-video-button";
 
 interface IdeaCardProps {
   idea: Idea;
@@ -158,6 +159,14 @@ export function IdeaCard({ idea, onClick }: IdeaCardProps) {
             </a>
           </div>
         )}
+
+        {/* Create Video */}
+        <CreateVideoButton
+          ideaId={idea.id}
+          ideaTitle={idea.idea_title}
+          variant="compact"
+          className="pt-2 border-t border-border/50"
+        />
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ export default function VideosPage() {
   const { currentAccount } = useAccountStore();
   const [search, setSearch] = useState("");
   const [estado, setEstado] = useState("");
-  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [viewMode, setViewMode] = useState<"table" | "grid">("grid");
 
   // Debounce search — React defers this value so typing doesn't trigger immediate API calls
   const deferredSearch = useDeferredValue(search);

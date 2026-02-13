@@ -15,6 +15,7 @@ export interface ShotstackTimeline {
 
 export interface ShotstackTrack {
   clips: ShotstackClip[];
+  name?: string; // optional: pass from n8n to override auto-derived name
 }
 
 export interface ShotstackClip {
@@ -67,6 +68,7 @@ export interface RemotionTimeline {
 
 export interface RemotionTrack {
   id: string;
+  name: string; // human-readable label inferred from track content
   type: "visual" | "audio";
   zIndex: number;
   clips: RemotionClip[];
@@ -74,8 +76,10 @@ export interface RemotionTrack {
 
 export interface RemotionClip {
   id: string;
+  name: string; // human-readable label derived from URL/context
   type: "video" | "image" | "audio";
   src: string;
+  proxySrc?: string; // CDN-optimized URL (Cloudflare Stream) for preview playback
   from: number; // frame number
   durationInFrames: number;
   startFrom?: number; // trim in frames

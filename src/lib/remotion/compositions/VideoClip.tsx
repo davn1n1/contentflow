@@ -1,10 +1,9 @@
 import React from "react";
-import { OffthreadVideo, useCurrentFrame } from "remotion";
+import { Video } from "remotion";
 import type { RemotionClip } from "../types";
 import { useZoomInSlow, useTransitionIn, useTransitionOut } from "./effects";
 
 export const VideoClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
-  const frame = useCurrentFrame();
   const scale = useZoomInSlow(clip.effect, clip.durationInFrames);
   const transIn = useTransitionIn(clip.transition, clip.durationInFrames);
   const transOut = useTransitionOut(clip.transition, clip.durationInFrames);
@@ -36,8 +35,8 @@ export const VideoClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
         filter: clip.filter === "blur" ? "blur(10px)" : undefined,
       }}
     >
-      <OffthreadVideo
-        src={clip.src}
+      <Video
+        src={clip.proxySrc || clip.src}
         startFrom={clip.startFrom}
         volume={clip.volume ?? 1}
         style={{

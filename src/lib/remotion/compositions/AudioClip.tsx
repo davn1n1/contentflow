@@ -13,9 +13,10 @@ export const AudioClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
 
   return (
     <Audio
-      src={clip.src}
+      src={clip.proxySrc || clip.src}
       startFrom={clip.startFrom}
       volume={volume}
+      pauseWhenBuffering
     />
   );
 };

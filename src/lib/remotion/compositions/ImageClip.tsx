@@ -36,6 +36,7 @@ export const ImageClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
     >
       <Img
         src={clip.src}
+        pauseWhenLoading
         style={{
           width: "100%",
           height: "100%",

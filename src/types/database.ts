@@ -66,6 +66,22 @@ export interface Video {
   persona_id: string | null;
   formato_diseño_slides_id: string | null;
   estilo_musical_id: string | null;
+  // Linked record arrays (from API)
+  voice_dna_ids: string[];
+  ideas_ids: string[];
+  escenas_ids: string[];
+  ae_render_ids: string[];
+  intro_ids: string[];
+  cta_ids: string[];
+  intro_broll_ids: string[];
+  cta_broll_ids: string[];
+  // Script fields
+  feedback_copy: string | null;
+  busca_videos_x: string | null;
+  keywords_search: string | null;
+  genera_reels: string | null;
+  status_agentes: string | null;
+  formato: string | null;
 }
 
 export interface Scene {
@@ -207,6 +223,10 @@ export interface Research {
   tendencia_hoy: string | null;
   temas_recomendados: string | null;
   formatos_propuestos: string | null;
+  // Perplexity web research
+  web_fuentes: string | null;
+  web_query_investigacion: string | null;
+  web_conclusion_perplexity: string | null;
   // Links
   soporte_url: string | null;
   ideas_inspiracion_url: string | null;
@@ -215,6 +235,9 @@ export interface Research {
   finalistas_ids: string[];
   // Conclusion
   conclusion: string | null;
+  // Media
+  logo_url: string | null;
+  thumb_url: string | null;
   // Meta
   created: string;
 }
@@ -227,12 +250,14 @@ export interface ResearchSelectedIdea {
   research_puesto: number | null;
   yt_new: string | null;
   fuentes_inspiracion: string | null;
+  fuentes_inspiracion_is_id?: boolean;
   logo_url: string | null;
   research_evaluacion: string | null;
   research_resumen: string | null;
   yt_duration: string | null;
   yt_views_count: number | null;
   yt_video_id: string | null;
+  yt_channel_name?: string | null;
 }
 
 export type PipelineStep = "copy" | "audio" | "video" | "render";

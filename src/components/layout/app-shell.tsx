@@ -4,6 +4,7 @@ import { useEffect, useRef, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { ChatWidget } from "@/components/chat/chat-widget";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useAccountStore } from "@/lib/stores/account-store";
 import { useAuthUser } from "@/lib/hooks/use-auth-user";
@@ -74,6 +75,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       setCurrentAccount(selectedAccount);
     }
 
+    // Redirect to onboarding if account is in "Onboarding" status
+    if (selectedAccount?.status === "Onboarding" && !hasNavigated.current) {
+      hasNavigated.current = true;
+      router.replace("/onboarding");
+      return;
+    }
+
     // Auto-navigate to account URL if on /dashboard or root
     if (selectedAccount && !hasNavigated.current && (pathname === "/dashboard" || pathname === "/")) {
       hasNavigated.current = true;
@@ -107,6 +115,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Header />
         <main className="p-6">{children}</main>
       </div>
+      <ChatWidget />
     </div>
   );
 }

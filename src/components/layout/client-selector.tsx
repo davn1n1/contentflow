@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAccountStore } from "@/lib/stores/account-store";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Building2, Check } from "lucide-react";
@@ -10,6 +10,7 @@ export function ClientSelector() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const { currentAccount, accounts, setCurrentAccount } = useAccountStore();
 
   useEffect(() => {
@@ -25,8 +26,12 @@ export function ClientSelector() {
   const handleSelect = (account: typeof currentAccount) => {
     if (!account) return;
     setCurrentAccount(account);
-    const slug = (account.nameapp || account.name || "").toLowerCase().replace(/\s+/g, "-");
-    router.push(`/${slug}/videos`);
+    const newSlug = (account.nameapp || account.name || "").toLowerCase().replace(/\s+/g, "-");
+
+    // Extract current section from pathname: /old-slug/section/... → /section/...
+    const segments = pathname.split("/");
+    const sectionPath = segments.length > 2 ? "/" + segments.slice(2).join("/") : "/videos";
+    router.push(`/${newSlug}${sectionPath}`);
     setOpen(false);
   };
 

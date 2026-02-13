@@ -19,6 +19,7 @@ import {
   FileAudio,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { CreateVideoButton } from "@/components/shared/create-video-button";
 
 interface IdeaDetailDrawerProps {
   idea: Idea | null;
@@ -181,6 +182,13 @@ export function IdeaDetailDrawer({ idea, onClose }: IdeaDetailDrawerProps) {
               <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
             </div>
           )}
+
+          {/* Create Video Button */}
+          <CreateVideoButton
+            ideaId={idea.id}
+            ideaTitle={idea.idea_title}
+            variant="full"
+          />
 
           {/* Transcript feedback */}
           {transcriptResult && (

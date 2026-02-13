@@ -12,6 +12,7 @@ import {
   Lightbulb,
   FileText,
   Settings,
+  HelpCircle,
   Users,
   ChevronLeft,
   ChevronRight,
@@ -26,7 +27,6 @@ import {
   Building2,
   BadgeDollarSign,
   TrendingUp,
-  Database,
   FolderOpen,
   LayoutTemplate,
   Target,
@@ -67,8 +67,19 @@ interface NavSection {
   collapsible?: boolean;
 }
 
+// ─── Section Color Themes ────────────────────────────────
+
+const SECTION_COLORS: Record<string, string> = {
+  overview: "#3b82f6",
+  "ads-reels": "#a855f7",
+  "produccion-reels": "#10b981",
+  "produccion-yt": "#f59e0b",
+  "app-data": "#06b6d4",
+  "gestion-mc": "#f43f5e",
+  test: "#64748b",
+};
+
 // ─── Navigation Structure ────────────────────────────────
-// Mirrors the Airtable Interface menu exactly
 
 const sections: NavSection[] = [
   {
@@ -163,6 +174,7 @@ const sections: NavSection[] = [
 ];
 
 const bottomNav: NavItem[] = [
+  { name: "Centro de Ayuda", href: "/help", icon: HelpCircle, global: true },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -215,90 +227,140 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-3 px-2 overflow-y-auto scrollbar-thin">
-        {sections.map((section) => {
-          const isCollapsed = collapsedSections[section.key] ?? false;
-          const hasActiveItem = isSectionActive(section);
+      <nav className="flex-1 py-2 px-2 overflow-y-auto scrollbar-thin">
+        <div className="space-y-2">
+          {sections.map((section) => {
+            const isCollapsed = collapsedSections[section.key] ?? false;
+            const hasActiveItem = isSectionActive(section);
+            const color = SECTION_COLORS[section.key] || "#64748b";
 
-          return (
-            <div key={section.key} className="mb-1">
-              {/* Section Header */}
-              {section.collapsible ? (
-                <button
-                  onClick={() => toggleSection(section.key)}
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider rounded-md transition-colors",
-                    hasActiveItem
-                      ? "text-primary/80"
-                      : "text-muted-foreground/60 hover:text-muted-foreground",
-                    sidebarCollapsed && "justify-center px-1"
-                  )}
-                  title={sidebarCollapsed ? section.title : undefined}
-                >
-                  {!sidebarCollapsed && (
-                    <>
-                      <ChevronDown
-                        className={cn(
-                          "w-3 h-3 transition-transform duration-200",
-                          isCollapsed && "-rotate-90"
-                        )}
-                      />
-                      <span>{section.title}</span>
-                    </>
-                  )}
-                  {sidebarCollapsed && (
-                    <div className="w-5 h-[1px] bg-border" />
-                  )}
-                </button>
-              ) : (
-                !sidebarCollapsed && (
-                  <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                    {section.title}
-                  </div>
-                )
-              )}
-
-              {/* Section Items */}
-              {(!section.collapsible || !isCollapsed || sidebarCollapsed) && (
-                <div className="space-y-0.5">
-                  {section.items.map((item) => {
-                    const href = buildHref(item);
-                    const active = isActive(href);
-                    const disabled = href === "#";
-
-                    return (
-                      <Link
-                        key={`${section.key}-${item.name}`}
-                        href={href}
-                        onClick={disabled ? (e) => e.preventDefault() : undefined}
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
-                          active
-                            ? "bg-primary/10 text-primary border border-primary/20"
-                            : disabled
-                              ? "text-muted-foreground/50 cursor-not-allowed"
-                              : "text-sidebar-foreground hover:text-foreground hover:bg-muted",
-                          sidebarCollapsed && "justify-center px-2"
-                        )}
-                        title={sidebarCollapsed ? item.name : undefined}
-                      >
-                        <item.icon
+            return (
+              <div
+                key={section.key}
+                className="rounded-lg overflow-hidden"
+                style={{
+                  background: hasActiveItem
+                    ? `linear-gradient(135deg, ${color}08, ${color}03)`
+                    : undefined,
+                  border: hasActiveItem
+                    ? `1px solid ${color}15`
+                    : "1px solid transparent",
+                }}
+              >
+                {/* Section Header */}
+                {section.collapsible ? (
+                  <button
+                    onClick={() => toggleSection(section.key)}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors",
+                      sidebarCollapsed && "justify-center px-1 py-2"
+                    )}
+                    title={sidebarCollapsed ? section.title : undefined}
+                  >
+                    {!sidebarCollapsed && (
+                      <>
+                        {/* Colored dot */}
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span
+                          className="flex-1 text-left truncate"
+                          style={{ color: hasActiveItem ? color : undefined }}
+                        >
+                          {section.title}
+                        </span>
+                        <ChevronDown
                           className={cn(
-                            "w-[18px] h-[18px] flex-shrink-0",
-                            active && "text-primary"
+                            "w-3.5 h-3.5 transition-transform duration-200 text-muted-foreground/50",
+                            isCollapsed && "-rotate-90"
                           )}
                         />
-                        {!sidebarCollapsed && (
-                          <span className="truncate">{item.name}</span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                      </>
+                    )}
+                    {sidebarCollapsed && (
+                      <span
+                        className="w-6 h-1 rounded-full"
+                        style={{ backgroundColor: `${color}60` }}
+                      />
+                    )}
+                  </button>
+                ) : (
+                  /* Non-collapsible header (Overview) */
+                  !sidebarCollapsed ? (
+                    <div className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold uppercase tracking-wider">
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: color }}
+                      />
+                      <span style={{ color: hasActiveItem ? color : undefined }}>
+                        {section.title}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-center py-2">
+                      <span
+                        className="w-6 h-1 rounded-full"
+                        style={{ backgroundColor: `${color}60` }}
+                      />
+                    </div>
+                  )
+                )}
+
+                {/* Section Items */}
+                {(!section.collapsible || !isCollapsed || sidebarCollapsed) && (
+                  <div className={cn("pb-1", !sidebarCollapsed && "px-1")}>
+                    {section.items.map((item) => {
+                      const href = buildHref(item);
+                      const active = isActive(href);
+                      const disabled = href === "#";
+
+                      return (
+                        <Link
+                          key={`${section.key}-${item.name}`}
+                          href={href}
+                          onClick={disabled ? (e) => e.preventDefault() : undefined}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 relative",
+                            active
+                              ? "text-white"
+                              : disabled
+                                ? "text-muted-foreground/40 cursor-not-allowed"
+                                : "text-sidebar-foreground hover:text-foreground hover:bg-white/[0.04]",
+                            sidebarCollapsed && "justify-center px-2"
+                          )}
+                          style={
+                            active
+                              ? {
+                                  backgroundColor: `${color}18`,
+                                  color: color,
+                                }
+                              : undefined
+                          }
+                          title={sidebarCollapsed ? item.name : undefined}
+                        >
+                          {/* Active indicator bar */}
+                          {active && !sidebarCollapsed && (
+                            <span
+                              className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full"
+                              style={{ backgroundColor: color }}
+                            />
+                          )}
+                          <span style={active ? { color } : undefined}>
+                            <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+                          </span>
+                          {!sidebarCollapsed && (
+                            <span className="truncate">{item.name}</span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Bottom Nav */}

@@ -53,12 +53,26 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
+    const ideaId = searchParams.get("id");
     const accountId = searchParams.get("accountId");
     const status = searchParams.get("status");
     const tipoIdea = searchParams.get("tipoIdea");
     const search = searchParams.get("search");
     const favorita = searchParams.get("favorita");
     const limit = parseInt(searchParams.get("limit") || "100");
+
+    // Fetch single idea by ID
+    if (ideaId) {
+      const { records } = await airtableFetch<IdeaFields>(TABLES.IDEAS, {
+        filterByFormula: `RECORD_ID()='${ideaId}'`,
+        fields: IDEA_FIELDS,
+        maxRecords: 1,
+      });
+      if (!records[0]) {
+        return NextResponse.json({ error: "Idea not found" }, { status: 404 });
+      }
+      return NextResponse.json(mapIdea(records[0]));
+    }
 
     const filters: string[] = [];
 
@@ -118,7 +132,7 @@ function mapIdea(r: { id: string; createdTime: string; fields: IdeaFields }) {
       r.fields.Thumb?.[0]?.thumbnails?.large?.url ||
       r.fields.Thumb?.[0]?.url ||
       r.fields["Logo (from Fuentes Inspiracion)"]?.[0]?.thumbnails?.large?.url ||
-      null,
+      (r.fields["YT_ VideoID"] ? `https://img.youtube.com/vi/${r.fields["YT_ VideoID"]}/mqdefault.jpg` : null),
     tags: r.fields.Tags || null,
     short_long: r.fields["short/long"] || null,
     score: r.fields.Score || null,

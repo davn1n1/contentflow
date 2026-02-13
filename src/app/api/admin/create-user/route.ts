@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { randomBytes } from "crypto";
+import { createSupabaseUser } from "@/lib/auth/create-supabase-user";
 
 /**
  * POST /api/admin/create-user
@@ -28,11 +27,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceRoleKey) {
-    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-  }
-
   try {
     const body = await request.json();
     const { email, name, airtable_user_id } = body;
@@ -44,61 +38,24 @@ export async function POST(request: Request) {
       );
     }
 
-    // Admin client with service role
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    // Generate random password
-    const password = randomBytes(12).toString("base64url").slice(0, 16) + "!A1";
-
-    // Create Supabase Auth user
-    const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-      email: email.trim().toLowerCase(),
-      password,
-      email_confirm: true,
-      user_metadata: { full_name: name || "" },
+    const result = await createSupabaseUser({
+      email,
+      name: name || "",
+      airtableUserId: airtable_user_id,
     });
-
-    if (createError) {
-      return NextResponse.json(
-        { error: `Failed to create user: ${createError.message}` },
-        { status: 400 }
-      );
-    }
-
-    // Wait for trigger to create profile, then update with airtable_user_id
-    await new Promise((r) => setTimeout(r, 500));
-
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ airtable_user_id })
-      .eq("id", newUser.user.id);
-
-    if (profileError) {
-      // User was created but profile link failed - return partial success
-      return NextResponse.json({
-        success: true,
-        warning: `User created but profile link failed: ${profileError.message}`,
-        user_id: newUser.user.id,
-        email: newUser.user.email,
-        password,
-      });
-    }
 
     return NextResponse.json({
       success: true,
-      user_id: newUser.user.id,
-      email: newUser.user.email,
-      password,
+      user_id: result.userId,
+      email: result.email,
+      password: result.password,
       airtable_user_id,
+      ...(result.warning && { warning: result.warning }),
     });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
+      { status: error instanceof Error && error.message.includes("Failed to create") ? 400 : 500 }
     );
   }
 }

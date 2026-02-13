@@ -38,3 +38,15 @@ export function useIdeas({
     enabled: !!accountId,
   });
 }
+
+export function useIdea(ideaId: string | null) {
+  return useQuery({
+    queryKey: ["idea", ideaId],
+    queryFn: async (): Promise<Idea> => {
+      const res = await fetch(`/api/data/ideas?id=${ideaId}`);
+      if (!res.ok) throw new Error("Failed to fetch idea");
+      return res.json();
+    },
+    enabled: !!ideaId,
+  });
+}

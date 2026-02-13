@@ -1,40 +1,57 @@
 "use client";
 
-import { useAccountStore } from "@/lib/stores/account-store";
-import { FileText, Headphones } from "lucide-react";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { useVideoContextStore } from "@/lib/stores/video-context-store";
+import { useVideoDetail } from "@/lib/hooks/use-video-detail";
+import { PipelineHeader } from "@/components/shared/pipeline-header";
+import { ScriptAudioDetail } from "@/components/scripts/script-audio-detail";
+import { FileText } from "lucide-react";
 
 export default function ScriptsPage() {
-  const { currentAccount } = useAccountStore();
+  const searchParams = useSearchParams();
+  const urlVideoId = searchParams.get("videoId");
+  const { activeVideoId, setActiveVideo } = useVideoContextStore();
+
+  // URL param takes priority, then context store
+  const videoId = urlVideoId || activeVideoId;
+
+  const { data: videoDetail, isLoading } = useVideoDetail(videoId);
+
+  // Sync URL param to context store
+  useEffect(() => {
+    if (urlVideoId && urlVideoId !== activeVideoId) {
+      setActiveVideo(urlVideoId);
+    }
+  }, [urlVideoId, activeVideoId, setActiveVideo]);
+
+  // Update context store with video data once loaded
+  useEffect(() => {
+    if (videoDetail && videoId) {
+      setActiveVideo(
+        videoDetail.id,
+        videoDetail.name,
+        videoDetail.titulo
+      );
+    }
+  }, [videoDetail, videoId, setActiveVideo]);
+
+  if (!videoId) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] text-muted-foreground">
+        <FileText className="w-12 h-12 mb-4 opacity-30" />
+        <h2 className="text-lg font-semibold mb-1">Sin video seleccionado</h2>
+        <p className="text-sm">Crea un video desde Research o selecciona uno desde Videos</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Script & Audio</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Script editing and audio generation for {currentAccount?.name}
-        </p>
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <PipelineHeader currentPhase="copy" />
+      <div className="flex-1 overflow-hidden">
+        <ScriptAudioDetail video={videoDetail} isLoading={isLoading} />
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="glass-card rounded-xl p-8 text-center">
-          <FileText className="w-10 h-10 text-primary mx-auto mb-3" />
-          <p className="text-sm font-medium text-foreground mb-1">Scripts</p>
-          <p className="text-xs text-muted-foreground">
-            Edit and manage video scripts and copy content.
-          </p>
-        </div>
-        <div className="glass-card rounded-xl p-8 text-center">
-          <Headphones className="w-10 h-10 text-primary mx-auto mb-3" />
-          <p className="text-sm font-medium text-foreground mb-1">Audio</p>
-          <p className="text-xs text-muted-foreground">
-            ElevenLabs voice generation and audio management.
-          </p>
-        </div>
-      </div>
-
-      <p className="text-xs text-muted-foreground text-center">
-        Select a video from the Videos page to edit its scripts and audio.
-      </p>
     </div>
   );
 }

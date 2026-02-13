@@ -7,6 +7,25 @@ export const TABLES = {
   IDEAS: "tblZZUQi5ythI5zze",
   RESEARCH: "tblokkoR3fWLmv5It",
   USUARIOS: "tblgVFWLrEqmMpKiT",
+  // App Data tables
+  AVATARES: "tbloGkyPDYm0qfsVp",
+  AVATARES_SET: "tblWajVK5rGsoc4ne",
+  PERSONA: "tbllOToYtcEiGNZQo",
+  CTAS: "tblCsQDx2z0tKva6r",
+  VIDEOS_BROLL: "tblR2gFFGYx7pkytz",
+  VOICES: "tblrz6FTUxWKqnpaq",
+  FUENTES_INSPIRACION: "tbl0GaEMGGSuKi2TS",
+  VOICEDNA: "tblaI62Gyyb0BZ9r3",
+  VOICEDNA_SOURCES: "tblTG9pGRxObqmizA",
+  AUDIENCIA: "tblyhtBIia1pwX3WU",
+  GUARDARAILS: "tblWuRMfOWylRvMeq",
+  COMENTARIO_PINEADO: "tblV7rUg4i5LCcP45",
+  SPONSORS: "tblExDZl9dfQjh2KV",
+  BRANDS: "tblD6zBmbpcZsmRyw",
+  IDENTIDAD_VISUAL: "tblb6AMVu3CLgeabq",
+  SOCIAL_PROFILES: "tblNESIBVHUgaTwce",
+  ACCOUNT_SETTINGS: "tblyFkvBVuHs6mLOO",
+  CAMPANAS: "tbl7YBYQ7Whb6JdE1",
 } as const;
 
 interface AirtableResponse<T = Record<string, unknown>> {
@@ -66,6 +85,65 @@ export async function airtableFetch<T = Record<string, unknown>>(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(`Airtable error: ${res.status} ${JSON.stringify(err)}`);
+  }
+
+  return res.json();
+}
+
+// Create a new record in a table
+export async function airtableCreate<T = Record<string, unknown>>(
+  tableId: string,
+  fields: Record<string, unknown>
+): Promise<AirtableRecord<T>> {
+  const baseId = process.env.AIRTABLE_BASE_ID;
+  const pat = process.env.AIRTABLE_PAT;
+
+  if (!baseId || !pat) {
+    throw new Error("Airtable credentials not configured");
+  }
+
+  const res = await fetch(`https://api.airtable.com/v0/${baseId}/${tableId}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${pat}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fields }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Airtable create error: ${res.status} ${JSON.stringify(err)}`);
+  }
+
+  return res.json();
+}
+
+// Update an existing record
+export async function airtableUpdate<T = Record<string, unknown>>(
+  tableId: string,
+  recordId: string,
+  fields: Record<string, unknown>
+): Promise<AirtableRecord<T>> {
+  const baseId = process.env.AIRTABLE_BASE_ID;
+  const pat = process.env.AIRTABLE_PAT;
+
+  if (!baseId || !pat) {
+    throw new Error("Airtable credentials not configured");
+  }
+
+  const res = await fetch(`https://api.airtable.com/v0/${baseId}/${tableId}/${recordId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${pat}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fields }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Airtable update error: ${res.status} ${JSON.stringify(err)}`);
   }
 
   return res.json();

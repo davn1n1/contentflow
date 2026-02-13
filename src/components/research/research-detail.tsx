@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { ExternalLink, Loader2 } from "lucide-react";
 import type { ResearchDetail } from "@/lib/hooks/use-research";
 import { SelectedIdeaCard } from "./selected-idea-card";
+import { useIdea } from "@/lib/hooks/use-ideas";
+import { IdeaDetailDrawer } from "@/components/ideas/idea-detail-drawer";
 
 interface ResearchDetailProps {
   research: ResearchDetail | undefined;
@@ -35,7 +37,9 @@ function formatDate(dateStr: string | null): string {
 }
 
 export function ResearchDetailPanel({ research, isLoading }: ResearchDetailProps) {
-  const [activeTab, setActiveTab] = useState<TabKey>("research24h");
+  const [activeTab, setActiveTab] = useState<TabKey>("seleccionadas");
+  const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
+  const { data: selectedIdea } = useIdea(selectedIdeaId);
 
   if (isLoading) {
     return (
@@ -87,9 +91,15 @@ export function ResearchDetailPanel({ research, isLoading }: ResearchDetailProps
         {activeTab === "soporte" && <TabSoporte research={research} />}
         {activeTab === "ideas" && <TabIdeasLink research={research} />}
         {activeTab === "research24h" && <TabResearch24h research={research} />}
-        {activeTab === "seleccionadas" && <TabSeleccionadas research={research} />}
+        {activeTab === "seleccionadas" && <TabSeleccionadas research={research} onIdeaClick={setSelectedIdeaId} />}
         {activeTab === "conclusion" && <TabConclusion research={research} />}
       </div>
+
+      {/* Idea Detail Drawer */}
+      <IdeaDetailDrawer
+        idea={selectedIdea || null}
+        onClose={() => setSelectedIdeaId(null)}
+      />
     </div>
   );
 }
@@ -192,13 +202,33 @@ function TabResearch24h({ research }: { research: ResearchDetail }) {
           </div>
         </div>
       )}
+
+      {/* Web Conclusion Perplexity */}
+      {research.web_conclusion_perplexity && (
+        <div>
+          <h4 className="text-sm font-semibold text-muted-foreground mb-2">Investigación Perplexity:</h4>
+          <div className="text-sm whitespace-pre-wrap leading-relaxed glass-card p-4 rounded-lg">
+            {research.web_conclusion_perplexity}
+          </div>
+        </div>
+      )}
+
+      {/* Web Fuentes */}
+      {research.web_fuentes && (
+        <div>
+          <h4 className="text-sm font-semibold text-muted-foreground mb-2">Fuentes Web:</h4>
+          <div className="text-sm whitespace-pre-wrap leading-relaxed glass-card p-4 rounded-lg">
+            {research.web_fuentes}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Tab: Ideas Seleccionadas ────────────────────────────
 
-function TabSeleccionadas({ research }: { research: ResearchDetail }) {
+function TabSeleccionadas({ research, onIdeaClick }: { research: ResearchDetail; onIdeaClick: (id: string) => void }) {
   const ideas = research.selected_ideas || [];
 
   return (
@@ -213,7 +243,7 @@ function TabSeleccionadas({ research }: { research: ResearchDetail }) {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {ideas.map((idea) => (
-            <SelectedIdeaCard key={idea.id} idea={idea} />
+            <SelectedIdeaCard key={idea.id} idea={idea} onClick={() => onIdeaClick(idea.id)} />
           ))}
         </div>
       )}

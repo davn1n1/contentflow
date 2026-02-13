@@ -27,6 +27,13 @@ export const useUIStore = create<UIState>()(
     {
       name: "cf365-ui",
       version: 1,
+      migrate: (persisted) => {
+        const state = persisted as Record<string, unknown>;
+        return {
+          sidebarCollapsed: (state?.sidebarCollapsed as boolean) ?? false,
+          collapsedSections: (state?.collapsedSections as Record<string, boolean>) ?? {},
+        };
+      },
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
         collapsedSections: state.collapsedSections,

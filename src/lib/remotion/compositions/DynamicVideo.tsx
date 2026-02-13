@@ -5,6 +5,13 @@ import { VideoClip } from "./VideoClip";
 import { ImageClip } from "./ImageClip";
 import { AudioClip } from "./AudioClip";
 
+/** Premount clips 3 seconds before they appear (at 30fps = 90 frames) */
+const PREMOUNT_FRAMES = 90;
+
+function clipLabel(clip: RemotionClip): string {
+  return clip.name || clip.src.split("/").pop() || clip.id;
+}
+
 /**
  * DynamicVideo — The main Remotion composition.
  * Receives a RemotionTimeline (converted from Shotstack JSON)
@@ -34,7 +41,8 @@ export const DynamicVideo: React.FC<RemotionTimeline> = (props) => {
             key={clip.id}
             from={clip.from}
             durationInFrames={clip.durationInFrames}
-            name={`${track.id}: ${clip.src.split("/").pop()}`}
+            premountFor={PREMOUNT_FRAMES}
+            name={`${track.id}: ${clipLabel(clip)}`}
           >
             <AudioClip clip={clip} />
           </Sequence>
@@ -52,7 +60,8 @@ const TrackLayer: React.FC<{ track: RemotionTrack }> = ({ track }) => {
           key={clip.id}
           from={clip.from}
           durationInFrames={clip.durationInFrames}
-          name={`${track.id}: ${clip.type} - ${clip.src.split("/").pop()}`}
+          premountFor={PREMOUNT_FRAMES}
+          name={`${track.id}: ${clipLabel(clip)}`}
           style={{ zIndex: track.zIndex }}
         >
           <ClipRenderer clip={clip} />

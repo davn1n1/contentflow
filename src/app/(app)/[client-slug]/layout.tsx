@@ -26,11 +26,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         setCurrentAccount(matched);
       }
     } else {
-      // Slug does NOT match any of the user's accounts → redirect to first allowed
+      // Slug does NOT match any of the user's accounts → redirect to first allowed, keeping current section
       const fallback = accounts[0];
       const fallbackSlug = (fallback.nameapp || fallback.name || "").toLowerCase().replace(/\s+/g, "-");
       if (fallbackSlug) {
-        router.replace(`/${fallbackSlug}/videos`);
+        // Preserve current section path (e.g. /app-data/avatares)
+        const segments = window.location.pathname.split("/");
+        const sectionPath = segments.length > 2 ? "/" + segments.slice(2).join("/") : "/videos";
+        router.replace(`/${fallbackSlug}${sectionPath}`);
       }
     }
   }, [clientSlug, accounts]); // eslint-disable-line react-hooks/exhaustive-deps
