@@ -587,9 +587,11 @@ function RenderSection({
   renderUrl?: string;
   onStatusChange: (status: string, url?: string) => void;
 }) {
+  // Only show "done" if we actually have a render URL.
+  // "rendering" without a renderId means a previous render was stuck — treat as idle.
   const [renderState, setRenderState] = useState<
     "idle" | "launching" | "rendering" | "done" | "error"
-  >(initialStatus === "rendered" ? "done" : initialStatus === "rendering" ? "rendering" : "idle");
+  >(initialStatus === "rendered" && initialRenderUrl ? "done" : "idle");
   const [progress, setProgress] = useState(0);
   const [renderUrl, setRenderUrl] = useState(initialRenderUrl);
   const [renderSize, setRenderSize] = useState<number | null>(null);
