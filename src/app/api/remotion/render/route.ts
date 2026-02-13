@@ -4,18 +4,43 @@ import {
   getRenderProgress,
 } from "@remotion/lambda/client";
 import { createClient } from "@/lib/supabase/server";
+import type { RemotionTimeline } from "@/lib/remotion/types";
 
 const AWS_REGION = process.env.REMOTION_AWS_REGION as
   | "eu-central-1"
   | "us-east-1"
   | "eu-west-1";
 
+// AWS Lambda concurrent execution limit for this account.
+// New accounts start with very low burst concurrency (~2-3).
+// Once AWS approves the quota increase (requested 1500), update this env var.
+// Check status: https://eu-central-1.console.aws.amazon.com/servicequotas/home/services/lambda/quotas/L-B99A9384
+const LAMBDA_CONCURRENCY_LIMIT = parseInt(
+  process.env.REMOTION_LAMBDA_CONCURRENCY ?? "3",
+  10
+);
+
+/**
+ * Calculate optimal framesPerLambda to stay within concurrency limits.
+ * Remotion uses 1 main Lambda + N chunk Lambdas running concurrently.
+ * We reserve 2 slots (main + stitcher) and distribute frames across the rest.
+ *
+ * With concurrency 3 → maxChunks=1 → all frames in 1 Lambda (safest).
+ * With concurrency 1500 → maxChunks=1498 → fast parallel rendering.
+ */
+function calculateFramesPerLambda(totalFrames: number): number {
+  const maxChunks = Math.max(LAMBDA_CONCURRENCY_LIMIT - 2, 1);
+  const calculated = Math.ceil(totalFrames / maxChunks);
+  // Minimum 20 frames per chunk (no point in smaller chunks)
+  return Math.max(calculated, 20);
+}
+
 /**
  * POST /api/remotion/render
  *
  * Launches a Remotion Lambda render for a given timeline.
  * Body: { timelineId: string }
- * Returns: { renderId, bucketName }
+ * Returns: { renderId, bucketName, framesPerLambda, estimatedChunks }
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -56,15 +81,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const timeline = record.remotion_timeline as RemotionTimeline;
+    const totalFrames = timeline.durationInFrames;
+    const framesPerLambda = calculateFramesPerLambda(totalFrames);
+    const estimatedChunks = Math.ceil(totalFrames / framesPerLambda);
+
     // Launch render on Lambda
+    // maxRetries=1 avoids extra Lambda invocations from retries hitting concurrency limits.
+    // When AWS approves higher concurrency, we can increase or remove this.
     const { renderId, bucketName } = await renderMediaOnLambda({
       region: AWS_REGION,
       functionName,
       serveUrl,
       composition: "DynamicVideo",
-      inputProps: record.remotion_timeline,
+      inputProps: timeline as unknown as Record<string, unknown>,
       codec: "h264",
-      framesPerLambda: 20,
+      framesPerLambda,
+      maxRetries: 1,
       privacy: "public",
     });
 
@@ -73,11 +106,18 @@ export async function POST(request: NextRequest) {
       .from("remotion_timelines")
       .update({
         status: "rendering",
+        render_id: renderId,
         updated_at: new Date().toISOString(),
       })
       .eq("id", timelineId);
 
-    return NextResponse.json({ renderId, bucketName });
+    return NextResponse.json({
+      renderId,
+      bucketName,
+      framesPerLambda,
+      estimatedChunks,
+      concurrencyLimit: LAMBDA_CONCURRENCY_LIMIT,
+    });
   } catch (err) {
     console.error("Remotion render error:", err);
     return NextResponse.json(
@@ -129,6 +169,29 @@ export async function GET(request: NextRequest) {
       functionName,
       region: AWS_REGION,
     });
+
+    // Check for fatal errors first
+    if (progress.fatalErrorEncountered) {
+      const errorMsg =
+        progress.errors?.[0]?.message?.slice(0, 300) ?? "Unknown render error";
+
+      if (timelineId) {
+        await supabase
+          .from("remotion_timelines")
+          .update({
+            status: "failed",
+            error_message: errorMsg,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", timelineId);
+      }
+
+      return NextResponse.json({
+        done: false,
+        failed: true,
+        error: errorMsg,
+      });
+    }
 
     if (progress.done) {
       // Update Supabase with the render URL

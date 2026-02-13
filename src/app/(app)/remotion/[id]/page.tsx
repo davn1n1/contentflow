@@ -21,6 +21,10 @@ import {
   CheckCircle2,
   GripVertical,
   Undo2,
+  Rocket,
+  Download,
+  AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -303,16 +307,17 @@ export default function RemotionPreviewPage() {
 
         const map: Record<string, string> = {};
         for (const [url, info] of Object.entries(data.proxies)) {
-          const p = info as { proxy_url: string | null; status: string };
-          if (p.proxy_url && p.status === "ready") {
-            map[url] = p.proxy_url;
+          const p = info as { proxy_url: string | null; hls_url: string | null; status: string };
+          // Use proxy_url (MP4 download) or hls_url as fallback
+          const proxyUrl = p.proxy_url || p.hls_url;
+          if (proxyUrl && p.status === "ready") {
+            map[url] = proxyUrl;
           }
         }
         setProxyMap(map);
         const proxiedCount = Object.keys(data.proxies).length;
-        const hasReadyProxies = Object.keys(map).length > 0;
         setProxyStatus({
-          state: data.allReady && hasReadyProxies ? "ready" : proxiedCount > 0 ? "polling" : "idle",
+          state: data.allReady ? "ready" : proxiedCount > 0 ? "polling" : "idle",
           ready: data.ready,
           total: data.total,
         });
@@ -362,9 +367,10 @@ export default function RemotionPreviewPage() {
 
           const map: Record<string, string> = {};
           for (const [url, info] of Object.entries(d.proxies)) {
-            const p = info as { proxy_url: string | null; status: string };
-            if (p.proxy_url && p.status === "ready") {
-              map[url] = p.proxy_url;
+            const p = info as { proxy_url: string | null; hls_url: string | null; status: string };
+            const proxyUrl = p.proxy_url || p.hls_url;
+            if (proxyUrl && p.status === "ready") {
+              map[url] = proxyUrl;
             }
           }
           setProxyMap(map);
@@ -507,6 +513,24 @@ export default function RemotionPreviewPage() {
         />
       </div>
 
+      {/* Lambda Render */}
+      <RenderSection
+        timelineId={record!.id}
+        status={record!.status}
+        renderUrl={record!.render_url}
+        onStatusChange={(status, url) => {
+          setRecord((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: status as RemotionTimelineRecord["status"],
+                  render_url: url ?? prev.render_url,
+                }
+              : prev
+          );
+        }}
+      />
+
       {/* CDN Proxy status */}
       <ProxyStatusBar
         status={proxyStatus}
@@ -546,6 +570,222 @@ export default function RemotionPreviewPage() {
           <TrackCard key={track.id} track={track} fps={timeline.fps} totalFrames={timeline.durationInFrames} allTracks={timeline.tracks} />
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── Lambda Render Section ───────────────────────────────
+
+function RenderSection({
+  timelineId,
+  status: initialStatus,
+  renderUrl: initialRenderUrl,
+  onStatusChange,
+}: {
+  timelineId: string;
+  status: string;
+  renderUrl?: string;
+  onStatusChange: (status: string, url?: string) => void;
+}) {
+  const [renderState, setRenderState] = useState<
+    "idle" | "launching" | "rendering" | "done" | "error"
+  >(initialStatus === "rendered" ? "done" : initialStatus === "rendering" ? "rendering" : "idle");
+  const [progress, setProgress] = useState(0);
+  const [renderUrl, setRenderUrl] = useState(initialRenderUrl);
+  const [renderSize, setRenderSize] = useState<number | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [renderInfo, setRenderInfo] = useState<{
+    renderId: string;
+    bucketName: string;
+    framesPerLambda?: number;
+    estimatedChunks?: number;
+  } | null>(null);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearTimeout(pollRef.current);
+    };
+  }, []);
+
+  async function launchRender() {
+    setRenderState("launching");
+    setErrorMsg(null);
+    setProgress(0);
+
+    try {
+      const res = await fetch("/api/remotion/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timelineId }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Error al lanzar render");
+      }
+
+      setRenderInfo(data);
+      setRenderState("rendering");
+      onStatusChange("rendering");
+
+      // Start polling
+      pollProgress(data.renderId, data.bucketName);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Error desconocido");
+      setRenderState("error");
+    }
+  }
+
+  function pollProgress(renderId: string, bucketName: string) {
+    async function check() {
+      try {
+        const res = await fetch(
+          `/api/remotion/render?renderId=${renderId}&bucketName=${bucketName}&timelineId=${timelineId}`
+        );
+        const data = await res.json();
+
+        if (data.error || data.failed) {
+          setErrorMsg(data.error || "Render failed on Lambda");
+          setRenderState("error");
+          onStatusChange("failed");
+          return;
+        }
+
+        if (data.done) {
+          setProgress(100);
+          setRenderUrl(data.url);
+          setRenderSize(data.size);
+          setRenderState("done");
+          onStatusChange("rendered", data.url);
+          return;
+        }
+
+        setProgress(Math.round((data.progress ?? 0) * 100));
+        pollRef.current = setTimeout(check, 3000);
+      } catch {
+        setErrorMsg("Error al verificar progreso");
+        setRenderState("error");
+      }
+    }
+    pollRef.current = setTimeout(check, 3000);
+  }
+
+  if (renderState === "done" && renderUrl) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-3">
+        <CheckCircle2 className="h-5 w-5 text-green-400 flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-green-400">Render completado</p>
+          {renderSize && (
+            <p className="text-xs text-green-400/60 mt-0.5">
+              {(renderSize / 1024 / 1024).toFixed(1)} MB
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <a
+            href={renderUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Ver MP4
+          </a>
+          <a
+            href={renderUrl}
+            download
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Descargar
+          </a>
+          <button
+            onClick={launchRender}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-muted/30 text-muted-foreground border border-border/50 hover:bg-muted/50 transition-colors"
+          >
+            <Rocket className="h-3.5 w-3.5" />
+            Re-render
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (renderState === "launching") {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-blue-500/20 bg-blue-500/5 px-4 py-3">
+        <Loader2 className="h-5 w-5 text-blue-400 flex-shrink-0 animate-spin" />
+        <p className="text-sm text-blue-400">Lanzando render en AWS Lambda...</p>
+      </div>
+    );
+  }
+
+  if (renderState === "rendering") {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-blue-500/20 bg-blue-500/5 px-4 py-3">
+        <Loader2 className="h-5 w-5 text-blue-400 flex-shrink-0 animate-spin" />
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-sm text-blue-400">Renderizando en Lambda...</p>
+            <span className="text-xs text-blue-400/70 font-mono">{progress}%</span>
+          </div>
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-500 rounded-full transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          {renderInfo && (
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {renderInfo.estimatedChunks} chunks · {renderInfo.framesPerLambda} frames/lambda
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (renderState === "error") {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3">
+        <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm text-red-400">Error en render</p>
+          {errorMsg && (
+            <p className="text-xs text-red-400/60 mt-0.5 line-clamp-2">{errorMsg}</p>
+          )}
+        </div>
+        <button
+          onClick={launchRender}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors flex-shrink-0"
+        >
+          <Rocket className="h-3.5 w-3.5" />
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+
+  // idle — show render button
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card px-4 py-3">
+      <Rocket className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+      <div className="flex-1">
+        <p className="text-sm text-foreground">Render Final</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Renderiza el video completo en AWS Lambda (H.264, 1080p)
+        </p>
+      </div>
+      <button
+        onClick={launchRender}
+        className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-500 transition-colors font-medium flex-shrink-0"
+      >
+        <Rocket className="h-4 w-4" />
+        Renderizar
+      </button>
     </div>
   );
 }
