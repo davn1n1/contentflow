@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, type DragEvent } from "react";
 import Link from "next/link";
 import type { Video } from "@/types/database";
-import { ChevronLeft, ChevronRight, Film, ExternalLink, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, Film, ExternalLink, GripVertical, Clock, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface VideoCalendarProps {
@@ -48,12 +48,39 @@ function addDays(d: Date, n: number) {
   return date;
 }
 
+// ─── Timezone helpers (Europe/Madrid) ─────────────────────
+
+/** Extract HH:mm from a scheduled_date ISO string, converted to Madrid timezone */
+function getTimeInMadrid(scheduledDate: string | null): string {
+  if (!scheduledDate || scheduledDate.length <= 10) return "17:00";
+  const d = new Date(scheduledDate);
+  if (isNaN(d.getTime())) return "17:00";
+  return d.toLocaleTimeString("en-GB", {
+    timeZone: "Europe/Madrid",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+/** Build ISO datetime string with Madrid timezone offset (CET +01:00 / CEST +02:00) */
+function toISOWithMadridTZ(dateStr: string, timeStr: string): string {
+  // Determine CET vs CEST by checking the timezone abbreviation for this date
+  const refDate = new Date(`${dateStr}T12:00:00Z`);
+  const tzParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Madrid",
+    timeZoneName: "short",
+  }).formatToParts(refDate);
+  const tzName = tzParts.find((p) => p.type === "timeZoneName")?.value;
+  const offset = tzName === "CEST" ? "+02:00" : "+01:00";
+  return `${dateStr}T${timeStr}:00${offset}`;
+}
+
 // ─── Drag & Drop helpers ──────────────────────────────────
 
 function handleDragStart(e: DragEvent, videoId: string) {
   e.dataTransfer.setData("text/plain", videoId);
   e.dataTransfer.effectAllowed = "move";
-  // Add a slight opacity to the dragged element
   if (e.currentTarget instanceof HTMLElement) {
     setTimeout(() => {
       (e.currentTarget as HTMLElement).style.opacity = "0.4";
@@ -67,8 +94,32 @@ function handleDragEnd(e: DragEvent) {
   }
 }
 
-// Hover detail card that appears on mouse hover
-function VideoHoverCard({ video, clientSlug, children }: { video: Video; clientSlug: string; children: React.ReactNode }) {
+// ─── Hover detail card ────────────────────────────────────
+
+function VideoHoverCard({
+  video,
+  clientSlug,
+  children,
+  onSaveTime,
+}: {
+  video: Video;
+  clientSlug: string;
+  children: React.ReactNode;
+  onSaveTime?: (datetime: string) => void;
+}) {
+  const dateStr = (video.scheduled_date || video.created_time || "").substring(0, 10);
+  const currentTime = getTimeInMadrid(video.scheduled_date);
+  const [time, setTime] = useState(currentTime);
+  const [saved, setSaved] = useState(false);
+
+  function handleSaveTime() {
+    if (!onSaveTime || !dateStr) return;
+    const iso = toISOWithMadridTZ(dateStr, time);
+    onSaveTime(iso);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
   return (
     <div className="relative group/hover">
       {children}
@@ -95,7 +146,7 @@ function VideoHoverCard({ video, clientSlug, children }: { video: Video; clientS
               </span>
             </div>
           )}
-          {/* Info + Button */}
+          {/* Info + Buttons */}
           <div className="p-3 space-y-2">
             <p className="text-sm font-medium text-foreground line-clamp-2 leading-snug">
               {video.titulo || "Sin título"}
@@ -111,6 +162,33 @@ function VideoHoverCard({ video, clientSlug, children }: { video: Video; clientS
                 {video.estado}
               </span>
             )}
+
+            {/* Time picker */}
+            {onSaveTime && dateStr && (
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                <input
+                  type="time"
+                  value={time}
+                  onChange={(e) => { setTime(e.target.value); setSaved(false); }}
+                  className="flex-1 text-xs bg-muted border border-border rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  onClick={(e) => e.preventDefault()}
+                />
+                <button
+                  onClick={(e) => { e.preventDefault(); handleSaveTime(); }}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
+                    saved
+                      ? "bg-success/10 text-success"
+                      : "bg-muted hover:bg-muted/80 text-foreground border border-border"
+                  )}
+                >
+                  {saved ? <Check className="w-3 h-3" /> : "Guardar"}
+                </button>
+                <span className="text-[9px] text-muted-foreground flex-shrink-0">CET</span>
+              </div>
+            )}
+
             <Link
               href={`/${clientSlug}/videos/${video.id}`}
               className="flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
@@ -126,9 +204,19 @@ function VideoHoverCard({ video, clientSlug, children }: { video: Video; clientS
 }
 
 // Video card used in week and day views
-function VideoItem({ video, clientSlug, draggable: isDraggable }: { video: Video; clientSlug: string; draggable?: boolean }) {
+function VideoItem({
+  video,
+  clientSlug,
+  draggable: isDraggable,
+  onSaveTime,
+}: {
+  video: Video;
+  clientSlug: string;
+  draggable?: boolean;
+  onSaveTime?: (datetime: string) => void;
+}) {
   return (
-    <VideoHoverCard video={video} clientSlug={clientSlug}>
+    <VideoHoverCard video={video} clientSlug={clientSlug} onSaveTime={onSaveTime}>
       <div
         draggable={isDraggable}
         onDragStart={isDraggable ? (e) => handleDragStart(e, video.id) : undefined}
@@ -177,9 +265,19 @@ function VideoItem({ video, clientSlug, draggable: isDraggable }: { video: Video
 }
 
 // Compact video pill for month view
-function VideoPill({ video, clientSlug, draggable: isDraggable }: { video: Video; clientSlug: string; draggable?: boolean }) {
+function VideoPill({
+  video,
+  clientSlug,
+  draggable: isDraggable,
+  onSaveTime,
+}: {
+  video: Video;
+  clientSlug: string;
+  draggable?: boolean;
+  onSaveTime?: (datetime: string) => void;
+}) {
   return (
-    <VideoHoverCard video={video} clientSlug={clientSlug}>
+    <VideoHoverCard video={video} clientSlug={clientSlug} onSaveTime={onSaveTime}>
       <div
         draggable={isDraggable}
         onDragStart={isDraggable ? (e) => handleDragStart(e, video.id) : undefined}
@@ -244,10 +342,9 @@ export function VideoCalendar({ videos, clientSlug, onVideoDateChange }: VideoCa
     const videoId = e.dataTransfer.getData("text/plain");
     if (!videoId || !onVideoDateChange) return;
 
-    // Find the video to check if date actually changed
     const video = videos.find((v) => v.id === videoId);
     const currentVideoDate = (video?.scheduled_date || video?.created_time || "").substring(0, 10);
-    if (currentVideoDate === targetDate) return; // No change
+    if (currentVideoDate === targetDate) return;
 
     onVideoDateChange(videoId, targetDate);
   }, [onVideoDateChange, videos]);
@@ -261,6 +358,12 @@ export function VideoCalendar({ videos, clientSlug, onVideoDateChange }: VideoCa
   const handleDragLeave = useCallback(() => {
     setDragOverDate(null);
   }, []);
+
+  // Time assignment handler: reuses onVideoDateChange with full datetime ISO
+  const handleTimeAssign = useCallback((videoId: string, datetime: string) => {
+    if (!onVideoDateChange) return;
+    onVideoDateChange(videoId, datetime);
+  }, [onVideoDateChange]);
 
   function navigate(dir: -1 | 1) {
     const d = new Date(currentDate);
@@ -354,6 +457,7 @@ export function VideoCalendar({ videos, clientSlug, onVideoDateChange }: VideoCa
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
+          onTimeAssign={onVideoDateChange ? handleTimeAssign : undefined}
         />
       )}
       {calendarView === "week" && (
@@ -367,6 +471,7 @@ export function VideoCalendar({ videos, clientSlug, onVideoDateChange }: VideoCa
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
+          onTimeAssign={onVideoDateChange ? handleTimeAssign : undefined}
         />
       )}
       {calendarView === "day" && (
@@ -375,6 +480,7 @@ export function VideoCalendar({ videos, clientSlug, onVideoDateChange }: VideoCa
           videosByDate={videosByDate}
           todayStr={todayStr}
           clientSlug={clientSlug}
+          onTimeAssign={onVideoDateChange ? handleTimeAssign : undefined}
         />
       )}
     </div>
@@ -404,12 +510,14 @@ function MonthView({
   onDrop,
   onDragOver,
   onDragLeave,
+  onTimeAssign,
 }: {
   currentMonth: number;
   currentYear: number;
   videosByDate: Record<string, Video[]>;
   todayStr: string;
   clientSlug: string;
+  onTimeAssign?: (videoId: string, datetime: string) => void;
 } & DropTargetProps) {
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfWeek(currentYear, currentMonth);
@@ -464,7 +572,13 @@ function MonthView({
               </div>
               <div className="space-y-0.5">
                 {dayVideos.slice(0, 3).map((video) => (
-                  <VideoPill key={video.id} video={video} clientSlug={clientSlug} draggable={canDrag} />
+                  <VideoPill
+                    key={video.id}
+                    video={video}
+                    clientSlug={clientSlug}
+                    draggable={canDrag}
+                    onSaveTime={onTimeAssign ? (dt) => onTimeAssign(video.id, dt) : undefined}
+                  />
                 ))}
               </div>
             </div>
@@ -487,11 +601,13 @@ function WeekView({
   onDrop,
   onDragOver,
   onDragLeave,
+  onTimeAssign,
 }: {
   currentDate: Date;
   videosByDate: Record<string, Video[]>;
   todayStr: string;
   clientSlug: string;
+  onTimeAssign?: (videoId: string, datetime: string) => void;
 } & DropTargetProps) {
   const monday = getMonday(currentDate);
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
@@ -532,7 +648,13 @@ function WeekView({
             {/* Videos */}
             <div className="p-1.5 space-y-1.5">
               {dayVideos.map((video) => (
-                <VideoItem key={video.id} video={video} clientSlug={clientSlug} draggable={canDrag} />
+                <VideoItem
+                  key={video.id}
+                  video={video}
+                  clientSlug={clientSlug}
+                  draggable={canDrag}
+                  onSaveTime={onTimeAssign ? (dt) => onTimeAssign(video.id, dt) : undefined}
+                />
               ))}
               {dayVideos.length === 0 && (
                 <div className="flex items-center justify-center h-20 text-[10px] text-muted-foreground/50">
@@ -554,11 +676,13 @@ function DayView({
   videosByDate,
   todayStr,
   clientSlug,
+  onTimeAssign,
 }: {
   currentDate: Date;
   videosByDate: Record<string, Video[]>;
   todayStr: string;
   clientSlug: string;
+  onTimeAssign?: (videoId: string, datetime: string) => void;
 }) {
   const dateStr = toDateStr(currentDate);
   const dayVideos = videosByDate[dateStr] || [];
@@ -579,52 +703,114 @@ function DayView({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-5xl mx-auto">
-          {dayVideos.map((video) => (
-            <Link
-              key={video.id}
-              href={`/${clientSlug}/videos/${video.id}`}
-              className="block rounded-xl border border-border hover:border-primary/40 transition-all group overflow-hidden bg-background"
-            >
-              {/* Thumbnail large */}
-              {video.portada_a ? (
-                <div className="relative aspect-video bg-muted">
-                  <img
-                    src={video.portada_a}
-                    alt={video.titulo || `#${video.name}`}
-                    className="w-full h-full object-cover"
+          {dayVideos.map((video) => {
+            const videoDateStr = (video.scheduled_date || video.created_time || "").substring(0, 10);
+            const currentTime = getTimeInMadrid(video.scheduled_date);
+
+            return (
+              <div key={video.id} className="rounded-xl border border-border hover:border-primary/40 transition-all group overflow-hidden bg-background">
+                <Link
+                  href={`/${clientSlug}/videos/${video.id}`}
+                  className="block"
+                >
+                  {/* Thumbnail large */}
+                  {video.portada_a ? (
+                    <div className="relative aspect-video bg-muted">
+                      <img
+                        src={video.portada_a}
+                        alt={video.titulo || `#${video.name}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute top-2 left-2 text-xs font-mono font-bold text-white bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded">
+                        #{video.name}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="relative aspect-video bg-muted flex items-center justify-center">
+                      <Film className="w-10 h-10 text-muted-foreground/30" />
+                      <span className="absolute top-2 left-2 text-xs font-mono font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                        #{video.name}
+                      </span>
+                    </div>
+                  )}
+                  {/* Info */}
+                  <div className="p-3 pb-0">
+                    <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 mb-1">
+                      {video.titulo || "Sin título"}
+                    </h4>
+                    {video.estado && (
+                      <span className={cn(
+                        "inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                        video.estado === "Published" ? "bg-success/10 text-success" :
+                        video.estado === "In Progress" ? "bg-info/10 text-info" :
+                        "bg-muted text-muted-foreground"
+                      )}>
+                        {video.estado}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+                {/* Time picker inline (day view shows it directly) */}
+                {onTimeAssign && videoDateStr && (
+                  <DayViewTimePicker
+                    videoId={video.id}
+                    videoDateStr={videoDateStr}
+                    currentTime={currentTime}
+                    onTimeAssign={onTimeAssign}
                   />
-                  <span className="absolute top-2 left-2 text-xs font-mono font-bold text-white bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded">
-                    #{video.name}
-                  </span>
-                </div>
-              ) : (
-                <div className="relative aspect-video bg-muted flex items-center justify-center">
-                  <Film className="w-10 h-10 text-muted-foreground/30" />
-                  <span className="absolute top-2 left-2 text-xs font-mono font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                    #{video.name}
-                  </span>
-                </div>
-              )}
-              {/* Info */}
-              <div className="p-3">
-                <h4 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 mb-1">
-                  {video.titulo || "Sin título"}
-                </h4>
-                {video.estado && (
-                  <span className={cn(
-                    "inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-                    video.estado === "Published" ? "bg-success/10 text-success" :
-                    video.estado === "In Progress" ? "bg-info/10 text-info" :
-                    "bg-muted text-muted-foreground"
-                  )}>
-                    {video.estado}
-                  </span>
                 )}
               </div>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
+    </div>
+  );
+}
+
+// Separate component for day view time picker to manage state per-card
+function DayViewTimePicker({
+  videoId,
+  videoDateStr,
+  currentTime,
+  onTimeAssign,
+}: {
+  videoId: string;
+  videoDateStr: string;
+  currentTime: string;
+  onTimeAssign: (videoId: string, datetime: string) => void;
+}) {
+  const [time, setTime] = useState(currentTime);
+  const [saved, setSaved] = useState(false);
+
+  function handleSave() {
+    const iso = toISOWithMadridTZ(videoDateStr, time);
+    onTimeAssign(videoId, iso);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  return (
+    <div className="px-3 py-2 flex items-center gap-1.5 border-t border-border/50">
+      <Clock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+      <input
+        type="time"
+        value={time}
+        onChange={(e) => { setTime(e.target.value); setSaved(false); }}
+        className="flex-1 text-xs bg-muted border border-border rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+      />
+      <button
+        onClick={handleSave}
+        className={cn(
+          "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors",
+          saved
+            ? "bg-success/10 text-success"
+            : "bg-muted hover:bg-muted/80 text-foreground border border-border"
+        )}
+      >
+        {saved ? <Check className="w-3 h-3" /> : "Guardar"}
+      </button>
+      <span className="text-[9px] text-muted-foreground flex-shrink-0">CET</span>
     </div>
   );
 }
