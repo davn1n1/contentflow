@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo, useDeferredValue } from "react";
+import { useState, useMemo, useDeferredValue, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useAccountStore } from "@/lib/stores/account-store";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useVideos } from "@/lib/hooks/use-videos";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AllVideoFilters } from "@/components/videos/all-video-filters";
 import { AllVideoTable } from "@/components/videos/all-video-table";
 import { VideoCard } from "@/components/videos/video-card";
@@ -22,6 +22,7 @@ export default function AllVideosPage() {
   const clientSlug = params["client-slug"] as string;
   const { currentAccount } = useAccountStore();
   const { allVideosViewMode, setAllVideosViewMode } = useUIStore();
+  const queryClient = useQueryClient();
 
   // Filter state
   const [search, setSearch] = useState("");
@@ -124,6 +125,30 @@ export default function AllVideosPage() {
 
   const hasActiveFilters = estado !== "" || statusYoutube !== "" || sponsor !== "";
 
+  // Drag & drop: update Scheduled Date in Airtable with optimistic UI
+  const handleVideoDateChange = useCallback(async (videoId: string, newDate: string) => {
+    // Optimistic update: patch local cache immediately
+    queryClient.setQueryData<Video[]>(
+      ["videos", currentAccount?.id, undefined, deferredSearch || undefined, 500],
+      (old) => old?.map((v) => v.id === videoId ? { ...v, scheduled_date: newDate } : v)
+    );
+
+    try {
+      const res = await fetch("/api/data/videos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: videoId,
+          fields: { "Scheduled Date": newDate },
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+    } catch {
+      // Revert on error: refetch from server
+      queryClient.invalidateQueries({ queryKey: ["videos"] });
+    }
+  }, [queryClient, currentAccount?.id, deferredSearch]);
+
   function handleReset() {
     setEstado("");
     setStatusYoutube("");
@@ -171,7 +196,7 @@ export default function AllVideosPage() {
       ) : allVideosViewMode === "table" ? (
         <AllVideoTable videos={filteredVideos} clientSlug={clientSlug} sponsorMap={sponsorMap} />
       ) : allVideosViewMode === "calendar" ? (
-        <VideoCalendar videos={filteredVideos} clientSlug={clientSlug} />
+        <VideoCalendar videos={filteredVideos} clientSlug={clientSlug} onVideoDateChange={handleVideoDateChange} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredVideos.map((video) => (

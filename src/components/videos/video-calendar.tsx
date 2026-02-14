@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, type DragEvent } from "react";
 import Link from "next/link";
 import type { Video } from "@/types/database";
-import { ChevronLeft, ChevronRight, Film, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, Film, ExternalLink, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface VideoCalendarProps {
   videos: Video[];
   clientSlug: string;
+  onVideoDateChange?: (videoId: string, newDate: string) => void;
 }
 
 type CalendarView = "month" | "week" | "day";
@@ -45,6 +46,25 @@ function addDays(d: Date, n: number) {
   const date = new Date(d);
   date.setDate(date.getDate() + n);
   return date;
+}
+
+// ─── Drag & Drop helpers ──────────────────────────────────
+
+function handleDragStart(e: DragEvent, videoId: string) {
+  e.dataTransfer.setData("text/plain", videoId);
+  e.dataTransfer.effectAllowed = "move";
+  // Add a slight opacity to the dragged element
+  if (e.currentTarget instanceof HTMLElement) {
+    setTimeout(() => {
+      (e.currentTarget as HTMLElement).style.opacity = "0.4";
+    }, 0);
+  }
+}
+
+function handleDragEnd(e: DragEvent) {
+  if (e.currentTarget instanceof HTMLElement) {
+    e.currentTarget.style.opacity = "";
+  }
 }
 
 // Hover detail card that appears on mouse hover
@@ -106,51 +126,72 @@ function VideoHoverCard({ video, clientSlug, children }: { video: Video; clientS
 }
 
 // Video card used in week and day views
-function VideoItem({ video, clientSlug }: { video: Video; clientSlug: string }) {
+function VideoItem({ video, clientSlug, draggable: isDraggable }: { video: Video; clientSlug: string; draggable?: boolean }) {
   return (
     <VideoHoverCard video={video} clientSlug={clientSlug}>
-      <Link
-        href={`/${clientSlug}/videos/${video.id}`}
-        className="block rounded-lg border border-border hover:border-primary/40 transition-all group overflow-hidden bg-background"
+      <div
+        draggable={isDraggable}
+        onDragStart={isDraggable ? (e) => handleDragStart(e, video.id) : undefined}
+        onDragEnd={isDraggable ? handleDragEnd : undefined}
+        className={cn(
+          "block rounded-lg border border-border hover:border-primary/40 transition-all group overflow-hidden bg-background",
+          isDraggable && "cursor-grab active:cursor-grabbing"
+        )}
       >
-        {/* Thumbnail */}
-        {video.portada_a ? (
-          <div className="relative aspect-video bg-muted">
-            <img
-              src={video.portada_a}
-              alt={video.titulo || `#${video.name}`}
-              className="w-full h-full object-cover"
-            />
-            <span className="absolute bottom-1 left-1 text-[10px] font-mono font-bold text-white bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
-              #{video.name}
-            </span>
+        <Link href={`/${clientSlug}/videos/${video.id}`} className="block">
+          {/* Thumbnail */}
+          {video.portada_a ? (
+            <div className="relative aspect-video bg-muted">
+              <img
+                src={video.portada_a}
+                alt={video.titulo || `#${video.name}`}
+                className="w-full h-full object-cover"
+              />
+              <span className="absolute bottom-1 left-1 text-[10px] font-mono font-bold text-white bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                #{video.name}
+              </span>
+            </div>
+          ) : (
+            <div className="relative aspect-video bg-muted flex items-center justify-center">
+              <Film className="w-5 h-5 text-muted-foreground/40" />
+              <span className="absolute bottom-1 left-1 text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                #{video.name}
+              </span>
+            </div>
+          )}
+          {/* Title */}
+          <div className="px-2 py-1.5">
+            <p className="text-[11px] font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-tight">
+              {video.titulo || "Sin título"}
+            </p>
           </div>
-        ) : (
-          <div className="relative aspect-video bg-muted flex items-center justify-center">
-            <Film className="w-5 h-5 text-muted-foreground/40" />
-            <span className="absolute bottom-1 left-1 text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-              #{video.name}
-            </span>
+        </Link>
+        {isDraggable && (
+          <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-60 transition-opacity">
+            <GripVertical className="w-3 h-3 text-muted-foreground" />
           </div>
         )}
-        {/* Title */}
-        <div className="px-2 py-1.5">
-          <p className="text-[11px] font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-tight">
-            {video.titulo || "Sin título"}
-          </p>
-        </div>
-      </Link>
+      </div>
     </VideoHoverCard>
   );
 }
 
 // Compact video pill for month view
-function VideoPill({ video, clientSlug }: { video: Video; clientSlug: string }) {
+function VideoPill({ video, clientSlug, draggable: isDraggable }: { video: Video; clientSlug: string; draggable?: boolean }) {
   return (
     <VideoHoverCard video={video} clientSlug={clientSlug}>
       <div
-        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors hover:bg-primary/10 group cursor-pointer"
+        draggable={isDraggable}
+        onDragStart={isDraggable ? (e) => handleDragStart(e, video.id) : undefined}
+        onDragEnd={isDraggable ? handleDragEnd : undefined}
+        className={cn(
+          "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors hover:bg-primary/10 group",
+          isDraggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+        )}
       >
+        {isDraggable && (
+          <GripVertical className="w-2.5 h-2.5 flex-shrink-0 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+        )}
         {video.portada_a ? (
           <img src={video.portada_a} alt="" className="w-4 h-3 object-cover rounded-sm flex-shrink-0" />
         ) : (
@@ -173,10 +214,11 @@ function VideoPill({ video, clientSlug }: { video: Video; clientSlug: string }) 
   );
 }
 
-export function VideoCalendar({ videos, clientSlug }: VideoCalendarProps) {
+export function VideoCalendar({ videos, clientSlug, onVideoDateChange }: VideoCalendarProps) {
   const today = new Date();
   const [currentDate, setCurrentDate] = useState(today);
   const [calendarView, setCalendarView] = useState<CalendarView>("month");
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
 
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
@@ -194,6 +236,31 @@ export function VideoCalendar({ videos, clientSlug }: VideoCalendarProps) {
   }, [videos]);
 
   const todayStr = toDateStr(today);
+  const canDrag = !!onVideoDateChange;
+
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>, targetDate: string) => {
+    e.preventDefault();
+    setDragOverDate(null);
+    const videoId = e.dataTransfer.getData("text/plain");
+    if (!videoId || !onVideoDateChange) return;
+
+    // Find the video to check if date actually changed
+    const video = videos.find((v) => v.id === videoId);
+    const currentVideoDate = (video?.scheduled_date || video?.created_time || "").substring(0, 10);
+    if (currentVideoDate === targetDate) return; // No change
+
+    onVideoDateChange(videoId, targetDate);
+  }, [onVideoDateChange, videos]);
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>, dateStr: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverDate(dateStr);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverDate(null);
+  }, []);
 
   function navigate(dir: -1 | 1) {
     const d = new Date(currentDate);
@@ -282,6 +349,11 @@ export function VideoCalendar({ videos, clientSlug }: VideoCalendarProps) {
           videosByDate={videosByDate}
           todayStr={todayStr}
           clientSlug={clientSlug}
+          canDrag={canDrag}
+          dragOverDate={dragOverDate}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
         />
       )}
       {calendarView === "week" && (
@@ -290,6 +362,11 @@ export function VideoCalendar({ videos, clientSlug }: VideoCalendarProps) {
           videosByDate={videosByDate}
           todayStr={todayStr}
           clientSlug={clientSlug}
+          canDrag={canDrag}
+          dragOverDate={dragOverDate}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
         />
       )}
       {calendarView === "day" && (
@@ -304,6 +381,16 @@ export function VideoCalendar({ videos, clientSlug }: VideoCalendarProps) {
   );
 }
 
+// ─── Drop target props type ──────────────────────────────
+
+interface DropTargetProps {
+  canDrag: boolean;
+  dragOverDate: string | null;
+  onDrop: (e: DragEvent<HTMLDivElement>, dateStr: string) => void;
+  onDragOver: (e: DragEvent<HTMLDivElement>, dateStr: string) => void;
+  onDragLeave: () => void;
+}
+
 // ─── Month View ───────────────────────────────────────────
 
 function MonthView({
@@ -312,13 +399,18 @@ function MonthView({
   videosByDate,
   todayStr,
   clientSlug,
+  canDrag,
+  dragOverDate,
+  onDrop,
+  onDragOver,
+  onDragLeave,
 }: {
   currentMonth: number;
   currentYear: number;
   videosByDate: Record<string, Video[]>;
   todayStr: string;
   clientSlug: string;
-}) {
+} & DropTargetProps) {
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfWeek(currentYear, currentMonth);
 
@@ -344,6 +436,7 @@ function MonthView({
           const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const dayVideos = videosByDate[dateStr] || [];
           const isToday = dateStr === todayStr;
+          const isDragOver = dragOverDate === dateStr;
 
           return (
             <div
@@ -351,8 +444,12 @@ function MonthView({
               className={cn(
                 "min-h-[100px] border-b border-r border-border/30 p-1.5 transition-colors",
                 isToday && "bg-primary/5",
-                dayVideos.length > 0 && "hover:bg-muted/30"
+                dayVideos.length > 0 && "hover:bg-muted/30",
+                isDragOver && "bg-primary/10 ring-2 ring-inset ring-primary/40"
               )}
+              onDragOver={canDrag ? (e) => onDragOver(e, dateStr) : undefined}
+              onDragLeave={canDrag ? onDragLeave : undefined}
+              onDrop={canDrag ? (e) => onDrop(e, dateStr) : undefined}
             >
               <div className="flex items-center justify-between mb-1">
                 <span className={cn(
@@ -367,7 +464,7 @@ function MonthView({
               </div>
               <div className="space-y-0.5">
                 {dayVideos.slice(0, 3).map((video) => (
-                  <VideoPill key={video.id} video={video} clientSlug={clientSlug} />
+                  <VideoPill key={video.id} video={video} clientSlug={clientSlug} draggable={canDrag} />
                 ))}
               </div>
             </div>
@@ -385,12 +482,17 @@ function WeekView({
   videosByDate,
   todayStr,
   clientSlug,
+  canDrag,
+  dragOverDate,
+  onDrop,
+  onDragOver,
+  onDragLeave,
 }: {
   currentDate: Date;
   videosByDate: Record<string, Video[]>;
   todayStr: string;
   clientSlug: string;
-}) {
+} & DropTargetProps) {
   const monday = getMonday(currentDate);
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
@@ -400,13 +502,24 @@ function WeekView({
         const dateStr = toDateStr(d);
         const dayVideos = videosByDate[dateStr] || [];
         const isToday = dateStr === todayStr;
+        const isDragOver = dragOverDate === dateStr;
 
         return (
-          <div key={dateStr} className="min-h-[400px]">
+          <div
+            key={dateStr}
+            className={cn(
+              "min-h-[400px] transition-colors",
+              isDragOver && "bg-primary/10"
+            )}
+            onDragOver={canDrag ? (e) => onDragOver(e, dateStr) : undefined}
+            onDragLeave={canDrag ? onDragLeave : undefined}
+            onDrop={canDrag ? (e) => onDrop(e, dateStr) : undefined}
+          >
             {/* Day header */}
             <div className={cn(
               "px-2 py-2 border-b border-border text-center",
-              isToday && "bg-primary/5"
+              isToday && "bg-primary/5",
+              isDragOver && "bg-primary/10"
             )}>
               <div className="text-[10px] text-muted-foreground uppercase">{WEEKDAYS[i]}</div>
               <div className={cn(
@@ -419,7 +532,7 @@ function WeekView({
             {/* Videos */}
             <div className="p-1.5 space-y-1.5">
               {dayVideos.map((video) => (
-                <VideoItem key={video.id} video={video} clientSlug={clientSlug} />
+                <VideoItem key={video.id} video={video} clientSlug={clientSlug} draggable={canDrag} />
               ))}
               {dayVideos.length === 0 && (
                 <div className="flex items-center justify-center h-20 text-[10px] text-muted-foreground/50">
