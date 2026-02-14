@@ -812,7 +812,7 @@ export function ActionButton({
     }
   }, [state]);
 
-  // Polling for status changes
+  // Polling for status changes — also invalidates progressively for scene-level updates
   useEffect(() => {
     if (state !== "generating") {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -826,8 +826,11 @@ export function ActionButton({
         const res = await fetch(`/api/data/videos?id=${videoId}`);
         if (!res.ok) return;
         const data = await res.json();
+
+        // Always invalidate on each poll to pick up per-scene changes (audio, analysis)
+        queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+
         if (config.detectReady(data, baselineRef.current)) {
-          queryClient.invalidateQueries({ queryKey: ["video-detail"] });
           setState("ready");
         }
       } catch { /* ignore */ }
@@ -983,9 +986,41 @@ export function ActionButton({
 // ─── Tab: Audio ──────────────────────────────────────────
 
 export function TabAudio({ video }: { video: VideoWithScenes }) {
+  const queryClient = useQueryClient();
   const scenesWithAudio = video.scenes.filter(s => s.voice_s3).length;
   const scenesRevisadas = video.scenes.filter(s => s.audio_revisado_ok).length;
   const totalDuration = video.scenes.reduce((sum, s) => sum + (s.voice_length || 0), 0);
+  const totalScenes = video.scenes.length;
+
+  // Smart polling: refresh data while scenes are missing audio or analysis
+  // This handles both: user triggered from frontend AND audio generated externally
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountedRef = useRef(false);
+
+  // On mount: immediately fetch fresh data
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+    }
+  }, [queryClient]);
+
+  // Polling: runs while any scene is missing audio
+  const needsPolling = totalScenes > 0 && scenesWithAudio < totalScenes;
+  useEffect(() => {
+    if (!needsPolling) {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      return;
+    }
+
+    pollRef.current = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+    }, 10_000);
+
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
+  }, [needsPolling, queryClient]);
 
   return (
     <div className="space-y-6">
