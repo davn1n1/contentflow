@@ -11,12 +11,13 @@ const PIPELINE_ACTION_MAP: Record<string, string> = {
 };
 
 export function createChatTools(
-  userAccountIds: string[],
+  userAccountNames: string[],
   options?: { queryEmbedding?: number[] }
 ) {
-  // Build Airtable filter to scope queries to user's accounts
-  const accountFilter = userAccountIds.length > 0
-    ? `OR(${userAccountIds.map((id) => `FIND('${id}', ARRAYJOIN({🏢Account}))`).join(",")})`
+  // Build Airtable filter to scope queries to user's accounts.
+  // Uses account NAMES (not IDs) because ARRAYJOIN({🏢Account}) resolves to display names.
+  const accountFilter = userAccountNames.length > 0
+    ? `OR(${userAccountNames.map((name) => `FIND('${name}', ARRAYJOIN({🏢Account}, ','))`).join(",")})`
     : "";
 
   return {
@@ -135,17 +136,17 @@ export function createChatTools(
       description:
         "Get details about the user's account including name, configuration, and status.",
       inputSchema: z.object({
-        accountId: z.string().optional().describe("Specific account Airtable record ID"),
+        accountName: z.string().optional().describe("Account name to look up"),
       }),
-      execute: async ({ accountId }: { accountId?: string }) => {
+      execute: async ({ accountName }: { accountName?: string }) => {
         try {
-          const targetId = accountId || userAccountIds[0];
-          if (!targetId || !userAccountIds.includes(targetId)) {
-            return { error: "Account not accessible" };
+          const targetName = accountName || userAccountNames[0];
+          if (!targetName) {
+            return { error: "No account available" };
           }
 
           const { records } = await airtableFetch(TABLES.ACCOUNT, {
-            filterByFormula: `RECORD_ID()='${targetId}'`,
+            filterByFormula: `{Name}='${targetName}'`,
             fields: ["Name", "nameapp", "Status", "Industry", "Canal YouTube"],
             maxRecords: 1,
           });

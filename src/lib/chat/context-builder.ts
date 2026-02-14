@@ -20,10 +20,15 @@ export interface EnrichedContext {
 /**
  * Fetch enriched context about the user's account for the system prompt.
  * All fetches run in parallel for minimum latency.
+ *
+ * @param accountId - Airtable record ID of the active account
+ * @param userAccountIds - All account record IDs the user can access
+ * @param userAccountNames - Resolved account names (for ARRAYJOIN filters)
  */
 export async function buildEnrichedContext(
   accountId: string | undefined,
-  userAccountIds: string[]
+  userAccountIds: string[],
+  userAccountNames: string[] = []
 ): Promise<EnrichedContext> {
   const targetAccountId = accountId || userAccountIds[0];
 
@@ -31,7 +36,33 @@ export async function buildEnrichedContext(
     return { account: null, persona: null, voices: [], recentVideos: [] };
   }
 
-  const accountFilter = `FIND('${targetAccountId}', ARRAYJOIN({🏢Account}))`;
+  // Resolve the target account's name for linked-record filters.
+  // ARRAYJOIN({🏢Account}) returns display names, not record IDs.
+  let targetAccountName = "";
+  const idx = userAccountIds.indexOf(targetAccountId);
+  if (idx >= 0 && userAccountNames[idx]) {
+    targetAccountName = userAccountNames[idx];
+  }
+
+  // If we don't have the name, fetch it
+  if (!targetAccountName) {
+    try {
+      const { records } = await airtableFetch(TABLES.ACCOUNT, {
+        filterByFormula: `RECORD_ID()='${targetAccountId}'`,
+        fields: ["Name"],
+        maxRecords: 1,
+      });
+      targetAccountName = (records[0]?.fields as Record<string, unknown>)?.["Name"] as string || "";
+    } catch {
+      // continue without name — filters will be empty
+    }
+  }
+
+  if (!targetAccountName) {
+    return { account: null, persona: null, voices: [], recentVideos: [] };
+  }
+
+  const accountFilter = `FIND('${targetAccountName}', ARRAYJOIN({🏢Account}, ','))`;
 
   const [account, persona, voices, recentVideos] = await Promise.all([
     fetchAccount(targetAccountId),

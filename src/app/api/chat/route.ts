@@ -52,8 +52,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Messages array required" }, { status: 400 });
     }
 
-    // 4. Get user's accessible account IDs from Airtable
+    // 4. Get user's accessible account IDs and resolve their names
+    // Airtable linked record fields resolve to display names in formulas,
+    // so we need names (not IDs) for FIND/ARRAYJOIN filters.
     let userAccountIds: string[] = [];
+    let userAccountNames: string[] = [];
     if (auth.user.airtable_user_id) {
       try {
         const { records } = await airtableFetch(TABLES.USUARIOS, {
@@ -67,6 +70,25 @@ export async function POST(request: NextRequest) {
         }
       } catch {
         // If Airtable fails, continue without account scoping
+      }
+
+      // Resolve account IDs → names for Airtable formula filtering
+      if (userAccountIds.length > 0) {
+        try {
+          const idFilter = userAccountIds.length === 1
+            ? `RECORD_ID()='${userAccountIds[0]}'`
+            : `OR(${userAccountIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
+          const { records: accountRecords } = await airtableFetch(TABLES.ACCOUNT, {
+            filterByFormula: idFilter,
+            fields: ["Name"],
+            maxRecords: userAccountIds.length,
+          });
+          userAccountNames = accountRecords
+            .map((r) => (r.fields as Record<string, unknown>)["Name"] as string)
+            .filter(Boolean);
+        } catch {
+          // Continue without names — tools will fail gracefully
+        }
       }
     }
 
@@ -86,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     // 7. Parallel fetches: enriched context + conversation memories
     const [enriched, memories] = await Promise.all([
-      buildEnrichedContext(accountId || undefined, userAccountIds).catch(() => null),
+      buildEnrichedContext(accountId || undefined, userAccountIds, userAccountNames).catch(() => null),
       queryEmbedding
         ? searchMemoriesWithEmbedding(auth.user.userId, queryEmbedding, 3).catch(() => [])
         : Promise.resolve([]),
@@ -109,8 +131,8 @@ export async function POST(request: NextRequest) {
       windowed.summary
     );
 
-    // 10. Create tools scoped to user's accounts + pre-computed embedding
-    const tools = createChatTools(userAccountIds, { queryEmbedding });
+    // 10. Create tools scoped to user's accounts (by name) + pre-computed embedding
+    const tools = createChatTools(userAccountNames, { queryEmbedding });
 
     // 11. Manage conversation persistence
     const supabase = await createClient();
