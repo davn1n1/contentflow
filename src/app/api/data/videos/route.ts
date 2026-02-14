@@ -13,6 +13,10 @@ const VIDEO_FIELDS = [
   "Voice Length", "Created Time", "Platform",
   "Horizontal/Vertical", "Seguro", "Seguro Creación Audio", "Seguro Creación Copy",
   "Portada Youtube A",
+  "Portada Youtube B",
+  "Portada Youtube C",
+  "Variaciones Multiples Titulos",
+  "Comentario Pineado",
   "💡Ideas Inspiracion",
   // Script & Audio fields
   "Scheduled Date",
@@ -62,6 +66,10 @@ interface VideoFields {
   "Seguro Creación Audio"?: boolean;
   "Seguro Creación Copy"?: boolean;
   "Portada Youtube A"?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  "Portada Youtube B"?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  "Portada Youtube C"?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  "Variaciones Multiples Titulos"?: string;
+  "Comentario Pineado"?: string[];
   "💡Ideas Inspiracion"?: string[];
   "Scheduled Date"?: string;
   "Extension Listado"?: string;
@@ -202,6 +210,10 @@ function mapVideo(r: { id: string; createdTime: string; fields: VideoFields }) {
     ae_render_ids: r.fields["AE Render"] || [],
     ideas_ids: r.fields["💡Ideas Inspiracion"] || [],
     portada_a: r.fields["Portada Youtube A"]?.[0]?.thumbnails?.large?.url || r.fields["Portada Youtube A"]?.[0]?.url || null,
+    portada_b: r.fields["Portada Youtube B"]?.[0]?.thumbnails?.large?.url || r.fields["Portada Youtube B"]?.[0]?.url || null,
+    portada_c: r.fields["Portada Youtube C"]?.[0]?.thumbnails?.large?.url || r.fields["Portada Youtube C"]?.[0]?.url || null,
+    variaciones_multiples_titulos: r.fields["Variaciones Multiples Titulos"] || null,
+    comentario_pineado_ids: r.fields["Comentario Pineado"] || [],
     created_time: r.fields["Created Time"] || r.createdTime,
     // Script & Audio fields
     scheduled_date: r.fields["Scheduled Date"] || null,

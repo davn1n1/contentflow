@@ -316,13 +316,21 @@ export function ThumbnailDetail({ draft, open, onOpenChange, onVariationsTrigger
             )}
 
             <div className="grid grid-cols-2 gap-4">
-              {/* Persona - resolved names */}
+              {/* Persona - resolved names with images */}
               {draft.persona_names.length > 0 && (
                 <div>
                   <span className="text-xs text-muted-foreground block mb-1">Persona</span>
-                  <div className="flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-purple-400" />
-                    <span className="text-sm font-medium text-foreground">{draft.persona_names.join(", ")}</span>
+                  <div className="flex items-center gap-2">
+                    {draft.persona_names.map((name, i) => (
+                      <div key={i} className="flex items-center gap-1.5">
+                        {draft.persona_images[i] ? (
+                          <img src={draft.persona_images[i]!} alt={name} className="w-6 h-6 rounded-full object-cover border border-border/50" />
+                        ) : (
+                          <User className="w-3.5 h-3.5 text-purple-400" />
+                        )}
+                        <span className="text-sm font-medium text-foreground">{name}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

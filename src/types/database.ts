@@ -288,6 +288,7 @@ export interface DraftPublicacion {
   prompt_anadir_persona: string | null;
   persona_lookup: string[];
   persona_names: string[];
+  persona_images: string[];
   archivar: boolean;
   feedback: string | null;
   notes: string | null;

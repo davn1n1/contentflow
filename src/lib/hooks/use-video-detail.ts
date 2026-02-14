@@ -6,6 +6,7 @@ interface VideoDetail {
   titulo: string | null;
   titulo_a: string | null;
   titulo_b: string | null;
+  titulo_c: string | null;
   estado: string | null;
   formato: string | null;
   post_content: string | null;
@@ -17,6 +18,10 @@ interface VideoDetail {
   ae_render_ids: string[];
   ideas_ids: string[];
   portada_a: string | null;
+  portada_b: string | null;
+  portada_c: string | null;
+  variaciones_multiples_titulos: string | null;
+  comentario_pineado_ids: string[];
   status_copy: boolean;
   status_audio: boolean;
   status_avatares: boolean;
@@ -128,6 +133,8 @@ export interface VideoWithScenes extends VideoDetail {
   linkedCtas: LinkedRecord[];
   linkedIntroBrolls: LinkedRecord[];
   linkedCtaBrolls: LinkedRecord[];
+  linkedSponsors: LinkedRecord[];
+  linkedComentarioPineado: LinkedRecord[];
 }
 
 // Fetch a single linked record from app-data
@@ -226,6 +233,7 @@ export function useVideoDetail(videoId: string | null) {
       const [
         scenes, linkedIdea, linkedIdeas, linkedAvatarSet, linkedPersona,
         linkedIntros, linkedCtas, linkedIntroBrolls, linkedCtaBrolls,
+        linkedSponsors, linkedComentarioPineado,
       ] = await Promise.all([
         // Scenes
         (async () => {
@@ -291,11 +299,16 @@ export function useVideoDetail(videoId: string | null) {
         fetchLinkedRecords("broll", video.intro_broll_ids),
         // CTA Brolls (Videos Broll table)
         fetchLinkedRecords("broll", video.cta_broll_ids),
+        // Sponsors
+        fetchLinkedRecords("sponsors", video.sponsor_ids),
+        // Comentario Pineado
+        fetchLinkedRecords("comentario-pineado", video.comentario_pineado_ids),
       ]);
 
       return {
         ...video, scenes, linkedIdea, linkedIdeas, linkedAvatarSet, linkedPersona,
         linkedIntros, linkedCtas, linkedIntroBrolls, linkedCtaBrolls,
+        linkedSponsors, linkedComentarioPineado,
       };
     },
     enabled: !!videoId,

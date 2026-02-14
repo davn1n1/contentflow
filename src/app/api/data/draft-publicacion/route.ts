@@ -119,22 +119,23 @@ export async function GET(request: NextRequest) {
 
     const [personaRecords, expresionRecords] = await Promise.all([
       personaIds.length > 0
-        ? airtableFetchByIds<{ Name?: string }>(TABLES.PERSONA, personaIds, ["Name"])
+        ? airtableFetchByIds<{ Name?: string; Foto?: AttachmentValue[] }>(TABLES.PERSONA, personaIds, ["Name", "Foto"])
         : Promise.resolve([]),
       expresionIds.length > 0
         ? airtableFetchByIds<{ "Expresión"?: string; Muestra?: AttachmentValue[] }>(TABLES.EXPRESIONES_MINIATURAS, expresionIds, ["Expresión", "Muestra"])
         : Promise.resolve([]),
     ]);
 
-    const personaMap = new Map(personaRecords.map((r) => [r.id, r.fields.Name || r.id]));
+    const personaMap = new Map(personaRecords.map((r) => [r.id, {
+      name: r.fields.Name || r.id,
+      image: r.fields.Foto?.[0]?.thumbnails?.large?.url || r.fields.Foto?.[0]?.url || null,
+    }]));
     const expresionMap = new Map(expresionRecords.map((r) => [r.id, {
       name: r.fields["Expresión"] || r.id,
       image: r.fields.Muestra?.[0]?.thumbnails?.large?.url || r.fields.Muestra?.[0]?.url || null,
     }]));
 
     return NextResponse.json(records.map((r) => mapDraft(r, personaMap, expresionMap)));
-
-    return NextResponse.json({ error: "videoId or ids required" }, { status: 400 });
   } catch (error) {
     console.error("Draft Publicacion fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch drafts" }, { status: 500 });
@@ -176,7 +177,7 @@ export async function PATCH(request: NextRequest) {
 
 function mapDraft(
   r: { id: string; createdTime: string; fields: DraftFields },
-  personaMap: Map<string, string>,
+  personaMap: Map<string, { name: string; image: string | null }>,
   expresionMap: Map<string, { name: string; image: string | null }>,
 ) {
   const personaIds = r.fields["Persona (from Youtube 365 Full Posts)"] || [];
@@ -216,7 +217,8 @@ function mapDraft(
     numero_variaciones: r.fields["Numero Variaciones"] || null,
     prompt_anadir_persona: r.fields["Prompt Anadir Persona"] || null,
     persona_lookup: personaIds,
-    persona_names: personaIds.map((id) => personaMap.get(id) || id),
+    persona_names: personaIds.map((id) => personaMap.get(id)?.name || id),
+    persona_images: personaIds.map((id) => personaMap.get(id)?.image || null),
     archivar: r.fields.Archivar || false,
     feedback: r.fields.Feedback || null,
     notes: r.fields.Notes || null,
