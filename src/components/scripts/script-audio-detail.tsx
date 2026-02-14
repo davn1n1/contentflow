@@ -102,16 +102,6 @@ export function TabScript({ video }: { video: VideoWithScenes }) {
         <InspirationSource idea={video.linkedIdea} />
       )}
 
-      {/* Extension Listado */}
-      {video.extension_listado && (
-        <InfoSection title="Extension Listado">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-medium">
-            <Clock className="w-4 h-4" />
-            {video.extension_listado}
-          </div>
-        </InfoSection>
-      )}
-
       {/* VoiceDNA */}
       {video.voice_dna_ids && video.voice_dna_ids.length > 0 && (
         <InfoSection title="VoiceDNA">
