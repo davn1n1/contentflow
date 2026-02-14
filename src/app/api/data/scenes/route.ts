@@ -34,6 +34,12 @@ const SCENE_FIELDS = [
   "Estilos Musicales (from Audio)",
   "Muestra (from Audio) 2",
   "Audio Favorito (from Audio)",
+  // Copy feedback / Informe fields
+  "montaje_copy_con_observaciones",
+  "comparativa_transcript_original",
+  "conclusion_general_datos_difieren_mucho",
+  "Informe_Guardarailes",
+  "palabras_conflictivas",
 ];
 
 interface SceneFields {
@@ -95,6 +101,12 @@ interface SceneFields {
   "Estilos Musicales (from Audio)"?: string[];
   "Muestra (from Audio) 2"?: { url: string; thumbnails?: { large?: { url: string } } }[];
   "Audio Favorito (from Audio)"?: (boolean | null)[];
+  // Copy feedback / Informe fields
+  "montaje_copy_con_observaciones"?: string;
+  "comparativa_transcript_original"?: string;
+  "conclusion_general_datos_difieren_mucho"?: string;
+  "Informe_Guardarailes"?: string;
+  "palabras_conflictivas"?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -245,6 +257,12 @@ export async function GET(request: NextRequest) {
           if (!Array.isArray(c) || c.length === 0) return false;
           return c[0] === true;
         })(),
+        // Copy feedback / Informe fields
+        montaje_copy_con_observaciones: r.fields["montaje_copy_con_observaciones"] || null,
+        comparativa_transcript_original: r.fields["comparativa_transcript_original"] || null,
+        conclusion_general_datos_difieren_mucho: r.fields["conclusion_general_datos_difieren_mucho"] || null,
+        informe_guardarailes: r.fields["Informe_Guardarailes"] || null,
+        palabras_conflictivas: r.fields["palabras_conflictivas"] || null,
         camera_table_id: null,
         audio_id: null,
       }))

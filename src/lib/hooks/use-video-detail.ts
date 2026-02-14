@@ -110,6 +110,12 @@ export interface SceneDetail {
   estilos_musicales: string[];
   muestra_audio: string | null;
   audio_favorito: boolean;
+  // Copy feedback / Informe fields
+  montaje_copy_con_observaciones: string | null;
+  comparativa_transcript_original: string | null;
+  conclusion_general_datos_difieren_mucho: string | null;
+  informe_guardarailes: string | null;
+  palabras_conflictivas: string | null;
 }
 
 export interface LinkedIdea {

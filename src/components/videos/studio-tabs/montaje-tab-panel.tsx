@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
   Play, Settings2, ChevronDown, Palette, Music, ImageIcon, Image as ImageLucide,
   ChevronRight, Loader2, CheckCircle2, XCircle, Wand2, Maximize2, X,
-  Film, User2, Tag, Volume2, Star, Headphones,
+  Film, User2, Tag, Volume2, Star, Headphones, Info, FileText, Shield, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -545,32 +545,27 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           <td colSpan={20} className="px-4 py-4">
             <div className="space-y-5">
 
-              {/* ── Row 1: Script + Topic ── */}
-              <div className="flex gap-6">
-                {(scene.script || scene.script_elevenlabs) && (
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Script</p>
-                    <p className="text-xs text-foreground/80 whitespace-pre-wrap leading-relaxed bg-background/50 rounded-lg p-3 border border-border/30 max-h-[120px] overflow-y-auto">
-                      {scene.script || scene.script_elevenlabs}
-                    </p>
-                  </div>
-                )}
-                {scene.topic && (
-                  <div className="flex-shrink-0">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5 flex items-center gap-1">
-                      <Tag className="w-3 h-3" /> Topic
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
+              {/* ── Section: COPY & INFORME ── */}
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                  <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">Copy & Informe</p>
+                  {scene.copy_revisado_ok && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-emerald-400/15 text-emerald-400 border border-emerald-500/25 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Revisado OK
+                    </span>
+                  )}
+                  {scene.status_script && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-slate-400/15 text-slate-400 border border-slate-500/25">
+                      {scene.status_script}
+                    </span>
+                  )}
+                  {scene.topic && (
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <Tag className="w-3 h-3 text-muted-foreground/60" />
                       {(() => {
-                        // Topic may be a JSON array string like '["tag1","tag2"]'
-                        let tags: string[];
-                        try {
-                          const parsed = JSON.parse(scene.topic!);
-                          tags = Array.isArray(parsed) ? parsed.map(String) : [scene.topic!];
-                        } catch {
-                          tags = scene.topic!.split(/[,;]+/).map((t) => t.trim());
-                        }
-                        return tags;
+                        const cleaned = scene.topic!.replace(/[\[\]"]/g, "");
+                        return cleaned.split(",").map((t) => t.trim());
                       })().filter(Boolean).map((tag, idx) => {
                         const tc = topicTagColor(idx);
                         return (
@@ -580,7 +575,124 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
                         );
                       })}
                     </div>
+                  )}
+                </div>
+
+                {/* Script text */}
+                {(scene.script || scene.script_elevenlabs) && (
+                  <div className="mb-3">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1">Script</p>
+                    <p className="text-xs text-foreground/80 whitespace-pre-wrap leading-relaxed bg-background/50 rounded-lg p-3 border border-border/30 max-h-[120px] overflow-y-auto">
+                      {scene.script || scene.script_elevenlabs}
+                    </p>
                   </div>
+                )}
+
+                {/* Feedback grid — 2 columns */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* solo_observaciones */}
+                  {scene.solo_observaciones && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                        Informe
+                        <span title="Lo ha creado el Agente Informe, revisando el copy y consultando decenas de fuentes externas para confirmar los datos.">
+                          <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
+                        </span>
+                      </p>
+                      <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-emerald-500/15 max-h-[100px] overflow-y-auto">
+                        {scene.solo_observaciones}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* montaje_copy_con_observaciones */}
+                  {scene.montaje_copy_con_observaciones && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                        Copy con Observaciones
+                        <span title="El texto combinado con el informe, para saber exactamente donde está.">
+                          <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
+                        </span>
+                      </p>
+                      <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-emerald-500/15 max-h-[100px] overflow-y-auto">
+                        {scene.montaje_copy_con_observaciones}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* comparativa_transcript_original */}
+                  {scene.comparativa_transcript_original && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                        Comparativa Transcript
+                        <span title="Cuanto difiere de la fuente original. OK green es que no hay grandes diferencias.">
+                          <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
+                        </span>
+                      </p>
+                      <div className={cn(
+                        "text-[11px] whitespace-pre-wrap leading-relaxed rounded-lg p-2.5 border max-h-[100px] overflow-y-auto",
+                        scene.comparativa_transcript_original.toLowerCase().startsWith("ok")
+                          ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                          : "bg-background/40 border-emerald-500/15 text-foreground/70"
+                      )}>
+                        {scene.comparativa_transcript_original}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* conclusion_general_datos_difieren_mucho */}
+                  {scene.conclusion_general_datos_difieren_mucho && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-amber-400/60" />
+                        Conclusión General
+                      </p>
+                      <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-amber-500/15 max-h-[100px] overflow-y-auto">
+                        {scene.conclusion_general_datos_difieren_mucho}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Informe_Guardarailes */}
+                  {scene.informe_guardarailes && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                        <Shield className="w-3 h-3 text-blue-400/60" />
+                        Guardaraíles
+                      </p>
+                      <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-blue-500/15 max-h-[100px] overflow-y-auto">
+                        {scene.informe_guardarailes}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* palabras_conflictivas */}
+                  {scene.palabras_conflictivas && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-red-400/60" />
+                        Palabras Conflictivas
+                      </p>
+                      <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-red-500/15 max-h-[100px] overflow-y-auto">
+                        {scene.palabras_conflictivas}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* informe_resumen_emoticonos */}
+                  {scene.informe_resumen_emoticonos && (
+                    <div className="col-span-2">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1">Resumen Emoticonos</p>
+                      <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-emerald-500/15 max-h-[80px] overflow-y-auto">
+                        {scene.informe_resumen_emoticonos}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Empty state */}
+                {!scene.script && !scene.script_elevenlabs && !scene.solo_observaciones && !scene.montaje_copy_con_observaciones && (
+                  <p className="text-xs text-muted-foreground/40 italic">Sin datos de copy para esta escena</p>
                 )}
               </div>
 
@@ -1041,7 +1153,7 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
 
   return (
     <div
-      className="glass-card rounded-xl overflow-hidden"
+      className="-mx-6 overflow-hidden border-y border-border/40 bg-background/30"
       onKeyDown={handleKeyNav}
       tabIndex={0}
     >
