@@ -50,9 +50,9 @@ export default function ThumbnailsPage() {
   const { data: drafts = [], isLoading } = useDraftPublicacion(videoDetail?.draft_publicacion_ids);
   const { mutate: updateVideo, isPending: isUpdatingVideo } = useUpdateVideo();
 
-  // App data for selectors
-  const { data: allSponsors = [] } = useAppData({ table: "sponsors", accountId });
-  const { data: allComentarios = [] } = useAppData({ table: "comentario-pineado", accountId });
+  // App data for selectors (enabled: true to ensure they load even if accountId is briefly undefined)
+  const { data: allSponsors = [] } = useAppData({ table: "sponsors", accountId, enabled: !!videoId });
+  const { data: allComentarios = [] } = useAppData({ table: "comentario-pineado", accountId, enabled: !!videoId });
 
   const [selectedDraft, setSelectedDraft] = useState<DraftPublicacion | null>(null);
 
@@ -62,6 +62,15 @@ export default function ThumbnailsPage() {
   const [tituloC, setTituloC] = useState("");
   const [variacionesTitulos, setVariacionesTitulos] = useState("");
   const [hasTitleChanges, setHasTitleChanges] = useState(false);
+  const variacionesRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-expand textarea to fit content
+  const autoResizeVariaciones = useCallback(() => {
+    const el = variacionesRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
 
   useEffect(() => {
     if (videoDetail) {
@@ -72,6 +81,14 @@ export default function ThumbnailsPage() {
       setHasTitleChanges(false);
     }
   }, [videoDetail]);
+
+  // Auto-resize when variaciones content changes or tab switches
+  useEffect(() => {
+    if (activeTab === "titulos") {
+      // Small delay to ensure DOM is ready
+      requestAnimationFrame(autoResizeVariaciones);
+    }
+  }, [variacionesTitulos, activeTab, autoResizeVariaciones]);
 
   const handleSaveTitles = () => {
     if (!videoDetail) return;
@@ -305,36 +322,34 @@ export default function ThumbnailsPage() {
 
         {/* TAB: Titulos */}
         {activeTab === "titulos" && (
-          <div className="max-w-3xl space-y-6">
+          <div className="max-w-3xl space-y-3">
             {(["A", "B", "C"] as const).map((letter) => {
               const value = letter === "A" ? tituloA : letter === "B" ? tituloB : tituloC;
               const setter = letter === "A" ? setTituloA : letter === "B" ? setTituloB : setTituloC;
               return (
-                <div key={letter} className="space-y-2">
-                  <label className="flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
-                      {letter}
-                    </span>
-                    <span className="text-sm font-semibold text-foreground">Titulo Youtube {letter}</span>
-                  </label>
+                <div key={letter} className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                    {letter}
+                  </span>
                   <input
                     type="text"
                     value={value}
                     onChange={(e) => { setter(e.target.value); setHasTitleChanges(true); }}
-                    className="w-full bg-muted/30 border border-border/50 rounded-lg px-4 py-3 text-base text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                    className="flex-1 bg-muted/30 border border-border/50 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
                     placeholder={`Titulo Youtube ${letter}...`}
                   />
                 </div>
               );
             })}
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Variaciones Multiples Titulos</label>
+            <div className="space-y-1.5 pt-2">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Variaciones Multiples Titulos</label>
               <textarea
+                ref={variacionesRef}
                 value={variacionesTitulos}
-                onChange={(e) => { setVariacionesTitulos(e.target.value); setHasTitleChanges(true); }}
-                rows={4}
-                className="w-full bg-muted/30 border border-border/50 rounded-lg px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 resize-none"
+                onChange={(e) => { setVariacionesTitulos(e.target.value); setHasTitleChanges(true); autoResizeVariaciones(); }}
+                className="w-full bg-muted/30 border border-border/50 rounded-lg px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 resize-none overflow-hidden"
+                style={{ minHeight: "80px" }}
                 placeholder="Variaciones adicionales de titulos..."
               />
             </div>
@@ -360,27 +375,10 @@ export default function ThumbnailsPage() {
               <div className="flex items-center gap-2">
                 <Pin className="w-4 h-4 text-amber-400" />
                 <h3 className="text-sm font-semibold text-foreground">Comentario Pineado</h3>
+                <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded-full">
+                  {videoDetail?.comentario_pineado_ids?.length || 0} seleccionados
+                </span>
               </div>
-              {/* Selected comentarios */}
-              {videoDetail?.linkedComentarioPineado && videoDetail.linkedComentarioPineado.length > 0 && (
-                <div className="space-y-2">
-                  {videoDetail.linkedComentarioPineado.map((c) => (
-                    <div key={c.id} className="glass-card rounded-lg p-3 flex items-start gap-3">
-                      <Pin className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">{c.name || c.id}</p>
-                        {c.status && <span className="text-xs text-muted-foreground">{c.status}</span>}
-                      </div>
-                      <button
-                        onClick={() => handleToggleComentario(c.id)}
-                        className="text-xs text-red-400 hover:text-red-300"
-                      >
-                        Quitar
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
               {/* Available comentarios to select */}
               <div className="flex items-center gap-2 flex-wrap">
                 {allComentarios.map((c) => {
@@ -391,12 +389,13 @@ export default function ThumbnailsPage() {
                       key={c.id}
                       onClick={() => handleToggleComentario(c.id)}
                       className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer",
                         isSelected
                           ? "bg-amber-400/10 border-amber-400/30 text-amber-400"
-                          : "bg-muted/30 border-border/50 text-muted-foreground hover:border-amber-400/30"
+                          : "bg-muted/30 border-border/50 text-muted-foreground hover:border-amber-400/30 hover:text-amber-300"
                       )}
                     >
+                      <Pin className="w-3 h-3" />
                       {name}
                       {isSelected && <Check className="w-3 h-3" />}
                     </button>
@@ -406,6 +405,49 @@ export default function ThumbnailsPage() {
                   <p className="text-xs text-muted-foreground/70">No hay comentarios pineados disponibles</p>
                 )}
               </div>
+              {/* Detail cards for selected comentarios */}
+              {videoDetail?.comentario_pineado_ids && videoDetail.comentario_pineado_ids.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  {videoDetail.comentario_pineado_ids.map((cId) => {
+                    const fullData = allComentarios.find((c) => c.id === cId);
+                    const linked = videoDetail.linkedComentarioPineado?.find((c) => c.id === cId);
+                    const name = fullData ? ((fullData.Name as string) || (fullData.Nombre as string)) : linked?.name;
+                    return (
+                      <div key={cId} className="glass-card rounded-xl p-4 border border-amber-400/20">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Pin className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                            <h4 className="text-sm font-semibold text-foreground">{name || cId}</h4>
+                          </div>
+                          <button
+                            onClick={() => handleToggleComentario(cId)}
+                            className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-400/20 hover:border-red-400/40 transition-all"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                        {fullData && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {Object.entries(fullData)
+                              .filter(([key]) => !["id", "createdTime"].includes(key))
+                              .map(([key, val]) => {
+                                if (val === null || val === undefined || val === "") return null;
+                                const displayVal = Array.isArray(val) ? val.join(", ") : String(val);
+                                if (displayVal.length > 500) return null;
+                                return (
+                                  <div key={key} className="text-xs">
+                                    <span className="text-muted-foreground">{key}: </span>
+                                    <span className="text-foreground">{displayVal}</span>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             {/* Sponsors */}
@@ -413,31 +455,10 @@ export default function ThumbnailsPage() {
               <div className="flex items-center gap-2">
                 <Megaphone className="w-4 h-4 text-blue-400" />
                 <h3 className="text-sm font-semibold text-foreground">Sponsors</h3>
+                <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded-full">
+                  {videoDetail?.sponsor_ids?.length || 0} seleccionados
+                </span>
               </div>
-              {/* Selected sponsors detail */}
-              {videoDetail?.linkedSponsors && videoDetail.linkedSponsors.length > 0 && (
-                <div className="space-y-2">
-                  {videoDetail.linkedSponsors.map((s) => (
-                    <div key={s.id} className="glass-card rounded-lg p-3 flex items-center gap-3">
-                      {s.image_url ? (
-                        <img src={s.image_url} alt={s.name || ""} className="w-8 h-8 rounded-full object-cover" />
-                      ) : (
-                        <Megaphone className="w-4 h-4 text-blue-400" />
-                      )}
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">{s.name || s.id}</p>
-                        {s.status && <span className="text-xs text-muted-foreground">{s.status}</span>}
-                      </div>
-                      <button
-                        onClick={() => handleToggleSponsor(s.id)}
-                        className="text-xs text-red-400 hover:text-red-300"
-                      >
-                        Quitar
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
               {/* Available sponsors to select */}
               <div className="flex items-center gap-2 flex-wrap">
                 {allSponsors.map((s) => {
@@ -448,12 +469,13 @@ export default function ThumbnailsPage() {
                       key={s.id}
                       onClick={() => handleToggleSponsor(s.id)}
                       className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer",
                         isSelected
                           ? "bg-blue-400/10 border-blue-400/30 text-blue-400"
-                          : "bg-muted/30 border-border/50 text-muted-foreground hover:border-blue-400/30"
+                          : "bg-muted/30 border-border/50 text-muted-foreground hover:border-blue-400/30 hover:text-blue-300"
                       )}
                     >
+                      <Megaphone className="w-3 h-3" />
                       {name}
                       {isSelected && <Check className="w-3 h-3" />}
                     </button>
@@ -463,6 +485,54 @@ export default function ThumbnailsPage() {
                   <p className="text-xs text-muted-foreground/70">No hay sponsors disponibles</p>
                 )}
               </div>
+              {/* Detail cards for selected sponsors */}
+              {videoDetail?.sponsor_ids && videoDetail.sponsor_ids.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  {videoDetail.sponsor_ids.map((sId) => {
+                    const fullData = allSponsors.find((s) => s.id === sId);
+                    const linked = videoDetail.linkedSponsors?.find((s) => s.id === sId);
+                    const name = fullData ? ((fullData.Name as string) || (fullData.Nombre as string)) : linked?.name;
+                    const imageUrl = linked?.image_url || null;
+                    return (
+                      <div key={sId} className="glass-card rounded-xl p-4 border border-blue-400/20">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            {imageUrl ? (
+                              <img src={imageUrl} alt={name || ""} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <Megaphone className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                            )}
+                            <h4 className="text-sm font-semibold text-foreground">{name || sId}</h4>
+                          </div>
+                          <button
+                            onClick={() => handleToggleSponsor(sId)}
+                            className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-400/20 hover:border-red-400/40 transition-all"
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                        {fullData && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {Object.entries(fullData)
+                              .filter(([key]) => !["id", "createdTime"].includes(key))
+                              .map(([key, val]) => {
+                                if (val === null || val === undefined || val === "") return null;
+                                const displayVal = Array.isArray(val) ? val.join(", ") : String(val);
+                                if (displayVal.length > 500) return null;
+                                return (
+                                  <div key={key} className="text-xs">
+                                    <span className="text-muted-foreground">{key}: </span>
+                                    <span className="text-foreground">{displayVal}</span>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           </div>
         )}

@@ -12,9 +12,10 @@ interface UseAppDataOptions {
   table: string;
   accountId?: string;
   limit?: number;
+  enabled?: boolean;
 }
 
-export function useAppData({ table, accountId, limit = 200 }: UseAppDataOptions) {
+export function useAppData({ table, accountId, limit = 200, enabled }: UseAppDataOptions) {
   return useQuery({
     queryKey: ["app-data", table, accountId, limit],
     queryFn: async (): Promise<AppDataRecord[]> => {
@@ -27,7 +28,7 @@ export function useAppData({ table, accountId, limit = 200 }: UseAppDataOptions)
       if (!res.ok) throw new Error(`Failed to fetch ${table}`);
       return res.json();
     },
-    enabled: !!accountId,
+    enabled: enabled !== undefined ? enabled : !!accountId,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });
