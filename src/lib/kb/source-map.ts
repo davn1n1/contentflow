@@ -741,3 +741,38 @@ export function getSourcesByCategory(category: string): KBSource[] {
 export function getGeneratableSources(): KBSource[] {
   return KB_SOURCES.filter((s) => !s.skipIfExists);
 }
+
+/**
+ * Given a list of changed file paths (relative to project root),
+ * return the KB source slugs whose articles should be regenerated.
+ *
+ * Used by CI/CD to auto-update only affected articles on deploy.
+ */
+export function getAffectedSlugs(changedFiles: string[]): string[] {
+  const slugs = new Set<string>();
+
+  for (const source of KB_SOURCES) {
+    if (source.skipIfExists) continue;
+
+    for (const file of source.sources) {
+      if (!file.path) continue;
+
+      // Normalize: remove leading "./" or "../"
+      const normalizedSourcePath = file.path.replace(/^\.\.?\//, "");
+
+      for (const changed of changedFiles) {
+        const normalizedChanged = changed.replace(/^\.\.?\//, "");
+
+        // Match if the changed file IS the source or is inside the same directory
+        if (
+          normalizedChanged === normalizedSourcePath ||
+          normalizedChanged.startsWith(normalizedSourcePath.replace(/\/[^/]+$/, "/"))
+        ) {
+          slugs.add(source.id);
+        }
+      }
+    }
+  }
+
+  return [...slugs];
+}
