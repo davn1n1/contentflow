@@ -16,7 +16,7 @@ const VIDEO_FIELDS = [
   "Portada Youtube B",
   "Portada Youtube C",
   "Variaciones Multiples Titulos",
-  "Comentario Pineado",
+  "Cometario Pineado",
   "💡Ideas Inspiracion",
   // Script & Audio fields
   "Scheduled Date",
@@ -80,7 +80,7 @@ interface VideoFields {
   "Portada Youtube B"?: { url: string; thumbnails?: { large?: { url: string } } }[];
   "Portada Youtube C"?: { url: string; thumbnails?: { large?: { url: string } } }[];
   "Variaciones Multiples Titulos"?: string;
-  "Comentario Pineado"?: string[];
+  "Cometario Pineado"?: string[];
   "💡Ideas Inspiracion"?: string[];
   "Scheduled Date"?: string;
   "Extension Listado"?: string;
@@ -234,7 +234,7 @@ function mapVideo(r: { id: string; createdTime: string; fields: VideoFields }) {
     portada_b: r.fields["Portada Youtube B"]?.[0]?.thumbnails?.large?.url || r.fields["Portada Youtube B"]?.[0]?.url || null,
     portada_c: r.fields["Portada Youtube C"]?.[0]?.thumbnails?.large?.url || r.fields["Portada Youtube C"]?.[0]?.url || null,
     variaciones_multiples_titulos: r.fields["Variaciones Multiples Titulos"] || null,
-    comentario_pineado_ids: r.fields["Comentario Pineado"] || [],
+    comentario_pineado_ids: r.fields["Cometario Pineado"] || [],
     created_time: r.fields["Created Time"] || r.createdTime,
     // Script & Audio fields
     scheduled_date: r.fields["Scheduled Date"] || null,

@@ -90,7 +90,7 @@ export function ScriptAudioDetail({ video, isLoading }: ScriptAudioDetailProps) 
 
 // ─── Tab: Script & Copy ──────────────────────────────────
 
-function TabScript({ video }: { video: VideoWithScenes }) {
+export function TabScript({ video }: { video: VideoWithScenes }) {
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Scheduled Date */}
@@ -693,7 +693,7 @@ function AvatarPersonaSection({ videoId, video }: { videoId: string; video: Vide
 
 // ─── Action Button with Double Confirmation ──────────────
 
-function ActionButton({
+export function ActionButton({
   videoId,
   action,
   label,
@@ -841,7 +841,7 @@ function ActionButton({
 
 // ─── Tab: Audio ──────────────────────────────────────────
 
-function TabAudio({ video }: { video: VideoWithScenes }) {
+export function TabAudio({ video }: { video: VideoWithScenes }) {
   const scenesWithAudio = video.scenes.filter(s => s.voice_s3).length;
   const scenesRevisadas = video.scenes.filter(s => s.audio_revisado_ok).length;
   const totalDuration = video.scenes.reduce((sum, s) => sum + (s.voice_length || 0), 0);
@@ -1486,7 +1486,6 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   const { save: saveRevisado } = useSceneAutoSave(scene.id, "Audio Revisado OK");
   const [showExtra, setShowExtra] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
-  const prevVoiceRef = useRef(scene.voice_s3);
 
   // Sync local state when scene data changes from server
   useEffect(() => {
@@ -1498,13 +1497,6 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   useEffect(() => {
     setAudioRevisado(scene.audio_revisado_ok);
   }, [scene.audio_revisado_ok]);
-  // Detect new audio arriving — clear generating state
-  useEffect(() => {
-    if (generatingAudio && scene.voice_s3 !== prevVoiceRef.current) {
-      setGeneratingAudio(false);
-    }
-    prevVoiceRef.current = scene.voice_s3;
-  }, [scene.voice_s3, generatingAudio]);
 
   // Auto-resize textareas
   useEffect(() => {
@@ -1610,7 +1602,7 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
           {generatingAudio ? <span className="text-blue-400/50">…</span> : scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
         </td>
         <td className="px-1 py-2.5 text-center">
-          {scene.audio_revisado_ok ? (
+          {audioRevisado ? (
             <span className="text-emerald-400 text-xs font-bold">✓</span>
           ) : (
             <span className="text-muted-foreground/30 text-xs">✗</span>
@@ -1671,7 +1663,7 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                   {audioRevisado ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
                   {audioRevisado ? "OK" : "No"}
                 </button>
-                <SceneActionButton sceneId={scene.id} currentVoiceS3={scene.voice_s3} onGenerating={() => setGeneratingAudio(true)} />
+                <SceneActionButton sceneId={scene.id} currentVoiceS3={scene.voice_s3} onGenerating={() => setGeneratingAudio(true)} onAudioReady={() => setGeneratingAudio(false)} />
               </div>
 
               {/* ── Script (editable) + V1/V2/V3 análisis ── */}
@@ -1762,7 +1754,7 @@ const IDEAS_TABS = [
 
 type IdeaTabKey = (typeof IDEAS_TABS)[number]["key"];
 
-function IdeasSection({ ideas }: { ideas: LinkedIdeaFull[] }) {
+export function IdeasSection({ ideas }: { ideas: LinkedIdeaFull[] }) {
   const [activeTab, setActiveTab] = useState<IdeaTabKey>("noticias");
 
   const currentFilter = IDEAS_TABS.find(t => t.key === activeTab)?.filter;
@@ -1944,7 +1936,7 @@ function IdeaCard({ idea }: { idea: LinkedIdeaFull }) {
 
 // ─── Tab: Escenas ────────────────────────────────────────
 
-function TabEscenas({ video }: { video: VideoWithScenes }) {
+export function TabEscenas({ video }: { video: VideoWithScenes }) {
   if (video.scenes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
@@ -2154,7 +2146,7 @@ function InfoTooltip({ text }: { text: string }) {
   );
 }
 
-function SceneActionButton({ sceneId, currentVoiceS3, onGenerating }: { sceneId: string; currentVoiceS3: string | null; onGenerating?: () => void }) {
+function SceneActionButton({ sceneId, currentVoiceS3, onGenerating, onAudioReady }: { sceneId: string; currentVoiceS3: string | null; onGenerating?: () => void; onAudioReady?: () => void }) {
   const queryClient = useQueryClient();
   type BtnState = "idle" | "confirming" | "sending" | "generating" | "ready" | "error";
   const [state, setState] = useState<BtnState>("idle");
@@ -2241,6 +2233,7 @@ function SceneActionButton({ sceneId, currentVoiceS3, onGenerating }: { sceneId:
             setAudioArrived(true);
             lastAnalysisRef.current = [scene.analisis_voz_1, scene.analisis_voz_2, scene.analisis_voz_3];
             queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+            onAudioReady?.();
           }
           return;
         }
@@ -2252,20 +2245,21 @@ function SceneActionButton({ sceneId, currentVoiceS3, onGenerating }: { sceneId:
           lastAnalysisRef.current = currentAnalysis;
           queryClient.invalidateQueries({ queryKey: ["video-detail"] });
         }
-        // Done: all 3 analysis fields populated → go to ready
-        if (currentAnalysis.every(Boolean)) {
+        // Done: all 3 analysis fields contain real analysis (emoji like ✅/❌, not just "Analizando...")
+        const hasRealAnalysis = (v: string | null) =>
+          !!v && /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(v) && v.length > 20;
+        if (currentAnalysis.every(hasRealAnalysis)) {
           if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
           setState("ready");
         }
       } catch { /* ignore polling errors */ }
     };
-    pollRef.current = setInterval(checkScene, 5000);
-    // Max 3 minutes total (audio + analysis)
+    pollRef.current = setInterval(checkScene, 8000);
+    // Max 10 minutes total (audio comes fast, analysis can take 5+ min)
     const maxTimeout = setTimeout(() => {
       if (pollRef.current) clearInterval(pollRef.current);
-      // If audio arrived but analysis didn't complete, still go to ready
       setState((s) => s === "generating" ? (audioFound ? "ready" : "idle") : s);
-    }, 180000);
+    }, 600000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       clearTimeout(maxTimeout);
@@ -2329,7 +2323,8 @@ function SceneActionButton({ sceneId, currentVoiceS3, onGenerating }: { sceneId:
         state === "idle" && "bg-blue-600 hover:bg-blue-500 border-blue-500 text-white cursor-pointer",
         state === "confirming" && "bg-amber-500 hover:bg-amber-400 border-amber-400 text-black cursor-pointer animate-pulse",
         state === "sending" && "bg-blue-600/50 border-blue-500/50 text-white/70 cursor-wait",
-        state === "generating" && "bg-blue-600/30 border-blue-400/50 text-blue-300 cursor-wait animate-pulse",
+        state === "generating" && !audioArrived && "bg-blue-600/30 border-blue-400/50 text-blue-300 cursor-wait animate-pulse",
+        state === "generating" && audioArrived && "bg-emerald-600/30 border-emerald-400/50 text-emerald-300 cursor-wait animate-pulse",
         state === "ready" && "bg-emerald-600 border-emerald-500 text-white cursor-pointer",
         state === "error" && "bg-red-600 border-red-500 text-white cursor-pointer",
       )}
@@ -2341,8 +2336,9 @@ function SceneActionButton({ sceneId, currentVoiceS3, onGenerating }: { sceneId:
       {state === "idle" && "Modifica / Crea Audio Escena"}
       {state === "confirming" && "Confirmar?"}
       {state === "sending" && "Enviando..."}
-      {state === "generating" && <>Generando audio… {formatElapsed(elapsed)}</>}
-      {state === "ready" && "Audio listo!"}
+      {state === "generating" && !audioArrived && <>Generando audio… {formatElapsed(elapsed)}</>}
+      {state === "generating" && audioArrived && <>Audio listo, analizando… {formatElapsed(elapsed)}</>}
+      {state === "ready" && "Completo!"}
       {state === "error" && "Error — click para reintentar"}
     </button>
   );

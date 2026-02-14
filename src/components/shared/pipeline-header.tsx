@@ -45,11 +45,13 @@ const PHASES = [
 
 interface PipelineHeaderProps {
   currentPhase?: string;
+  video?: import("@/lib/hooks/use-video-detail").VideoWithScenes | null;
 }
 
-export function PipelineHeader({ currentPhase }: PipelineHeaderProps) {
+export function PipelineHeader({ currentPhase, video: videoProp }: PipelineHeaderProps) {
   const { activeVideoId, activeVideoName, activeVideoTitle } = useVideoContextStore();
-  const { data: video } = useVideoDetail(activeVideoId);
+  const { data: fetchedVideo } = useVideoDetail(videoProp ? null : activeVideoId);
+  const video = videoProp || fetchedVideo;
 
   if (!activeVideoId) return null;
 

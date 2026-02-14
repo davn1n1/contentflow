@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTriggerPipeline } from "@/lib/hooks/use-pipeline";
-import type { Video, PipelineStep } from "@/types/database";
+import type { PipelineStep } from "@/types/database";
 import {
   FileText,
   Headphones,
@@ -15,8 +15,16 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+/** Minimal video shape needed by PipelineButtons */
+interface PipelineVideo {
+  status_copy: boolean;
+  status_audio: boolean;
+  status_avatares: boolean;
+  status_rendering_video: boolean | string | null;
+}
+
 interface PipelineButtonsProps {
-  video: Video;
+  video: PipelineVideo;
   recordId: string;
 }
 
@@ -57,7 +65,7 @@ const steps: {
   },
 ];
 
-function getStepStatus(video: Video, step: PipelineStep): "completed" | "available" | "locked" {
+function getStepStatus(video: PipelineVideo, step: PipelineStep): "completed" | "available" | "locked" {
   switch (step) {
     case "copy":
       return video.status_copy ? "completed" : "available";

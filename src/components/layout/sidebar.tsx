@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useAccountStore } from "@/lib/stores/account-store";
+import { useVideoContextStore } from "@/lib/stores/video-context-store";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import {
@@ -49,15 +50,23 @@ import {
   Share2,
   SlidersHorizontal,
   Eye,
+  MonitorPlay,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────
+
+interface NavSubItem {
+  name: string;
+  tabParam: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
 
 interface NavItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   global?: boolean;
+  subItems?: NavSubItem[];
 }
 
 interface NavSection {
@@ -120,9 +129,18 @@ const sections: NavSection[] = [
     items: [
       { name: "Research", href: "/research", icon: Bot },
       { name: "Ideas Inspiración", href: "/ideas", icon: Lightbulb },
-      { name: "Script & Audio", href: "/scripts", icon: FileText },
-      { name: "Video Completo", href: "/videos", icon: Video },
-      { name: "Miniatura & Publish", href: "/thumbnails", icon: ImageIcon },
+      {
+        name: "Video Studio",
+        href: "/videos",
+        icon: MonitorPlay,
+        subItems: [
+          { name: "Copy", tabParam: "copy", icon: FileText },
+          { name: "Audio", tabParam: "audio", icon: Headphones },
+          { name: "Montaje Video", tabParam: "montaje", icon: Film },
+          { name: "Miniaturas", tabParam: "miniaturas", icon: ImageIcon },
+          { name: "Render", tabParam: "render", icon: Clapperboard },
+        ],
+      },
       { name: "Clips Opus", href: "/clips", icon: Clapperboard },
       { name: "Listado Todos", href: "/all-videos", icon: ListVideo },
     ],
@@ -185,22 +203,49 @@ const COLLAPSIBLE_KEYS = sections.filter((s) => s.collapsible).map((s) => s.key)
 export function Sidebar() {
   const { sidebarCollapsed, collapsedSections, toggleSidebar, toggleSection } = useUIStore();
   const { currentAccount } = useAccountStore();
+  const { activeVideoId } = useVideoContextStore();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const slug = (currentAccount?.nameapp || currentAccount?.name || "")
     .toLowerCase()
     .replace(/\s+/g, "-");
 
   function buildHref(item: NavItem) {
     if (item.global) return item.href;
+    // Video Studio: if last video is known, go directly to it
+    if (item.subItems && activeVideoId) {
+      return slug ? `/${slug}/videos/${activeVideoId}` : "#";
+    }
     return slug ? `/${slug}${item.href}` : "#";
+  }
+
+  function buildSubItemHref(subItem: NavSubItem) {
+    if (!slug || !activeVideoId) return slug ? `/${slug}/videos` : "#";
+    return `/${slug}/videos/${activeVideoId}?tab=${subItem.tabParam}`;
   }
 
   function isActive(href: string) {
     return href !== "#" && (pathname === href || pathname.startsWith(href + "/"));
   }
 
+  function isStudioActive() {
+    // Video Studio is active when we're on /videos/[id] (the workspace)
+    if (!slug) return false;
+    const videoStudioPattern = `/${slug}/videos/`;
+    return pathname.startsWith(videoStudioPattern) && pathname !== `/${slug}/videos`;
+  }
+
+  function isSubItemActive(subItem: NavSubItem) {
+    if (!isStudioActive()) return false;
+    const currentTab = searchParams.get("tab") || "copy";
+    return currentTab === subItem.tabParam;
+  }
+
   function isSectionActive(section: NavSection) {
-    return section.items.some((item) => isActive(buildHref(item)));
+    return section.items.some((item) => {
+      if (item.subItems) return isStudioActive();
+      return isActive(buildHref(item));
+    });
   }
 
   return (
@@ -318,47 +363,86 @@ export function Sidebar() {
                   <div className={cn("pb-1", !sidebarCollapsed && "px-1")}>
                     {section.items.map((item) => {
                       const href = buildHref(item);
-                      const active = isActive(href);
+                      const active = item.subItems ? isStudioActive() : isActive(href);
                       const disabled = href === "#";
+                      const hasSubItems = item.subItems && !sidebarCollapsed;
 
                       return (
-                        <Link
-                          key={`${section.key}-${item.name}`}
-                          href={href}
-                          onClick={disabled ? (e) => e.preventDefault() : undefined}
-                          className={cn(
-                            "flex items-center gap-3 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 relative",
-                            active
-                              ? "text-white"
-                              : disabled
-                                ? "text-muted-foreground/40 cursor-not-allowed"
-                                : "text-sidebar-foreground hover:text-foreground hover:bg-white/[0.04]",
-                            sidebarCollapsed && "justify-center px-2"
-                          )}
-                          style={
-                            active
-                              ? {
-                                  backgroundColor: `${color}18`,
-                                  color: color,
+                        <div key={`${section.key}-${item.name}`}>
+                          <Link
+                            href={href}
+                            onClick={disabled ? (e) => e.preventDefault() : undefined}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 relative",
+                              active
+                                ? "text-white"
+                                : disabled
+                                  ? "text-muted-foreground/40 cursor-not-allowed"
+                                  : "text-sidebar-foreground hover:text-foreground hover:bg-white/[0.04]",
+                              sidebarCollapsed && "justify-center px-2"
+                            )}
+                            style={
+                              active
+                                ? {
+                                    backgroundColor: `${color}18`,
+                                    color: color,
+                                  }
+                                : undefined
+                            }
+                            title={sidebarCollapsed ? item.name : undefined}
+                          >
+                            {/* Active indicator bar */}
+                            {active && !sidebarCollapsed && (
+                              <span
+                                className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full"
+                                style={{ backgroundColor: color }}
+                              />
+                            )}
+                            <span style={active ? { color } : undefined}>
+                              <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+                            </span>
+                            {!sidebarCollapsed && (
+                              <span className="truncate">{item.name}</span>
+                            )}
+                          </Link>
+
+                          {/* Sub-items for Video Studio */}
+                          {hasSubItems && active && item.subItems!.map((subItem) => {
+                            const subHref = buildSubItemHref(subItem);
+                            const subActive = isSubItemActive(subItem);
+                            const SubIcon = subItem.icon;
+
+                            return (
+                              <Link
+                                key={subItem.tabParam}
+                                href={subHref}
+                                className={cn(
+                                  "flex items-center gap-2.5 pl-9 pr-3 py-1 rounded-md text-xs font-medium transition-all duration-200 relative",
+                                  subActive
+                                    ? "text-foreground"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                                )}
+                                style={
+                                  subActive
+                                    ? {
+                                        backgroundColor: `${color}12`,
+                                        color: color,
+                                      }
+                                    : undefined
                                 }
-                              : undefined
-                          }
-                          title={sidebarCollapsed ? item.name : undefined}
-                        >
-                          {/* Active indicator bar */}
-                          {active && !sidebarCollapsed && (
-                            <span
-                              className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full"
-                              style={{ backgroundColor: color }}
-                            />
-                          )}
-                          <span style={active ? { color } : undefined}>
-                            <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
-                          </span>
-                          {!sidebarCollapsed && (
-                            <span className="truncate">{item.name}</span>
-                          )}
-                        </Link>
+                              >
+                                {subActive && (
+                                  <span
+                                    className="absolute left-5 top-1/2 -translate-y-1/2 w-[2px] h-3 rounded-r-full"
+                                    style={{ backgroundColor: color }}
+                                  />
+                                )}
+                                <SubIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span className="truncate">{subItem.name}</span>
+                              </Link>
+                            );
+                          })}
+                        </div>
                       );
                     })}
                   </div>
