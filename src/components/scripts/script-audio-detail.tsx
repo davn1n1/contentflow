@@ -1691,7 +1691,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
               </div>
 
               {/* ── Observaciones — colors from resumen emojis ── */}
-              {(scene.solo_observaciones || scene.comparativa_transcript_original || scene.informe_guardarailes || scene.montaje_copy_con_observaciones || scene.conclusion_general_datos_difieren_mucho || scene.palabras_conflictivas) && (() => {
+              {(scene.solo_observaciones || scene.comparativa_transcript_original || scene.informe_guardarailes) && (() => {
                 // Resumen emojis map 1:1: [Observaciones, Comparativa, Guardaraíles]
                 const [obsLevel, compLevel, guardLevel] = parseResumenEmojis(scene.informe_resumen_emoticonos);
                 return (
@@ -1739,44 +1739,6 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
                     );
                   })()}
                   </div>
-                  {/* Secondary fields */}
-                  {(scene.montaje_copy_con_observaciones || scene.conclusion_general_datos_difieren_mucho || scene.palabras_conflictivas) && (
-                    <div className="grid grid-cols-3 gap-1.5">
-                    {scene.montaje_copy_con_observaciones && (() => {
-                      const c = OBS_COLORS[getWarningLevel(scene.montaje_copy_con_observaciones)];
-                      return (
-                        <div className={cn("rounded border p-2", c.border, c.bg)} title="El texto combinado con el informe.">
-                          <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Copy c/ Obs</p>
-                          <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed", c.text)}>
-                            {scene.montaje_copy_con_observaciones}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    {scene.conclusion_general_datos_difieren_mucho && (() => {
-                      const c = OBS_COLORS[getWarningLevel(scene.conclusion_general_datos_difieren_mucho)];
-                      return (
-                        <div className={cn("rounded border p-2", c.border, c.bg)}>
-                          <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Conclusión</p>
-                          <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed", c.text)}>
-                            {scene.conclusion_general_datos_difieren_mucho}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    {scene.palabras_conflictivas && (() => {
-                      const c = OBS_COLORS.error;
-                      return (
-                        <div className={cn("rounded border p-2", c.border, c.bg)}>
-                          <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Conflictivas</p>
-                          <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed", c.text)}>
-                            {scene.palabras_conflictivas}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    </div>
-                  )}
                 </div>
                 );
               })()}
