@@ -26,7 +26,7 @@ export default function ThumbnailsPage() {
   }, [urlVideoId, activeVideoId, setActiveVideo]);
 
   const { data: videoDetail } = useVideoDetail(videoId);
-  const { data: drafts = [], isLoading } = useDraftPublicacion(videoId);
+  const { data: drafts = [], isLoading } = useDraftPublicacion(videoDetail?.draft_publicacion_ids);
 
   const [selectedDraft, setSelectedDraft] = useState<DraftPublicacion | null>(null);
 

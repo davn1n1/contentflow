@@ -8,10 +8,10 @@ import {
   CheckCircle2, XCircle, Clock, Hash,
   Volume2, Calendar, ExternalLink, Lightbulb,
   Save, AlertCircle, Users, UserCog,
-  Cpu, Zap, Shield, Play,
+  Cpu, Zap, Shield, Play, Info,
+  ChevronDown, Twitter, Newspaper, ImageIcon,
 } from "lucide-react";
 import type { VideoWithScenes, LinkedIdea, LinkedIdeaFull, SceneDetail } from "@/lib/hooks/use-video-detail";
-import { ChevronDown, Twitter, Newspaper, ImageIcon } from "lucide-react";
 import { LinkedRecordPicker } from "./linked-record-picker";
 
 interface ScriptAudioDetailProps {
@@ -926,7 +926,7 @@ function useSceneAutoSave(sceneId: string, field: string, delay = 800) {
   const queryClient = useQueryClient();
 
   const save = useCallback(
-    (value: string) => {
+    (value: string | boolean) => {
       if (timerRef.current) clearTimeout(timerRef.current);
       setSaved(false);
       timerRef.current = setTimeout(async () => {
@@ -1350,12 +1350,12 @@ function AudioSceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
             <tr className="border-b border-border bg-muted/30">
               <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">#</th>
               <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Tipo</th>
-              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold min-w-[120px]">Script</th>
               <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">
                 <Volume2 className="w-3 h-3 mx-auto" />
               </th>
+              <th className="text-left px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-20">Status</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold min-w-[120px]">Script</th>
               <th className="text-right px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12">Dur.</th>
-              <th className="text-left px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Status</th>
               <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">OK</th>
               <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8" title="Analisis Voz 1">V1</th>
               <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8" title="Analisis Voz 2">V2</th>
@@ -1390,27 +1390,57 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   expandedRef?: React.RefObject<HTMLTableRowElement | null>;
 }) {
   const [scriptElValue, setScriptElValue] = useState(scene.script_elevenlabs || "");
-  const { save: saveScriptEl, saving, saved } = useSceneAutoSave(scene.id, "Script Elevenlabs");
+  const { save: saveScriptEl, saving: savingScript, saved: savedScript } = useSceneAutoSave(scene.id, "Script Elevenlabs");
+  const [feedbackValue, setFeedbackValue] = useState(scene.feedback_audio || "");
+  const { save: saveFeedback, saving: savingFeedback, saved: savedFeedback } = useSceneAutoSave(scene.id, "Feedback Audio Elevenlabs");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const feedbackRef = useRef<HTMLTextAreaElement>(null);
   const [activeVozTab, setActiveVozTab] = useState<1 | 2 | 3>(1);
+  const [audioRevisado, setAudioRevisado] = useState(scene.audio_revisado_ok);
+  const { save: saveRevisado } = useSceneAutoSave(scene.id, "Audio Revisado OK");
 
   // Sync local state when scene data changes from server
   useEffect(() => {
     setScriptElValue(scene.script_elevenlabs || "");
   }, [scene.script_elevenlabs]);
+  useEffect(() => {
+    setFeedbackValue(scene.feedback_audio || "");
+  }, [scene.feedback_audio]);
+  useEffect(() => {
+    setAudioRevisado(scene.audio_revisado_ok);
+  }, [scene.audio_revisado_ok]);
 
-  // Auto-resize textarea
+  // Auto-resize textareas
   useEffect(() => {
     if (isExpanded && textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
     }
   }, [isExpanded, scriptElValue]);
+  useEffect(() => {
+    if (isExpanded && feedbackRef.current) {
+      feedbackRef.current.style.height = "auto";
+      feedbackRef.current.style.height = feedbackRef.current.scrollHeight + "px";
+    }
+  }, [isExpanded, feedbackValue]);
 
   const handleScriptElChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setScriptElValue(val);
     saveScriptEl(val);
+  };
+
+  const handleFeedbackChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setFeedbackValue(val);
+    saveFeedback(val);
+  };
+
+  const toggleRevisado = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !audioRevisado;
+    setAudioRevisado(next);
+    saveRevisado(next);
   };
 
   // Handle keyboard in textarea
@@ -1466,9 +1496,6 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
         <td className="px-2 py-2.5">
           <SceneTypeBadge type={scene.clasificación_escena} />
         </td>
-        <td className="px-2 py-2.5">
-          <p className="text-xs text-foreground/80 line-clamp-1 leading-relaxed">{scriptPreview}</p>
-        </td>
         <td className="px-1 py-2.5 text-center">
           {scene.voice_s3 ? (
             <Volume2 className="w-3.5 h-3.5 text-emerald-400 mx-auto" />
@@ -1476,15 +1503,14 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
             <span className="text-muted-foreground/30 text-xs">—</span>
           )}
         </td>
+        <td className="px-1 py-2.5">
+          <AudioStatusTag status={scene.status_audio} />
+        </td>
+        <td className="px-2 py-2.5">
+          <p className="text-xs text-foreground/80 line-clamp-1 leading-relaxed">{scriptPreview}</p>
+        </td>
         <td className="px-1 py-2.5 text-right text-xs text-muted-foreground">
           {scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
-        </td>
-        <td className="px-1 py-2.5">
-          {scene.status_audio ? (
-            <span className="text-[10px] text-muted-foreground truncate block max-w-[60px]">{scene.status_audio}</span>
-          ) : (
-            <span className="text-muted-foreground/30 text-xs">—</span>
-          )}
         </td>
         <td className="px-1 py-2.5 text-center">
           {scene.audio_revisado_ok ? (
@@ -1510,116 +1536,192 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
         </td>
       </tr>
 
-      {/* Expanded detail */}
+      {/* Expanded detail — flat layout, everything visible at a glance */}
       {isExpanded && (
         <tr className="bg-emerald-500/5">
           <td colSpan={11} className="px-4 py-4">
-            <div className="space-y-3 max-w-4xl">
-              {/* Two-column layout: Script + Audio player */}
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
-                {/* Left: Editable Script ElevenLabs */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script ElevenLabs</span>
-                    <span className="text-[10px] text-muted-foreground/50">
-                      {saving ? (
-                        <span className="flex items-center gap-1 text-amber-400">
-                          <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
-                        </span>
-                      ) : saved ? (
-                        <span className="flex items-center gap-1 text-emerald-400">
-                          <CheckCircle2 className="w-3 h-3" /> Guardado
-                        </span>
-                      ) : (
-                        <span>Esc para salir · ↑↓ navegar</span>
-                      )}
-                    </span>
-                  </div>
-                  <textarea
-                    ref={textareaRef}
-                    value={scriptElValue}
-                    onChange={handleScriptElChange}
-                    onKeyDown={handleTextareaKeyDown}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none transition-colors text-xs"
-                    rows={4}
-                  />
-                </div>
+            <div className="space-y-4 max-w-4xl">
 
-                {/* Right: Audio player + metadata */}
-                <div className="space-y-3">
-                  {scene.voice_s3 && (
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Audio</span>
-                      <audio
-                        controls
-                        src={scene.voice_s3}
-                        className="w-full mt-1 h-8"
-                        onClick={(e) => e.stopPropagation()}
-                      />
+              {/* ── Row 1: Análisis Voz + Audio player + Revisado OK ── */}
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+                {/* Left: Análisis Voz V1/V2/V3 */}
+                <div>
+                  {hasAnyVoz && (
+                    <>
+                      <div className="flex items-center gap-1 mb-2">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-2">Análisis Voz</span>
+                        {[1, 2, 3].map((n) => {
+                          const text = vozTexts[n - 1];
+                          const emoji = extractEmoji(text);
+                          return (
+                            <button
+                              key={n}
+                              onClick={(e) => { e.stopPropagation(); setActiveVozTab(n as 1 | 2 | 3); }}
+                              className={cn(
+                                "flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors",
+                                activeVozTab === n
+                                  ? "bg-emerald-500/20 text-emerald-400"
+                                  : text
+                                    ? "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                    : "text-muted-foreground/30 cursor-default"
+                              )}
+                              disabled={!text}
+                            >
+                              V{n} {emoji !== "—" && <span className="text-sm">{emoji}</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {activeVozText && (
+                        <p className="text-xs whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 max-h-32 overflow-y-auto">
+                          {activeVozText}
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {!hasAnyVoz && (
+                    <div className="bg-muted/20 rounded-lg p-3 text-center">
+                      <p className="text-xs text-muted-foreground/50">Sin análisis de voz</p>
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-2">
-                    {scene.voice_length != null && (
-                      <div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Duración</span>
-                        <p className="text-sm mt-0.5">{scene.voice_length.toFixed(1)}s</p>
-                      </div>
-                    )}
-                    {scene.status_audio && (
-                      <div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status</span>
-                        <p className="text-sm mt-0.5">{scene.status_audio}</p>
-                      </div>
-                    )}
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Revisado</span>
-                      <p className="text-sm mt-0.5">{scene.audio_revisado_ok ? "✅ Sí" : "❌ No"}</p>
+                </div>
+
+                {/* Right: Audio player + Duration + Revisado OK toggle */}
+                <div className="space-y-2">
+                  {scene.voice_s3 ? (
+                    <audio
+                      controls
+                      src={scene.voice_s3}
+                      className="w-full h-10"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <div className="bg-muted/30 rounded-lg p-3 text-center">
+                      <Volume2 className="w-5 h-5 text-muted-foreground/30 mx-auto" />
+                      <p className="text-[10px] text-muted-foreground/40 mt-0.5">Sin audio</p>
                     </div>
-                    {scene.clasificación_escena && (
-                      <div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Tipo</span>
-                        <p className="mt-0.5"><SceneTypeBadge type={scene.clasificación_escena} /></p>
-                      </div>
-                    )}
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">
+                      {scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
+                    </span>
+                    <button
+                      onClick={toggleRevisado}
+                      className={cn(
+                        "flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors",
+                        audioRevisado
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                      )}
+                    >
+                      {audioRevisado ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                      {audioRevisado ? "Revisado OK" : "No revisado"}
+                    </button>
                   </div>
                 </div>
               </div>
 
-              {/* Analisis Voz — Tabs V1/V2/V3 */}
-              {hasAnyVoz && (
+              {/* ── Row 2: Script ElevenLabs (editable) ── */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script ElevenLabs</span>
+                  <span className="text-[10px] text-muted-foreground/50">
+                    {savingScript ? (
+                      <span className="flex items-center gap-1 text-amber-400">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
+                      </span>
+                    ) : savedScript ? (
+                      <span className="flex items-center gap-1 text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3" /> Guardado
+                      </span>
+                    ) : (
+                      <span>Esc para salir</span>
+                    )}
+                  </span>
+                </div>
+                <textarea
+                  ref={textareaRef}
+                  value={scriptElValue}
+                  onChange={handleScriptElChange}
+                  onKeyDown={handleTextareaKeyDown}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none transition-colors text-xs"
+                  rows={4}
+                />
+              </div>
+
+              {/* ── Row 3: ElevenLabs Text v3 Enhanced (read-only) ── */}
+              {scene.elevenlabs_text_v3_enhanced && (
                 <div>
-                  <div className="flex items-center gap-1 mb-2">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-2">Análisis Voz</span>
-                    {[1, 2, 3].map((n) => {
-                      const text = vozTexts[n - 1];
-                      const emoji = extractEmoji(text);
-                      return (
-                        <button
-                          key={n}
-                          onClick={(e) => { e.stopPropagation(); setActiveVozTab(n as 1 | 2 | 3); }}
-                          className={cn(
-                            "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors",
-                            activeVozTab === n
-                              ? "bg-emerald-500/20 text-emerald-400"
-                              : text
-                                ? "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                                : "text-muted-foreground/30 cursor-default"
-                          )}
-                          disabled={!text}
-                        >
-                          V{n} {emoji !== "—" && <span className="text-sm">{emoji}</span>}
-                        </button>
-                      );
-                    })}
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">ElevenLabs Text v3 Enhanced</span>
+                    <InfoTooltip text="Si es V3 de Elevenlabs, muestra los tags de entonación." />
                   </div>
-                  {activeVozText && (
-                    <p className="text-xs whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3">
-                      {activeVozText}
-                    </p>
-                  )}
+                  <p className="text-xs whitespace-pre-wrap leading-relaxed bg-violet-500/10 rounded-lg p-3 text-foreground/80 max-h-40 overflow-y-auto">
+                    {scene.elevenlabs_text_v3_enhanced}
+                  </p>
                 </div>
               )}
+
+              {/* ── Row 4: Feedback Audio (editable) ── */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Feedback Audio</span>
+                    <InfoTooltip text="Si se usa la Voz V3 de Elevenlabs, se le puede dar indicaciones de la emoción o entonación." />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground/50">
+                    {savingFeedback ? (
+                      <span className="flex items-center gap-1 text-amber-400">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
+                      </span>
+                    ) : savedFeedback ? (
+                      <span className="flex items-center gap-1 text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3" /> Guardado
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+                <textarea
+                  ref={feedbackRef}
+                  value={feedbackValue}
+                  onChange={handleFeedbackChange}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      saveFeedback(feedbackValue);
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-500/20 resize-none transition-colors text-xs"
+                  rows={3}
+                  placeholder="Instrucciones para mejorar entonación, emoción o ritmo..."
+                />
+              </div>
+
+              {/* ── Row 5: Action button + Timing card ── */}
+              <div className="flex items-start gap-4">
+                {/* Action Button */}
+                <SceneActionButton sceneId={scene.id} />
+
+                {/* Timing card */}
+                <div className="flex-1 bg-muted/20 rounded-lg px-4 py-2.5 flex items-center gap-6">
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Duration</span>
+                    <p className="text-sm font-mono">{scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Start</span>
+                    <p className="text-sm font-mono">{scene.start != null ? formatMmSs(scene.start) : "—"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">End</span>
+                    <p className="text-sm font-mono">{scene.end != null ? formatMmSs(scene.end) : "—"}</p>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </td>
         </tr>
@@ -1969,6 +2071,27 @@ function SceneTypeBadge({ type }: { type: string | null }) {
   );
 }
 
+// Airtable Status Audio colors: Idle=blueLight2, Generating Audio=yellowBright, Audio Generated=greenBright, Audio Failed=redBright
+function AudioStatusTag({ status }: { status: string | null }) {
+  if (!status) return <span className="text-muted-foreground/30 text-xs">—</span>;
+  const s = status.toLowerCase();
+  let bg: string, text: string;
+  if (s.includes("generated") || s.includes("ok")) {
+    bg = "bg-emerald-500/15"; text = "text-emerald-400";
+  } else if (s.includes("generating") || s.includes("progress")) {
+    bg = "bg-yellow-500/15"; text = "text-yellow-400";
+  } else if (s.includes("fail") || s.includes("error")) {
+    bg = "bg-red-500/15"; text = "text-red-400";
+  } else {
+    bg = "bg-blue-500/15"; text = "text-blue-400"; // Idle
+  }
+  return (
+    <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap", bg, text)}>
+      {status}
+    </span>
+  );
+}
+
 function SceneStatusBadge({ status }: { status: string | null }) {
   if (!status) return null;
   const isFocus = status.toLowerCase() === "focus";
@@ -1989,4 +2112,88 @@ function formatSeconds(sec: number): string {
   const min = Math.floor(sec / 60);
   const s = Math.round(sec % 60);
   return min > 0 ? `${min}m ${s}s` : `${s}s`;
+}
+
+function formatMmSs(sec: number): string {
+  const min = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return `${min}:${s.toString().padStart(2, "0")}`;
+}
+
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="relative group inline-flex items-center">
+      <Info className="w-3 h-3 text-muted-foreground/50 cursor-help" />
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block z-50 w-56 px-2.5 py-1.5 text-[10px] leading-tight text-foreground bg-popover border border-border rounded-md shadow-lg">
+        {text}
+      </span>
+    </span>
+  );
+}
+
+function SceneActionButton({ sceneId }: { sceneId: string }) {
+  const [state, setState] = useState<"idle" | "confirming" | "executing" | "success" | "error">("idle");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (state === "confirming") {
+      timerRef.current = setTimeout(() => setState("idle"), 5000);
+      return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    }
+  }, [state]);
+
+  useEffect(() => {
+    if (state === "success" || state === "error") {
+      const t = setTimeout(() => setState("idle"), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [state]);
+
+  const handleClick = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (state === "idle") {
+      setState("confirming");
+      return;
+    }
+    if (state === "confirming") {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setState("executing");
+      try {
+        const res = await fetch("/api/webhooks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "ModificaAudioEscena", recordId: sceneId }),
+        });
+        setState(res.ok ? "success" : "error");
+      } catch {
+        setState("error");
+      }
+    }
+  }, [state, sceneId]);
+
+  const label = {
+    idle: "Modifica / Crea Audio Escena",
+    confirming: "Confirmar?",
+    executing: "Ejecutando...",
+    success: "Enviado",
+    error: "Error",
+  }[state];
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={state === "executing"}
+      className={cn(
+        "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap",
+        state === "idle" && "bg-blue-600 hover:bg-blue-500 text-white",
+        state === "confirming" && "bg-amber-500 hover:bg-amber-400 text-black",
+        state === "executing" && "bg-blue-600/50 text-white cursor-wait",
+        state === "success" && "bg-emerald-600 text-white",
+        state === "error" && "bg-red-600 text-white",
+      )}
+    >
+      {state === "executing" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Headphones className="w-3.5 h-3.5" />}
+      {label}
+    </button>
+  );
 }

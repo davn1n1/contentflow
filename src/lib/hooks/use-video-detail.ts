@@ -43,6 +43,7 @@ interface VideoDetail {
   status_copy_analysis: string | null;
   extension_palabras: number | null;
   estimated_duration: string | null;
+  draft_publicacion_ids: string[];
 }
 
 export interface SceneDetail {
@@ -69,6 +70,8 @@ export interface SceneDetail {
   analisis_voz_1: string | null;
   analisis_voz_2: string | null;
   analisis_voz_3: string | null;
+  feedback_audio: string | null;
+  elevenlabs_text_v3_enhanced: string | null;
 }
 
 export interface LinkedIdea {
