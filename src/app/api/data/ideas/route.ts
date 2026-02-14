@@ -67,7 +67,6 @@ export async function GET(request: NextRequest) {
     const tipoIdea = searchParams.get("tipoIdea");
     const search = searchParams.get("search");
     const favorita = searchParams.get("favorita");
-    const fuenteId = searchParams.get("fuenteId");
     const limit = parseInt(searchParams.get("limit") || "100");
 
     // Fetch multiple ideas by IDs
@@ -120,10 +119,6 @@ export async function GET(request: NextRequest) {
     if (favorita === "true") {
       filters.push(`{Favorita} = TRUE()`);
     }
-    if (fuenteId) {
-      filters.push(`FIND('${fuenteId}', ARRAYJOIN({Fuentes Inspiracion}, ','))`);
-    }
-
     // Always filter Long format (horizontal YouTube)
     filters.push(`{short/long} = 'Long'`);
 
