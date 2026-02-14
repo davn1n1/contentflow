@@ -3,8 +3,8 @@ import { airtableFetchByIds, TABLES } from "@/lib/airtable/client";
 import { authenticateApiRequest } from "@/lib/auth/api-guard";
 
 const SCENE_FIELDS = [
-  "N Escena", "Clasificación Escena", "Start", "End", "Duration",
-  "Script", "Script ElevenLabs", "Role", "Importance", "Camera",
+  "N. Escena", "Clasificación Escena", "Start", "End", "Duration",
+  "Script", "Role", "Importance", "Camera",
   "Slide", "Broll", "Topic", "Status", "URL Slide S3",
   "URL Camera S3", "Voice S3", "Voice Length",
   "Status Audio", "Status Camera", "Status Script",
@@ -13,13 +13,12 @@ const SCENE_FIELDS = [
 ];
 
 interface SceneFields {
-  "N Escena"?: number;
+  "N. Escena"?: string;
   "Clasificación Escena"?: string;
   Start?: number;
   End?: number;
   Duration?: number;
   Script?: string;
-  "Script ElevenLabs"?: string;
   Role?: string;
   Importance?: string;
   Camera?: string[];
@@ -64,13 +63,13 @@ export async function GET(request: NextRequest) {
       .map((r) => ({
         id: r.id,
         account_id: null,
-        n_escena: r.fields["N Escena"] || 0,
+        n_escena: parseInt(r.fields["N. Escena"] || "0", 10),
         clasificación_escena: r.fields["Clasificación Escena"] || null,
         start: r.fields.Start || null,
         end: r.fields.End || null,
         duration: r.fields.Duration || null,
         script: r.fields.Script || null,
-        script_elevenlabs: r.fields["Script ElevenLabs"] || null,
+        script_elevenlabs: null,
         role: r.fields.Role || null,
         importance: r.fields.Importance || null,
         camera: null,
