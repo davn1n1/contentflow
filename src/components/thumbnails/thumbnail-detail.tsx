@@ -120,11 +120,8 @@ export function ThumbnailDetail({ draft, open, onOpenChange, onVariationsTrigger
 
   const handleCreateVariations = () => {
     if (!draft) return;
-    const videoId = draft.video_ids[0];
-    if (videoId) {
-      triggerVariations({ recordId: videoId });
-      onVariationsTriggered?.();
-    }
+    triggerVariations({ recordId: draft.id });
+    onVariationsTriggered?.();
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -411,7 +408,7 @@ export function ThumbnailDetail({ draft, open, onOpenChange, onVariationsTrigger
           <div className="space-y-2">
             <button
               onClick={handleCreateVariations}
-              disabled={isTriggering || draft.video_ids.length === 0}
+              disabled={isTriggering}
               className={cn(
                 "w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all",
                 isTriggering
