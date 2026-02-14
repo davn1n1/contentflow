@@ -24,6 +24,8 @@ const ALLOWED_TABLES: Record<string, string> = {
   campanas: TABLES.CAMPANAS,
   expresiones: TABLES.EXPRESIONES_MINIATURAS,
   "montaje-video": TABLES.MONTAJE_VIDEO,
+  "formato-diseno-slides": TABLES.FORMATO_DISENO_SLIDES,
+  "estilos-musicales": TABLES.ESTILOS_MUSICALES,
 };
 
 // Resolve account name from record ID (cached per request)

@@ -49,6 +49,9 @@ interface VideoDetail {
   extension_palabras: number | null;
   estimated_duration: string | null;
   draft_publicacion_ids: string[];
+  // Montaje fields
+  formato_diseno_slides_ids: string[];
+  estilo_musical_ids: string[];
 }
 
 export interface SceneDetail {
@@ -77,6 +80,14 @@ export interface SceneDetail {
   analisis_voz_3: string | null;
   feedback_audio: string | null;
   elevenlabs_text_v3_enhanced: string | null;
+  // Montaje / Slide fields
+  slide: string | null;
+  slide_full: string | null;
+  slide_activa: boolean;
+  status_slide: string | null;
+  slide_engine: string | null;
+  feedback_slide: string | null;
+  prompt_slide: string | null;
 }
 
 export interface LinkedIdea {
@@ -135,6 +146,8 @@ export interface VideoWithScenes extends VideoDetail {
   linkedCtaBrolls: LinkedRecord[];
   linkedSponsors: LinkedRecord[];
   linkedComentarioPineado: LinkedRecord[];
+  linkedFormatoDisenoSlides: LinkedRecord | null;
+  linkedEstiloMusical: LinkedRecord | null;
 }
 
 // Fetch a single linked record from app-data
@@ -234,6 +247,7 @@ export function useVideoDetail(videoId: string | null) {
         scenes, linkedIdea, linkedIdeas, linkedAvatarSet, linkedPersona,
         linkedIntros, linkedCtas, linkedIntroBrolls, linkedCtaBrolls,
         linkedSponsors, linkedComentarioPineado,
+        linkedFormatoDisenoSlides, linkedEstiloMusical,
       ] = await Promise.all([
         // Scenes
         (async () => {
@@ -303,12 +317,43 @@ export function useVideoDetail(videoId: string | null) {
         fetchLinkedRecords("sponsors", video.sponsor_ids),
         // Comentario Pineado
         fetchLinkedRecords("comentario-pineado", video.comentario_pineado_ids),
+        // Formato Diseño Slides
+        (async () => {
+          if (video.formato_diseno_slides_ids?.length > 0) {
+            const data = await fetchLinkedRecord("formato-diseno-slides", video.formato_diseno_slides_ids[0]);
+            if (data) {
+              return {
+                id: data.id,
+                name: data["Formato Diseño"] || findTextField(data) || null,
+                image_url: extractImageUrl(data, "Muestra"),
+                status: null,
+              } as LinkedRecord;
+            }
+          }
+          return null;
+        })(),
+        // Estilo Musical
+        (async () => {
+          if (video.estilo_musical_ids?.length > 0) {
+            const data = await fetchLinkedRecord("estilos-musicales", video.estilo_musical_ids[0]);
+            if (data) {
+              return {
+                id: data.id,
+                name: data["style_es"] || data["style_key"] || findTextField(data) || null,
+                image_url: extractImageUrl(data, "Muestra"),
+                status: null,
+              } as LinkedRecord;
+            }
+          }
+          return null;
+        })(),
       ]);
 
       return {
         ...video, scenes, linkedIdea, linkedIdeas, linkedAvatarSet, linkedPersona,
         linkedIntros, linkedCtas, linkedIntroBrolls, linkedCtaBrolls,
         linkedSponsors, linkedComentarioPineado,
+        linkedFormatoDisenoSlides, linkedEstiloMusical,
       };
     },
     enabled: !!videoId,

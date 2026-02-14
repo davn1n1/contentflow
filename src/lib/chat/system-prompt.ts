@@ -34,20 +34,52 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
   "/onboarding": "el proceso de Onboarding",
 };
 
+/** Video Studio tab descriptions (unified video detail page) */
+const STUDIO_TAB_DESCRIPTIONS: Record<string, string> = {
+  copy: "la pestana de Copy/Script del Video Studio (generacion de guion con IA)",
+  audio: "la pestana de Audio del Video Studio (generacion de voz con ElevenLabs)",
+  montaje: "la pestana de Montaje Video del Video Studio (creacion de avatares con HeyGen)",
+  miniaturas: "la pestana de Miniaturas del Video Studio (thumbnails, titulos y comentarios)",
+  render: "la pestana de Render del Video Studio (render final con Shotstack y publicacion)",
+};
+
+const STUDIO_SUBTAB_DESCRIPTIONS: Record<string, string> = {
+  script: "la sub-pestana de Script & Copy (guion del video)",
+  ideas: "la sub-pestana de Ideas & Research (ideas de contenido vinculadas)",
+};
+
 function describeCurrentPage(pathname: string): string {
+  // Parse tab/subtab from query string if present (e.g., /videos/123?tab=audio)
+  const [basePath, queryString] = pathname.split("?");
+
+  // Check Video Studio tabs first (unified page /videos/[id]?tab=X)
+  if (queryString && /\/videos\/[^/]+$/.test(basePath)) {
+    const params = new URLSearchParams(queryString);
+    const tab = params.get("tab");
+    const subtab = params.get("subtab");
+
+    if (tab && STUDIO_TAB_DESCRIPTIONS[tab]) {
+      let desc = STUDIO_TAB_DESCRIPTIONS[tab];
+      if (subtab && STUDIO_SUBTAB_DESCRIPTIONS[subtab]) {
+        desc += ` — ${STUDIO_SUBTAB_DESCRIPTIONS[subtab]}`;
+      }
+      return desc;
+    }
+  }
+
   // Try exact match first (without dynamic segments)
   for (const [pattern, description] of Object.entries(PAGE_DESCRIPTIONS)) {
-    if (pathname.endsWith(pattern) || pathname.includes(pattern + "/")) {
+    if (basePath.endsWith(pattern) || basePath.includes(pattern + "/")) {
       return description;
     }
   }
 
   // Dynamic route patterns
-  if (/\/videos\/[^/]+$/.test(pathname)) return "el detalle de un Video especifico";
-  if (/\/scenes\/[^/]+$/.test(pathname)) return "las Escenas de un video especifico";
-  if (/\/remotion\/[^/]+$/.test(pathname)) return "el preview Remotion de un video especifico";
+  if (/\/videos\/[^/]+$/.test(basePath)) return "el Video Studio (detalle de un video especifico)";
+  if (/\/scenes\/[^/]+$/.test(basePath)) return "las Escenas de un video especifico";
+  if (/\/remotion\/[^/]+$/.test(basePath)) return "el preview Remotion de un video especifico";
 
-  return `la pagina ${pathname}`;
+  return `la pagina ${basePath}`;
 }
 
 export function buildSystemPrompt(
@@ -88,12 +120,14 @@ Los videos pasan por estos estados en cada fase:
 
 **Research** — Ideas de contenido obtenidas de YouTube, tendencias y fuentes de inspiracion. El usuario selecciona una idea y crea un nuevo video.
 
-**Script & Audio** — Muestra el pipeline del video con 3 pestanas:
-- Script & Copy: titulo, contenido, feedback IA, tags
-- Audio: escenas con estado de audio, duracion, revision
-- Escenas: cada escena con su script, clasificacion, importancia y B-roll asignado
-
 **Videos** — Lista de todos los videos con estado del pipeline, filtros por estado y busqueda.
+
+**Video Studio** — Pagina unificada de produccion con 5 pestanas (tabs):
+- **Copy** (tab=copy): Script & Copy generado por IA. Sub-pestanas: Script & Copy (guion) e Ideas & Research (ideas vinculadas)
+- **Audio** (tab=audio): Generacion de voz con ElevenLabs, estado por escena, duracion
+- **Montaje Video** (tab=montaje): Creacion de avatares con HeyGen por escena
+- **Miniaturas** (tab=miniaturas): Thumbnails (portadas), titulos y comentarios para YouTube
+- **Render** (tab=render): Render final con Shotstack, publicacion en YouTube, timeline Remotion
 
 **Remotion Preview** — Previsualizacion del video final antes de publicar, con todas las capas (avatares, slides, B-roll, audio).
 

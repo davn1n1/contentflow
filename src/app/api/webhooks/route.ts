@@ -5,6 +5,11 @@ const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || "https://fxforaliving.app
 const N8N_WEBHOOK_AUTH_HEADER = process.env.N8N_WEBHOOK_AUTH_HEADER || "X-Api-Key";
 const N8N_WEBHOOK_AUTH_VALUE = process.env.N8N_WEBHOOK_AUTH_VALUE || "";
 
+// Actions with their own direct webhooks (bypass orchestrator)
+const DIRECT_WEBHOOKS: Record<string, string> = {
+  ModificaSlide: "https://fxforaliving.app.n8n.cloud/webhook/ModificaSlide",
+};
+
 export async function POST(request: Request) {
   const auth = await authenticateApiRequest();
   if ("error" in auth) return auth.error;
@@ -20,7 +25,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const url = `${N8N_WEBHOOK_URL}?action=${encodeURIComponent(action)}&recordID=${encodeURIComponent(recordId)}`;
+    // Use direct webhook URL if available, otherwise go through orchestrator
+    const baseUrl = DIRECT_WEBHOOKS[action] || N8N_WEBHOOK_URL;
+    const url = DIRECT_WEBHOOKS[action]
+      ? `${baseUrl}?recordID=${encodeURIComponent(recordId)}`
+      : `${baseUrl}?action=${encodeURIComponent(action)}&recordID=${encodeURIComponent(recordId)}`;
 
     const headers: Record<string, string> = {};
     if (N8N_WEBHOOK_AUTH_VALUE) {

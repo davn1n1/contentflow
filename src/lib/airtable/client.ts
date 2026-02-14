@@ -29,6 +29,8 @@ export const TABLES = {
   DRAFT_PUBLICACION: "tbltxqsZK5lzHP98R",
   EXPRESIONES_MINIATURAS: "tbliunY5HiSCKBO45",
   MONTAJE_VIDEO: "tblWxMWmOPH1ji5td",
+  FORMATO_DISENO_SLIDES: "tblfVdoehsdbjxmoq",
+  ESTILOS_MUSICALES: "tblb9FDBMdxF6IFjT",
 } as const;
 
 interface AirtableResponse<T = Record<string, unknown>> {

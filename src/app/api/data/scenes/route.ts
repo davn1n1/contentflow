@@ -12,6 +12,9 @@ const SCENE_FIELDS = [
   "Informe_Resumen_Emoticonos", "solo_observaciones",
   "Script Elevenlabs", "Analisis Voz 1", "Analisis Voz 2", "Analisis Voz 3",
   "Feedback Audio Elevenlabs", "ElevenLabs Text v3 Enhanced",
+  // Montaje / Slide fields
+  "Slide Activa", "StatusSlide", "SlideEngine",
+  "Feedback Slide", "Prompt Slide",
 ];
 
 interface SceneFields {
@@ -24,7 +27,7 @@ interface SceneFields {
   Role?: string;
   Importance?: string;
   Camera?: string[];
-  Slide?: string;
+  Slide?: { url: string; thumbnails?: { large?: { url: string } } }[];
   Broll?: string;
   Topic?: string;
   Status?: string;
@@ -45,6 +48,12 @@ interface SceneFields {
   "Analisis Voz 3"?: string;
   "Feedback Audio Elevenlabs"?: string;
   "ElevenLabs Text v3 Enhanced"?: string;
+  // Montaje / Slide fields
+  "Slide Activa"?: boolean;
+  "StatusSlide"?: string;
+  "SlideEngine"?: string;
+  "Feedback Slide"?: string;
+  "Prompt Slide"?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -81,7 +90,8 @@ export async function GET(request: NextRequest) {
         role: r.fields.Role || null,
         importance: r.fields.Importance || null,
         camera: null,
-        slide: r.fields.Slide || null,
+        slide: r.fields.Slide?.[0]?.thumbnails?.large?.url || r.fields.Slide?.[0]?.url || null,
+        slide_full: r.fields.Slide?.[0]?.url || null,
         broll: r.fields.Broll || null,
         topic: r.fields.Topic || null,
         status: r.fields.Status || null,
@@ -103,6 +113,12 @@ export async function GET(request: NextRequest) {
         analisis_voz_3: r.fields["Analisis Voz 3"] || null,
         feedback_audio: r.fields["Feedback Audio Elevenlabs"] || null,
         elevenlabs_text_v3_enhanced: r.fields["ElevenLabs Text v3 Enhanced"] || null,
+        // Montaje / Slide fields
+        slide_activa: r.fields["Slide Activa"] || false,
+        status_slide: r.fields["StatusSlide"] || null,
+        slide_engine: r.fields["SlideEngine"] || null,
+        feedback_slide: r.fields["Feedback Slide"] || null,
+        prompt_slide: r.fields["Prompt Slide"] || null,
         camera_table_id: null,
         audio_id: null,
       }))

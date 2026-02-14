@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { MessageCircle, X, Minus } from "lucide-react";
@@ -16,7 +16,18 @@ export function ChatWidget() {
     useChatStore();
   const { currentAccount } = useAccountStore();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [inputValue, setInputValue] = useState("");
+
+  // Build full page context: pathname + tab/subtab for unified pages
+  const pageContext = useMemo(() => {
+    const tab = searchParams.get("tab");
+    const subtab = searchParams.get("subtab");
+    if (tab) {
+      return subtab ? `${pathname}?tab=${tab}&subtab=${subtab}` : `${pathname}?tab=${tab}`;
+    }
+    return pathname;
+  }, [pathname, searchParams]);
 
   const transport = useMemo(
     () =>
@@ -26,10 +37,10 @@ export function ChatWidget() {
           conversationId,
           accountId: currentAccount?.airtable_id || currentAccount?.id,
           accountName: currentAccount?.name,
-          pathname,
+          pathname: pageContext,
         },
       }),
-    [conversationId, currentAccount, pathname]
+    [conversationId, currentAccount, pageContext]
   );
 
   const {

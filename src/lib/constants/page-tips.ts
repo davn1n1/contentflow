@@ -3,7 +3,8 @@
  * Each entry maps a route pattern to a tip description and relevant help article slugs.
  * Article slugs reference help_articles.slug in Supabase.
  *
- * Shown once per page when a user visits for the first time.
+ * Shown once per page/tab when a user visits for the first time.
+ * For the Video Studio, tips are per-tab (e.g., "studio:copy", "studio:audio").
  */
 
 export interface PageTip {
@@ -43,6 +44,33 @@ export const PAGE_TIPS: Record<string, PageTip> = {
   "/renders": {
     description:
       "Renders muestra el estado del render final y publicacion en YouTube. Este es el ultimo paso del pipeline.",
+    articleSlugs: ["render-final-publicacion"],
+  },
+
+  // Video Studio tabs (unified video detail page)
+  "studio:copy": {
+    description:
+      "En la pestana Copy se genera el guion del video con IA. Revisa el script, las escenas y el feedback antes de pasar a Audio.",
+    articleSlugs: ["crear-copy-guion", "configurar-voicedna"],
+  },
+  "studio:audio": {
+    description:
+      "En la pestana Audio se genera la voz con ElevenLabs para cada escena. Puedes revisar y regenerar escenas individuales.",
+    articleSlugs: ["generar-audio"],
+  },
+  "studio:montaje": {
+    description:
+      "En Montaje Video se crean los clips de avatar con HeyGen para cada escena. Verifica que los avatares esten configurados.",
+    articleSlugs: ["crear-video-avatares", "configurar-avatares"],
+  },
+  "studio:miniaturas": {
+    description:
+      "En Miniaturas puedes gestionar las portadas del video (thumbnails), titulos y comentarios para YouTube.",
+    articleSlugs: ["ver-detalle-video"],
+  },
+  "studio:render": {
+    description:
+      "En Render se ensambla el video final con Shotstack y se publica en YouTube automaticamente.",
     articleSlugs: ["render-final-publicacion"],
   },
 
@@ -161,14 +189,32 @@ export const PAGE_TIPS: Record<string, PageTip> = {
 };
 
 /**
- * Match a pathname to a page tip key.
- * Handles dynamic segments like /[client-slug]/ by checking endsWith/includes.
+ * Match a pathname (potentially with ?tab= query) to a page tip key.
+ * Handles:
+ * - Static routes: /dashboard, /app-data/avatares
+ * - Dynamic client slug: /acme/videos → matches /videos
+ * - Video Studio tabs: /acme/videos/123?tab=audio → matches "studio:audio"
  */
 export function matchPageTipKey(pathname: string): string | null {
+  const [basePath, queryString] = pathname.split("?");
+
+  // Check Video Studio tabs first (/videos/[id]?tab=X)
+  if (queryString && /\/videos\/[^/]+$/.test(basePath)) {
+    const params = new URLSearchParams(queryString);
+    const tab = params.get("tab");
+    if (tab) {
+      const key = `studio:${tab}`;
+      if (key in PAGE_TIPS) return key;
+    }
+  }
+
+  // Standard route matching
   for (const pattern of Object.keys(PAGE_TIPS)) {
-    if (pathname.endsWith(pattern) || pathname.includes(pattern + "/")) {
+    if (pattern.startsWith("studio:")) continue; // Skip studio keys for path matching
+    if (basePath.endsWith(pattern) || basePath.includes(pattern + "/")) {
       return pattern;
     }
   }
+
   return null;
 }

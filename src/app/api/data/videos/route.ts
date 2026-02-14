@@ -36,6 +36,9 @@ const VIDEO_FIELDS = [
   "Extensión Palabras",
   "Estimated Duration mm:ss",
   "Draft Publicacion",
+  // Montaje fields
+  "Formato Diseño Slides",
+  "Estilo Musical",
   // Listado Todos columns
   "Status YouTube Publishing",
   "URL Youtube",
@@ -101,6 +104,8 @@ interface VideoFields {
   "Extensión Palabras"?: number;
   "Estimated Duration mm:ss"?: string;
   "Draft Publicacion"?: string[];
+  "Formato Diseño Slides"?: string[];
+  "Estilo Musical"?: string[];
   "Status YouTube Publishing"?: string;
   "URL Youtube"?: string;
   "Logo (from AI Account)"?: { url: string; thumbnails?: { large?: { url: string } } }[];
@@ -258,6 +263,9 @@ function mapVideo(r: { id: string; createdTime: string; fields: VideoFields }) {
     extension_palabras: r.fields["Extensión Palabras"] ?? null,
     estimated_duration: r.fields["Estimated Duration mm:ss"] || null,
     draft_publicacion_ids: r.fields["Draft Publicacion"] || [],
+    // Montaje fields
+    formato_diseno_slides_ids: r.fields["Formato Diseño Slides"] || [],
+    estilo_musical_ids: r.fields["Estilo Musical"] || [],
     // Listado Todos fields
     status_youtube_publishing: r.fields["Status YouTube Publishing"] || null,
     url_youtube: r.fields["URL Youtube"] || null,

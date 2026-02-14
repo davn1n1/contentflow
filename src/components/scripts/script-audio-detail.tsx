@@ -849,7 +849,7 @@ export function TabAudio({ video }: { video: VideoWithScenes }) {
   return (
     <div className="space-y-6">
       {/* Audio Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-5 gap-3">
         <StatCard
           label="Escenas con Audio"
           value={`${scenesWithAudio}/${video.scenes.length}`}
@@ -866,19 +866,17 @@ export function TabAudio({ video }: { video: VideoWithScenes }) {
           icon={<Clock className="w-4 h-4" />}
         />
         <StatCard
+          label="Voice Length"
+          value={video.voice_length_minutes || "—"}
+          icon={<Clock className="w-4 h-4" />}
+        />
+        <StatCard
           label="Status Audio"
           value={video.status_audio ? "Completado" : "Pendiente"}
           icon={<Headphones className="w-4 h-4" />}
           highlight={video.status_audio}
         />
       </div>
-
-      {/* Voice Length Minutes */}
-      {video.voice_length_minutes && (
-        <InfoSection title="Voice Length">
-          <p className="text-lg font-bold font-mono">{video.voice_length_minutes}</p>
-        </InfoSection>
-      )}
 
       {/* ── ACTION: Crear Audio ── */}
       <ActionButton
