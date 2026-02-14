@@ -6,8 +6,26 @@ import {
   TABLES,
 } from "@/lib/airtable/client";
 import { inviteSupabaseUser } from "@/lib/auth/create-supabase-user";
+import { createClient } from "@supabase/supabase-js";
 
 const GHL_API_KEY = process.env.GHL_API_KEY || process.env.GHL_WEBHOOK_SECRET || "";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+async function logWebhookDebug(body: unknown, response: unknown) {
+  try {
+    await supabaseAdmin.from("webhook_debug_log").insert({
+      endpoint: "/api/webhooks/ghl-sale",
+      body,
+      response,
+    });
+  } catch {
+    // non-critical, don't fail the webhook
+  }
+}
 
 /**
  * Validates the request using multiple auth methods (in priority order):
@@ -42,6 +60,26 @@ const APP_PRODUCTS = ["content ia", "pro"];
  * Only processes Content IA and Pro products (ignores Bots IA).
  * Auth: Bearer token | X-Api-Key | X-Webhook-Secret (unified GHL_API_KEY)
  */
+/**
+ * GET /api/webhooks/ghl-sale?limit=5
+ * Debug: returns the last N webhook payloads received (auth required).
+ */
+export async function GET(request: Request) {
+  if (!authenticateWebhook(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const url = new URL(request.url);
+  const limit = Math.min(Number(url.searchParams.get("limit") || 10), 50);
+  const { data, error } = await supabaseAdmin
+    .from("webhook_debug_log")
+    .select("*")
+    .eq("endpoint", "/api/webhooks/ghl-sale")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ logs: data });
+}
+
 export async function POST(request: Request) {
   if (!authenticateWebhook(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -62,12 +100,9 @@ export async function POST(request: Request) {
 
     // Skip products that don't need app access (e.g. "Bots IA")
     if (plan && !APP_PRODUCTS.includes(plan.toLowerCase())) {
-      return NextResponse.json({
-        success: true,
-        status: "skipped",
-        reason: `Product "${plan}" does not require app user creation`,
-        _debug_received_body: body,
-      });
+      const resp = { success: true, status: "skipped", reason: `Product "${plan}" does not require app user creation` };
+      await logWebhookDebug(body, resp);
+      return NextResponse.json({ ...resp, _debug_received_body: body });
     }
 
     if (!contactEmail) {
@@ -101,15 +136,9 @@ export async function POST(request: Request) {
         });
       }
 
-      return NextResponse.json({
-        success: true,
-        status: "existing_user_updated",
-        user_airtable_id: userId,
-        account_airtable_id: accountId,
-        ...(plan && { plan }),
-        ...(phone && { phone }),
-        _debug_received_body: body,
-      });
+      const resp = { success: true, status: "existing_user_updated", user_airtable_id: userId, account_airtable_id: accountId, ...(plan && { plan }), ...(phone && { phone }) };
+      await logWebhookDebug(body, resp);
+      return NextResponse.json({ ...resp, _debug_received_body: body });
     }
 
     // --- NEW USER: create everything ---
@@ -144,18 +173,9 @@ export async function POST(request: Request) {
     if (!plan) warnings.push("No plan/product received — set it manually in Airtable");
     if (supabaseResult.warning) warnings.push(supabaseResult.warning);
 
-    return NextResponse.json({
-      success: true,
-      status: "created",
-      account_airtable_id: account.id,
-      user_airtable_id: user.id,
-      supabase_user_id: supabaseResult.userId,
-      email: supabaseResult.email,
-      ...(plan && { plan }),
-      ...(phone && { phone }),
-      ...(warnings.length > 0 && { warnings }),
-      _debug_received_body: body,
-    });
+    const resp = { success: true, status: "created", account_airtable_id: account.id, user_airtable_id: user.id, supabase_user_id: supabaseResult.userId, email: supabaseResult.email, ...(plan && { plan }), ...(phone && { phone }), ...(warnings.length > 0 && { warnings }) };
+    await logWebhookDebug(body, resp);
+    return NextResponse.json({ ...resp, _debug_received_body: body });
   } catch (error) {
     console.error("GHL sale webhook error:", error);
     return NextResponse.json(
