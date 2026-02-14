@@ -15,6 +15,7 @@ interface EditorState {
   // Non-undoable state
   selectedClipIds: string[];
   isDirty: boolean;
+  clipboard: RemotionClip[];
 }
 
 interface EditorActions {
@@ -36,6 +37,10 @@ interface EditorActions {
   splitClipAtFrame: (clipId: string, frame: number) => void;
   resizeClipEnd: (clipId: string, newDurationInFrames: number) => void;
   resizeClipStart: (clipId: string, newFrom: number) => void;
+
+  // Clipboard
+  copyClips: () => void;
+  pasteClips: (atFrame: number) => void;
 
   // Dirty tracking
   markClean: () => void;
@@ -70,6 +75,7 @@ export const useEditorStore = create<EditorStore>()(
       timeline: null,
       selectedClipIds: [],
       isDirty: false,
+      clipboard: [],
 
       // Initialization
       initTimeline: (timeline) =>
@@ -202,11 +208,62 @@ export const useEditorStore = create<EditorStore>()(
           };
         }),
 
+      // Clipboard
+      copyClips: () => {
+        const { timeline, selectedClipIds } = get();
+        if (!timeline || selectedClipIds.length === 0) return;
+        const clips: RemotionClip[] = [];
+        for (const track of timeline.tracks) {
+          for (const clip of track.clips) {
+            if (selectedClipIds.includes(clip.id)) {
+              clips.push({ ...clip });
+            }
+          }
+        }
+        set({ clipboard: clips });
+      },
+
+      pasteClips: (atFrame) =>
+        set((state) => {
+          if (!state.timeline || state.clipboard.length === 0) return state;
+          // Find the track that contains the same type as the first clipboard clip
+          const firstClip = state.clipboard[0];
+          const targetTrack = state.timeline.tracks.find((t) =>
+            t.type === firstClip.type ||
+            t.clips.some((c) => c.type === firstClip.type)
+          );
+          if (!targetTrack) return state;
+
+          // Calculate offset: paste starts at atFrame, maintain relative positions
+          const minFrom = Math.min(...state.clipboard.map((c) => c.from));
+          const offset = atFrame - minFrom;
+          const newClips = state.clipboard.map((c) => ({
+            ...c,
+            id: `${c.id}-copy-${Date.now()}`,
+            name: `${c.name} (copy)`,
+            from: c.from + offset,
+          }));
+
+          const updated = {
+            ...state.timeline,
+            tracks: state.timeline.tracks.map((track) => {
+              if (track.id !== targetTrack.id) return track;
+              return { ...track, clips: [...track.clips, ...newClips] };
+            }),
+          };
+
+          return {
+            timeline: recalculateDuration(updated),
+            selectedClipIds: newClips.map((c) => c.id),
+            isDirty: true,
+          };
+        }),
+
       markClean: () => set({ isDirty: false }),
     }),
     {
       limit: 50,
-      // Only track timeline changes (not selection, isDirty)
+      // Only track timeline changes (not selection, isDirty, clipboard)
       partialize: (state) => ({
         timeline: state.timeline,
       }),

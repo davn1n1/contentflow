@@ -117,6 +117,30 @@ export function useTimelineShortcuts(
     { enableOnFormTags }
   );
 
+  // Copy: Ctrl+C
+  useHotkeys(
+    "mod+c",
+    (e) => {
+      const selected = store.getState().selectedClipIds;
+      if (selected.length === 0) return;
+      e.preventDefault();
+      store.getState().copyClips();
+    },
+    { enableOnFormTags }
+  );
+
+  // Paste: Ctrl+V
+  useHotkeys(
+    "mod+v",
+    (e) => {
+      if (store.getState().clipboard.length === 0) return;
+      e.preventDefault();
+      const frame = playerRef.current?.getCurrentFrame() ?? 0;
+      store.getState().pasteClips(frame);
+    },
+    { enableOnFormTags }
+  );
+
   // Deselect all: Escape
   useHotkeys(
     "escape",

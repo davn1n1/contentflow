@@ -1136,6 +1136,19 @@ function VisualTimeline({
   onZoomReset: () => void;
 }) {
   const totalFrames = timeline.durationInFrames;
+
+  // Snap points: all clip edges across all tracks (for magnetic snapping during resize)
+  const snapPoints = useMemo(() => {
+    const points = new Set<number>([0, totalFrames]);
+    for (const track of timeline.tracks) {
+      for (const clip of track.clips) {
+        points.add(clip.from);
+        points.add(clip.from + clip.durationInFrames);
+      }
+    }
+    return Array.from(points).sort((a, b) => a - b);
+  }, [timeline.tracks, totalFrames]);
+
   const [hoveredClip, setHoveredClip] = useState<{ clip: RemotionClip; rect: DOMRect } | null>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const timecodeRef = useRef<HTMLDivElement>(null);
@@ -1340,6 +1353,7 @@ function VisualTimeline({
             trackBarRef={trackIndex === 0 ? trackBarRef : undefined}
             sensors={sensors}
             selectedClipIds={selectedClipIds}
+            snapPoints={snapPoints}
             onDragStart={() => {
               isSortingRef.current = true;
               setHoveredClip(null); // Clear tooltip during drag
@@ -1478,6 +1492,7 @@ function TimelineTrackRow({
   trackBarRef,
   sensors,
   selectedClipIds,
+  snapPoints,
   onDragStart,
   onDragEnd,
   onDragCancel,
@@ -1489,6 +1504,7 @@ function TimelineTrackRow({
   trackBarRef?: React.RefObject<HTMLDivElement | null>;
   sensors: ReturnType<typeof useSensors>;
   selectedClipIds: string[];
+  snapPoints: number[];
   onDragStart: () => void;
   onDragEnd: (event: DragEndEvent) => void;
   onDragCancel: () => void;
@@ -1526,6 +1542,7 @@ function TimelineTrackRow({
                 clip={clip}
                 totalFrames={totalFrames}
                 isSelected={selectedClipIds.includes(clip.id)}
+                snapPoints={snapPoints}
                 onHover={onHoverClip}
               />
             ))}
@@ -1536,17 +1553,31 @@ function TimelineTrackRow({
   );
 }
 
+// ─── Snap Helper ────────────────────────────────────────
+
+const SNAP_THRESHOLD = 5; // frames
+
+/** Snap a frame to nearby clip edges or playhead. Returns snapped frame. */
+function snapToPoints(frame: number, snapPoints: number[]): number {
+  for (const pt of snapPoints) {
+    if (Math.abs(frame - pt) <= SNAP_THRESHOLD) return pt;
+  }
+  return frame;
+}
+
 // ─── Sortable Clip ──────────────────────────────────────
 
 function SortableClip({
   clip,
   totalFrames,
   isSelected,
+  snapPoints,
   onHover,
 }: {
   clip: RemotionClip;
   totalFrames: number;
   isSelected: boolean;
+  snapPoints: number[];
   onHover: (data: { clip: RemotionClip; rect: DOMRect } | null) => void;
 }) {
   const selectClip = useEditorStore((s) => s.selectClip);
@@ -1596,7 +1627,8 @@ function SortableClip({
     const handleMove = (ev: MouseEvent) => {
       ev.preventDefault();
       const x = ev.clientX - barRect.left;
-      const frameAtMouse = Math.round(x * framesPerPx);
+      const rawFrame = Math.round(x * framesPerPx);
+      const frameAtMouse = snapToPoints(rawFrame, snapPoints);
 
       if (edge === "start") {
         resizeClipStart(clip.id, frameAtMouse);
@@ -1658,6 +1690,21 @@ function SortableClip({
         <span className="text-white/80 truncate">
           {clipDisplayName(clip)}
         </span>
+      )}
+
+      {/* Volume overlay — horizontal line showing volume level */}
+      {(clip.type === "audio" || clip.type === "video") && clip.volume !== undefined && clip.volume < 1 && (
+        <div
+          className="absolute left-0 right-0 pointer-events-none"
+          style={{ bottom: `${clip.volume * 100}%` }}
+        >
+          <div className="h-px bg-yellow-400/70" />
+          {width > 6 && (
+            <span className="absolute right-1 -top-2.5 text-[7px] text-yellow-400/80 font-mono leading-none">
+              {Math.round(clip.volume * 100)}%
+            </span>
+          )}
+        </div>
       )}
 
       {/* Right resize handle */}
