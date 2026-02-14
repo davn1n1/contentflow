@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
   Play, Settings2, ChevronDown, Palette, Music, ImageIcon, Image as ImageLucide,
@@ -40,11 +40,11 @@ function scoreStyle(score: string | null) {
 // ─── Scene Classification colors (same as Audio/Script) ───
 function sceneClassColors(type: string | null) {
   const t = (type || "").toLowerCase();
-  if (t.includes("hook")) return { bg: "bg-cyan-500/15", text: "text-cyan-400", border: "border-cyan-500/30" };
-  if (t.includes("intro")) return { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30" };
-  if (t.includes("desarrollo")) return { bg: "bg-slate-500/15", text: "text-slate-400", border: "border-slate-500/30" };
-  if (t.includes("cta")) return { bg: "bg-orange-500/15", text: "text-orange-400", border: "border-orange-500/30" };
-  return { bg: "bg-slate-500/10", text: "text-slate-500", border: "border-slate-500/20" };
+  if (t.includes("hook")) return { bg: "bg-cyan-500/15", text: "text-cyan-400", border: "border-cyan-500/30", divider: "bg-cyan-400", ringColor: "ring-cyan-500/40" };
+  if (t.includes("intro")) return { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", divider: "bg-emerald-400", ringColor: "ring-emerald-500/40" };
+  if (t.includes("desarrollo")) return { bg: "bg-slate-500/15", text: "text-slate-400", border: "border-slate-500/30", divider: "bg-slate-400", ringColor: "ring-slate-500/40" };
+  if (t.includes("cta")) return { bg: "bg-orange-500/15", text: "text-orange-400", border: "border-orange-500/30", divider: "bg-orange-400", ringColor: "ring-orange-500/40" };
+  return { bg: "bg-slate-500/10", text: "text-slate-500", border: "border-slate-500/20", divider: "bg-slate-400", ringColor: "ring-slate-500/40" };
 }
 
 // ─── Topic tag colors ───────────────────────────────────
@@ -1222,15 +1222,28 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
             </tr>
           </thead>
           <tbody>
-            {scenes.map((scene) => (
-              <MontajeSceneRow
-                key={scene.id}
-                scene={scene}
-                isExpanded={expandedId === scene.id}
-                onToggle={() => setExpandedId(expandedId === scene.id ? null : scene.id)}
-                expandedRef={expandedId === scene.id ? expandedRowRef : undefined}
-              />
-            ))}
+            {scenes.map((scene, idx) => {
+              const prev = idx > 0 ? scenes[idx - 1] : null;
+              const sectionChanged = prev && prev.clasificación_escena !== scene.clasificación_escena;
+              const sectionColors = sceneClassColors(scene.clasificación_escena);
+              return (
+                <React.Fragment key={scene.id}>
+                  {sectionChanged && (
+                    <tr>
+                      <td colSpan={19} className="h-0 py-0">
+                        <div className={cn("h-[2px] opacity-30", sectionColors.divider || "bg-border")} />
+                      </td>
+                    </tr>
+                  )}
+                  <MontajeSceneRow
+                    scene={scene}
+                    isExpanded={expandedId === scene.id}
+                    onToggle={() => setExpandedId(expandedId === scene.id ? null : scene.id)}
+                    expandedRef={expandedId === scene.id ? expandedRowRef : undefined}
+                  />
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
