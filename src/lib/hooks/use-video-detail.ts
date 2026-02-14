@@ -79,6 +79,7 @@ export interface SceneDetail {
   analisis_voz_2: string | null;
   analisis_voz_3: string | null;
   feedback_audio: string | null;
+  feedback_copy: string | null;
   elevenlabs_text_v3_enhanced: string | null;
   // Montaje / Slide fields
   slide: string | null;

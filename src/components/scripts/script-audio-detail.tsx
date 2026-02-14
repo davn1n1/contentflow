@@ -189,8 +189,8 @@ export function TabScript({ video }: { video: VideoWithScenes }) {
         </InfoSection>
       )}
 
-      {/* ── ACTIONS: Crear Copy + Modificar Script ── */}
-      <div className="pt-2 flex flex-wrap gap-3">
+      {/* ── ACTION: Crear Copy ── */}
+      <div className="pt-2">
         <ActionButton
           videoId={video.id}
           action="GenerateCopy"
@@ -199,19 +199,11 @@ export function TabScript({ video }: { video: VideoWithScenes }) {
           icon={<Play className="w-5 h-5" />}
           color="blue"
         />
-        <ActionButton
-          videoId={video.id}
-          action="ModificarScript"
-          label="Modificar Script"
-          confirmLabel="Confirmar modificación del script"
-          icon={<Edit3 className="w-5 h-5" />}
-          color="green"
-        />
       </div>
 
       {/* ── Scene Summary Table ── */}
       {video.scenes.length > 0 && (
-        <SceneSummaryTable scenes={video.scenes} videoId={video.id} feedbackCopy={video.feedback_copy} />
+        <SceneSummaryTable scenes={video.scenes} />
       )}
 
       {/* ── Ideas Inspiración (Videos X + Noticias) ── */}
@@ -1112,7 +1104,7 @@ function useSceneAutoSave(sceneId: string, field: string, delay = 800) {
   return { save, saving, saved };
 }
 
-function SceneSummaryTable({ scenes, videoId, feedbackCopy }: { scenes: SceneDetail[]; videoId: string; feedbackCopy: string | null }) {
+function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Keyboard navigation: up/down arrows to move between scenes, space to play/pause
@@ -1220,78 +1212,151 @@ function SceneSummaryTable({ scenes, videoId, feedbackCopy }: { scenes: SceneDet
           </tbody>
         </table>
       </div>
-
-      {/* Feedback Copy + Modificar Script — below table */}
-      <InlineFeedbackCopy videoId={videoId} initialFeedback={feedbackCopy} />
     </div>
   );
 }
 
-// ─── Inline Feedback Copy (inside SceneSummaryTable footer) ──
-function InlineFeedbackCopy({ videoId, initialFeedback }: { videoId: string; initialFeedback: string | null }) {
-  const [feedback, setFeedback] = useState(initialFeedback || "");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+// ─── Modifica Script Button (per-scene, same pattern as ModificaSlideButton) ──
+type ModificaScriptState = "idle" | "confirming" | "sending" | "generating" | "ready" | "error";
+
+function ModificaScriptButton({ sceneId, currentScript }: { sceneId: string; currentScript: string | null }) {
   const queryClient = useQueryClient();
-
-  useEffect(() => { setFeedback(initialFeedback || ""); }, [initialFeedback]);
-
-  // Debounced auto-save
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    setFeedback(val);
-    setSaved(false);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      setSaving(true);
-      try {
-        const res = await fetch("/api/data/videos", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: videoId, fields: { Feedback: val } }),
-        });
-        if (res.ok) {
-          setSaved(true);
-          queryClient.invalidateQueries({ queryKey: ["video-detail"] });
-          setTimeout(() => setSaved(false), 2000);
-        }
-      } catch { /* silent */ } finally {
-        setSaving(false);
-      }
-    }, 800);
-  }, [videoId, queryClient]);
+  const [state, setState] = useState<ModificaScriptState>("idle");
+  const stateRef = useRef<ModificaScriptState>(state);
+  stateRef.current = state;
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const startTimeRef = useRef<number>(0);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (tickRef.current) clearInterval(tickRef.current);
+    };
   }, []);
 
+  useEffect(() => {
+    if (state === "confirming") {
+      timerRef.current = setTimeout(() => setState("idle"), 5000);
+      return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    }
+  }, [state]);
+
+  useEffect(() => {
+    if (state === "ready" || state === "error") {
+      const t = setTimeout(() => setState("idle"), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [state]);
+
+  useEffect(() => {
+    if (state === "generating") {
+      startTimeRef.current = Date.now();
+      setElapsed(0);
+      tickRef.current = setInterval(() => {
+        setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      }, 1000);
+      return () => { if (tickRef.current) clearInterval(tickRef.current); };
+    } else {
+      if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
+    }
+  }, [state]);
+
+  // Poll for script change
+  useEffect(() => {
+    if (state !== "generating") {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      return;
+    }
+    const baseScript = currentScript;
+    const checkScene = async () => {
+      try {
+        const res = await fetch(`/api/data/scenes?ids=${sceneId}`);
+        if (!res.ok) return;
+        const scenes = await res.json();
+        const scene = scenes?.[0];
+        if (!scene) return;
+        const newScript = scene.script;
+        const statusScript = (scene.status_script || "").toLowerCase();
+        if (
+          (newScript && newScript !== baseScript) ||
+          statusScript === "modificado" ||
+          statusScript === "completado"
+        ) {
+          queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+          setState("ready");
+        } else if (statusScript === "error") {
+          setState("error");
+        }
+      } catch { /* ignore */ }
+    };
+    pollRef.current = setInterval(checkScene, 8000);
+    const maxTimeout = setTimeout(() => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      setState((s) => s === "generating" ? "ready" : s);
+    }, 300000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      clearTimeout(maxTimeout);
+    };
+  }, [state, sceneId, currentScript, queryClient]);
+
+  const handleClick = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const cur = stateRef.current;
+    if (cur === "error" || cur === "ready") { setState("idle"); return; }
+    if (cur === "idle") { setState("confirming"); return; }
+    if (cur === "confirming") {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setState("sending");
+      try {
+        const res = await fetch("/api/webhooks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "ModificarScript", recordId: sceneId }),
+        });
+        setState(res.ok ? "generating" : "error");
+      } catch {
+        setState("error");
+      }
+    }
+  }, [sceneId]);
+
+  const formatElapsed = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}:${sec.toString().padStart(2, "0")}` : `${sec}s`;
+  };
+
   return (
-    <div className="px-5 py-4 border-t border-border/40 space-y-3">
-      <div>
-        <div className="flex items-center gap-2 mb-1.5">
-          <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
-          <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">Feedback Copy</p>
-          {saving && <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />}
-          {saved && !saving && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
-        </div>
-        <textarea
-          value={feedback}
-          onChange={handleChange}
-          rows={3}
-          placeholder="Escribe aquí el feedback para modificar el script..."
-          className="w-full bg-emerald-500/5 border border-emerald-500/15 rounded-lg px-3 py-2 text-xs text-foreground resize-y focus:outline-none focus:ring-1 focus:ring-emerald-500/30 placeholder:text-muted-foreground/40"
-        />
-      </div>
-      <ActionButton
-        videoId={videoId}
-        action="ModificarScript"
-        label="Modificar Script"
-        confirmLabel="Confirmar modificación del script"
-        icon={<Edit3 className="w-5 h-5" />}
-        color="green"
-      />
-    </div>
+    <button
+      onClick={handleClick}
+      disabled={state === "sending" || state === "generating"}
+      className={cn(
+        "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all border shadow-sm whitespace-nowrap",
+        state === "idle" && "bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white cursor-pointer",
+        state === "confirming" && "bg-amber-500 hover:bg-amber-400 border-amber-400 text-black cursor-pointer animate-pulse",
+        state === "sending" && "bg-emerald-600/50 border-emerald-500/50 text-white/70 cursor-wait",
+        state === "generating" && "bg-emerald-600/30 border-emerald-400/50 text-emerald-300 cursor-wait animate-pulse",
+        state === "ready" && "bg-emerald-600 border-emerald-500 text-white cursor-pointer",
+        state === "error" && "bg-red-600 border-red-500 text-white cursor-pointer",
+      )}
+    >
+      {state === "sending" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+      {state === "generating" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+      {state === "ready" && <CheckCircle2 className="w-3.5 h-3.5" />}
+      {state === "error" && <XCircle className="w-3.5 h-3.5" />}
+      {(state === "idle" || state === "confirming") && <Edit3 className="w-3.5 h-3.5" />}
+      {state === "idle" && "Modificar Script"}
+      {state === "confirming" && "Confirmar?"}
+      {state === "sending" && "Enviando..."}
+      {state === "generating" && <>Modificando script… {formatElapsed(elapsed)}</>}
+      {state === "ready" && "Script modificado!"}
+      {state === "error" && "Error — click para reintentar"}
+    </button>
   );
 }
 
@@ -1303,25 +1368,41 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
 }) {
   const [scriptValue, setScriptValue] = useState(scene.script || "");
   const { save: saveScript, saving, saved } = useSceneAutoSave(scene.id, "Script");
+  const [feedbackCopyValue, setFeedbackCopyValue] = useState(scene.feedback_copy || "");
+  const { save: saveFeedbackCopy, saving: savingFeedbackCopy, saved: savedFeedbackCopy } = useSceneAutoSave(scene.id, "Feedback Copy");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const feedbackCopyRef = useRef<HTMLTextAreaElement>(null);
 
   // Sync local state when scene data changes from server
   useEffect(() => {
     setScriptValue(scene.script || "");
   }, [scene.script]);
+  useEffect(() => {
+    setFeedbackCopyValue(scene.feedback_copy || "");
+  }, [scene.feedback_copy]);
 
-  // Auto-resize textarea
+  // Auto-resize textareas
   useEffect(() => {
     if (isExpanded && textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
     }
-  }, [isExpanded, scriptValue]);
+    if (isExpanded && feedbackCopyRef.current) {
+      feedbackCopyRef.current.style.height = "auto";
+      feedbackCopyRef.current.style.height = feedbackCopyRef.current.scrollHeight + "px";
+    }
+  }, [isExpanded, scriptValue, feedbackCopyValue]);
 
   const handleScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setScriptValue(val);
     saveScript(val);
+  };
+
+  const handleFeedbackCopyChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setFeedbackCopyValue(val);
+    saveFeedbackCopy(val);
   };
 
   // Handle keyboard in textarea
@@ -1585,6 +1666,26 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                   </p>
                 </div>
               )}
+
+              {/* ── Feedback Copy + Modificar Script (per-scene) ── */}
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
+                  <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">Feedback Copy</p>
+                  {savingFeedbackCopy && <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />}
+                  {savedFeedbackCopy && !savingFeedbackCopy && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                </div>
+                <textarea
+                  ref={feedbackCopyRef}
+                  value={feedbackCopyValue}
+                  onChange={handleFeedbackCopyChange}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); saveFeedbackCopy(feedbackCopyValue); e.currentTarget.blur(); } }}
+                  placeholder="Instrucciones para modificar el script de esta escena..."
+                  className="w-full bg-background/50 border border-emerald-500/15 rounded-lg px-3 py-2 text-xs text-foreground resize-none overflow-hidden focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20 min-h-[50px]"
+                />
+                <ModificaScriptButton sceneId={scene.id} currentScript={scene.script} />
+              </div>
             </div>
           </td>
         </tr>

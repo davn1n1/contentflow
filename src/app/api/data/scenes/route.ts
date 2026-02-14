@@ -34,6 +34,7 @@ const SCENE_FIELDS = [
   "Estilos Musicales (from Audio)",
   "Muestra (from Audio) 2",
   "Audio Favorito (from Audio)",
+  "Feedback Copy",
   // Copy feedback / Informe fields
   "montaje_copy_con_observaciones",
   "comparativa_transcript_original",
@@ -72,6 +73,7 @@ interface SceneFields {
   "Analisis Voz 2"?: string;
   "Analisis Voz 3"?: string;
   "Feedback Audio Elevenlabs"?: string;
+  "Feedback Copy"?: string;
   "ElevenLabs Text v3 Enhanced"?: string;
   // Montaje / Slide fields
   "Slide Activa"?: boolean;
@@ -165,6 +167,7 @@ export async function GET(request: NextRequest) {
         analisis_voz_2: r.fields["Analisis Voz 2"] || null,
         analisis_voz_3: r.fields["Analisis Voz 3"] || null,
         feedback_audio: r.fields["Feedback Audio Elevenlabs"] || null,
+        feedback_copy: r.fields["Feedback Copy"] || null,
         elevenlabs_text_v3_enhanced: r.fields["ElevenLabs Text v3 Enhanced"] || null,
         // Montaje / Slide fields
         slide_activa: r.fields["Slide Activa"] || false,
