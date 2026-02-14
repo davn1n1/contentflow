@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { airtableFetch, airtableFetchByIds, TABLES } from "@/lib/airtable/client";
+import { airtableFetch, airtableFetchByIds, airtableUpdate, TABLES } from "@/lib/airtable/client";
 import { authenticateApiRequest } from "@/lib/auth/api-guard";
 
 const IDEA_FIELDS = [
@@ -135,6 +135,29 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Airtable ideas error:", error);
     return NextResponse.json({ error: "Failed to fetch ideas" }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const auth = await authenticateApiRequest();
+  if ("error" in auth) return auth.error;
+
+  try {
+    const body = await request.json();
+    const { id, fields } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "id required" }, { status: 400 });
+    }
+    if (!fields || typeof fields !== "object") {
+      return NextResponse.json({ error: "fields required" }, { status: 400 });
+    }
+
+    const updated = await airtableUpdate<IdeaFields>(TABLES.IDEAS, id, fields);
+    return NextResponse.json({ id: updated.id, ok: true });
+  } catch (error) {
+    console.error("Airtable idea update error:", error);
+    return NextResponse.json({ error: "Failed to update idea" }, { status: 500 });
   }
 }
 

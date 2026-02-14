@@ -18,7 +18,8 @@ import {
   Loader2,
   FileAudio,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { CreateVideoButton } from "@/components/shared/create-video-button";
 
 interface IdeaDetailDrawerProps {
@@ -41,11 +42,44 @@ const TRANSCRIPT_CONFIG: Record<string, { color: string; bg: string }> = {
 };
 
 export function IdeaDetailDrawer({ idea, onClose }: IdeaDetailDrawerProps) {
+  const queryClient = useQueryClient();
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [transcriptResult, setTranscriptResult] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
+  const [favoritaLocal, setFavoritaLocal] = useState(false);
+  const [favoritaSaving, setFavoritaSaving] = useState(false);
+
+  // Sync local state with idea
+  useEffect(() => {
+    if (idea) setFavoritaLocal(idea.favorita);
+  }, [idea?.id, idea?.favorita]);
+
+  const toggleFavorita = useCallback(async () => {
+    if (!idea || favoritaSaving) return;
+    const newValue = !favoritaLocal;
+    setFavoritaLocal(newValue);
+    setFavoritaSaving(true);
+
+    try {
+      const res = await fetch("/api/data/ideas", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: idea.id,
+          fields: { Favorita: newValue },
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      queryClient.invalidateQueries({ queryKey: ["ideas"] });
+      queryClient.invalidateQueries({ queryKey: ["idea", idea.id] });
+    } catch {
+      setFavoritaLocal(!newValue);
+    } finally {
+      setFavoritaSaving(false);
+    }
+  }, [idea, favoritaLocal, favoritaSaving, queryClient]);
 
   // Reset state when idea changes
   useEffect(() => {
@@ -274,13 +308,25 @@ export function IdeaDetailDrawer({ idea, onClose }: IdeaDetailDrawerProps) {
                 <Star className="w-3.5 h-3.5" />
                 Favorita
               </span>
-              <span>
-                {idea.favorita ? (
-                  <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                ) : (
-                  <span className="text-muted-foreground">No</span>
+              <button
+                onClick={toggleFavorita}
+                disabled={favoritaSaving}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer",
+                  favoritaLocal
+                    ? "bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted",
+                  favoritaSaving && "opacity-50 cursor-not-allowed"
                 )}
-              </span>
+              >
+                <Star
+                  className={cn(
+                    "w-5 h-5 transition-all",
+                    favoritaLocal && "text-yellow-400 fill-yellow-400"
+                  )}
+                />
+                {favoritaLocal ? "Favorita" : "No favorita"}
+              </button>
 
               {/* Created */}
               <span className="text-muted-foreground flex items-center gap-1.5">
