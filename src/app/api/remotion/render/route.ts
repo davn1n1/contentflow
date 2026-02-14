@@ -82,6 +82,45 @@ export async function POST(request: NextRequest) {
     }
 
     const timeline = record.remotion_timeline as RemotionTimeline;
+
+    // Inject CDN proxy URLs for faster video downloads from Lambda
+    const videoUrls = new Set<string>();
+    for (const track of timeline.tracks) {
+      for (const clip of track.clips) {
+        if (clip.type === "video") videoUrls.add(clip.src);
+      }
+    }
+    if (videoUrls.size > 0) {
+      const { data: proxies } = await supabase
+        .from("video_proxies")
+        .select("original_url, proxy_url, status")
+        .in("original_url", [...videoUrls])
+        .eq("status", "ready")
+        .not("proxy_url", "is", null);
+
+      if (proxies && proxies.length > 0) {
+        const proxyMap = new Map(
+          proxies.map((p: { original_url: string; proxy_url: string }) => [
+            p.original_url,
+            p.proxy_url,
+          ])
+        );
+        let injected = 0;
+        for (const track of timeline.tracks) {
+          for (const clip of track.clips) {
+            const proxy = proxyMap.get(clip.src);
+            if (proxy) {
+              clip.proxySrc = proxy;
+              injected++;
+            }
+          }
+        }
+        console.log(`[Render] Injected ${injected}/${videoUrls.size} CDN proxy URLs`);
+      } else {
+        console.warn(`[Render] No CDN proxy URLs available for ${videoUrls.size} videos — using original URLs`);
+      }
+    }
+
     const totalFrames = timeline.durationInFrames;
     const framesPerLambda = calculateFramesPerLambda(totalFrames);
     const estimatedChunks = Math.ceil(totalFrames / framesPerLambda);

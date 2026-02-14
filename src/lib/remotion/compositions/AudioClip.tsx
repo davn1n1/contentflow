@@ -1,5 +1,5 @@
 import React from "react";
-import { Audio, useCurrentFrame, useVideoConfig } from "remotion";
+import { Audio } from "@remotion/media";
 import type { RemotionClip } from "../types";
 import { useAudioEffect } from "./effects";
 
@@ -14,9 +14,9 @@ export const AudioClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
   return (
     <Audio
       src={clip.proxySrc || clip.src}
-      startFrom={clip.startFrom}
+      trimBefore={clip.startFrom}
       volume={volume}
-      pauseWhenBuffering
+      fallbackHtml5AudioProps={{ pauseWhenBuffering: true }}
     />
   );
 };

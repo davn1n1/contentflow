@@ -6,7 +6,7 @@ interface UIState {
   collapsedSections: Record<string, boolean>;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
-  toggleSection: (key: string) => void;
+  toggleSection: (key: string, allCollapsibleKeys?: string[]) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -16,13 +16,24 @@ export const useUIStore = create<UIState>()(
       collapsedSections: {},
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-      toggleSection: (key) =>
-        set((s) => ({
-          collapsedSections: {
-            ...s.collapsedSections,
-            [key]: !s.collapsedSections[key],
-          },
-        })),
+      toggleSection: (key, allCollapsibleKeys) =>
+        set((s) => {
+          const wasCollapsed = s.collapsedSections[key] ?? false;
+          if (wasCollapsed && allCollapsibleKeys) {
+            // Accordion: expanding this section → collapse all others
+            const newSections: Record<string, boolean> = {};
+            allCollapsibleKeys.forEach((k) => {
+              newSections[k] = k !== key;
+            });
+            return { collapsedSections: newSections };
+          }
+          return {
+            collapsedSections: {
+              ...s.collapsedSections,
+              [key]: !wasCollapsed,
+            },
+          };
+        }),
     }),
     {
       name: "cf365-ui",

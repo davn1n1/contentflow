@@ -432,17 +432,22 @@ async function pollAndUpdate(
     const video = await getVideo(streamUid);
 
     if (video.status.state === "ready") {
-      // Try to get download URL
+      // Try to get download URL with retries
       let downloadUrl: string | null = null;
       try {
         downloadUrl = await getDownloadUrl(streamUid);
         if (!downloadUrl) {
-          // Download not yet created — trigger it
-          await createDownload(streamUid);
-          downloadUrl = await getDownloadUrl(streamUid);
+          // Download not yet created — trigger it and retry with backoff
+          try { await createDownload(streamUid); } catch { /* may already exist */ }
+          // Wait up to 6s total (2s + 4s) for Cloudflare to prepare download
+          for (const delay of [2000, 4000]) {
+            await new Promise((r) => setTimeout(r, delay));
+            downloadUrl = await getDownloadUrl(streamUid);
+            if (downloadUrl) break;
+          }
         }
       } catch {
-        // Downloads API might not be ready yet
+        // Downloads API might not be available
       }
 
       const hls = video.playback?.hls || null;

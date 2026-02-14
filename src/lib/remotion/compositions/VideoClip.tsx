@@ -1,5 +1,5 @@
 import React from "react";
-import { Video } from "remotion";
+import { Video } from "@remotion/media";
 import type { RemotionClip } from "../types";
 import { useZoomInSlow, useTransitionIn, useTransitionOut } from "./effects";
 
@@ -37,9 +37,9 @@ export const VideoClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
     >
       <Video
         src={clip.proxySrc || clip.src}
-        startFrom={clip.startFrom}
+        trimBefore={clip.startFrom}
         volume={clip.volume ?? 1}
-        pauseWhenBuffering
+        fallbackOffthreadVideoProps={{ pauseWhenBuffering: true }}
         style={{
           width: "100%",
           height: "100%",

@@ -70,12 +70,12 @@ interface NavSection {
 // ─── Section Color Themes ────────────────────────────────
 
 const SECTION_COLORS: Record<string, string> = {
-  overview: "#3b82f6",
-  "ads-reels": "#a855f7",
-  "produccion-reels": "#10b981",
-  "produccion-yt": "#f59e0b",
+  overview: "#a855f7",           // Purple
+  "ads-reels": "#0668E1",       // Meta blue
+  "produccion-reels": "#0668E1", // Meta blue
+  "produccion-yt": "#FF0000",    // YouTube red
   "app-data": "#06b6d4",
-  "gestion-mc": "#f43f5e",
+  "gestion-mc": "#f59e0b",      // Amber/gold
   test: "#64748b",
 };
 
@@ -180,6 +180,8 @@ const bottomNav: NavItem[] = [
 
 // ─── Component ───────────────────────────────────────────
 
+const COLLAPSIBLE_KEYS = sections.filter((s) => s.collapsible).map((s) => s.key);
+
 export function Sidebar() {
   const { sidebarCollapsed, collapsedSections, toggleSidebar, toggleSection } = useUIStore();
   const { currentAccount } = useAccountStore();
@@ -234,23 +236,27 @@ export function Sidebar() {
             const hasActiveItem = isSectionActive(section);
             const color = SECTION_COLORS[section.key] || "#64748b";
 
+            const isExpanded = section.collapsible && !isCollapsed && !sidebarCollapsed;
+
             return (
               <div
                 key={section.key}
-                className="rounded-lg overflow-hidden"
+                className="rounded-lg overflow-hidden transition-colors duration-200"
                 style={{
-                  background: hasActiveItem
-                    ? `linear-gradient(135deg, ${color}08, ${color}03)`
-                    : undefined,
-                  border: hasActiveItem
-                    ? `1px solid ${color}15`
+                  background: isExpanded
+                    ? `${color}18`
+                    : hasActiveItem
+                      ? `linear-gradient(135deg, ${color}08, ${color}03)`
+                      : undefined,
+                  border: isExpanded || hasActiveItem
+                    ? `1px solid ${color}20`
                     : "1px solid transparent",
                 }}
               >
                 {/* Section Header */}
                 {section.collapsible ? (
                   <button
-                    onClick={() => toggleSection(section.key)}
+                    onClick={() => toggleSection(section.key, COLLAPSIBLE_KEYS)}
                     className={cn(
                       "w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold uppercase tracking-wider transition-colors",
                       sidebarCollapsed && "justify-center px-1 py-2"

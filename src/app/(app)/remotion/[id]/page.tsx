@@ -27,6 +27,8 @@ import {
   Download,
   AlertCircle,
   ExternalLink,
+  Minus,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -248,8 +250,18 @@ export default function RemotionPreviewPage() {
   const rawTimeline = record?.remotion_timeline as RemotionTimeline | undefined;
   const playerRef = useRef<PlayerRef>(null);
 
+  // ─── Zoom state (lifted here so shortcuts can access it) ──
+  const [zoom, setZoom] = useState(1);
+  const zoomIn = useCallback(() => setZoom((z) => Math.min(10, +(z + 0.5).toFixed(1))), []);
+  const zoomOut = useCallback(() => setZoom((z) => Math.max(1, +(z - 0.5).toFixed(1))), []);
+  const zoomReset = useCallback(() => setZoom(1), []);
+
   // ─── Keyboard shortcuts ────────────────────────────────
-  useTimelineShortcuts(playerRef, rawTimeline?.fps ?? 30);
+  useTimelineShortcuts(playerRef, rawTimeline?.fps ?? 30, {
+    onZoomIn: zoomIn,
+    onZoomOut: zoomOut,
+    onZoomReset: zoomReset,
+  });
 
   // ─── Editor state (Zustand store) ───────────────────────
   const storeTimeline = useEditorStore((s) => s.timeline);
@@ -591,6 +603,11 @@ export default function RemotionPreviewPage() {
         }}
       />
 
+      {/* Browser Render (fallback) */}
+      {timeline && (
+        <BrowserRenderSection timeline={timeline} />
+      )}
+
       {/* CDN Proxy status */}
       <ProxyStatusBar
         status={proxyStatus}
@@ -622,6 +639,10 @@ export default function RemotionPreviewPage() {
         onSaveEdits={saveEdits}
         saving={saving}
         selectedClipIds={selectedClipIds}
+        zoom={zoom}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onZoomReset={zoomReset}
       />
 
       {/* Track Explorer */}
@@ -999,6 +1020,10 @@ function VisualTimeline({
   onSaveEdits,
   saving,
   selectedClipIds,
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  onZoomReset,
 }: {
   timeline: RemotionTimeline;
   playerRef: React.RefObject<PlayerRef | null>;
@@ -1008,12 +1033,17 @@ function VisualTimeline({
   onSaveEdits: () => void;
   saving: boolean;
   selectedClipIds: string[];
+  zoom: number;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onZoomReset: () => void;
 }) {
   const totalFrames = timeline.durationInFrames;
   const [hoveredClip, setHoveredClip] = useState<{ clip: RemotionClip; rect: DOMRect } | null>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const timecodeRef = useRef<HTMLDivElement>(null);
   const trackBarRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const isSortingRef = useRef(false);
 
@@ -1031,11 +1061,25 @@ function VisualTimeline({
       const bar = trackBarRef.current;
       const playhead = playheadRef.current;
       const timecode = timecodeRef.current;
+      const scroller = scrollContainerRef.current;
       // Update position (skip during drag — seekFromMouseEvent handles it)
       if (!isDraggingRef.current && bar && playhead) {
         const pct = frame / totalFrames;
         const left = bar.offsetLeft + pct * bar.offsetWidth;
         playhead.style.left = `${left}px`;
+
+        // Auto-scroll to keep playhead visible when zoomed in
+        if (scroller && zoom > 1) {
+          const playheadX = left;
+          const scrollLeft = scroller.scrollLeft;
+          const viewWidth = scroller.clientWidth;
+          const margin = viewWidth * 0.15; // 15% margin from edges
+          if (playheadX < scrollLeft + margin) {
+            scroller.scrollLeft = playheadX - margin;
+          } else if (playheadX > scrollLeft + viewWidth - margin) {
+            scroller.scrollLeft = playheadX - viewWidth + margin;
+          }
+        }
       }
       // Always update timecode text (format: M:SS)
       if (timecode) {
@@ -1048,7 +1092,7 @@ function VisualTimeline({
     }
     animId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animId);
-  }, [playerRef, totalFrames, timeline.fps]);
+  }, [playerRef, totalFrames, timeline.fps, zoom]);
 
   // Seek player from mouse position relative to the track bar
   function seekFromMouseEvent(e: MouseEvent | React.MouseEvent) {
@@ -1128,17 +1172,42 @@ function VisualTimeline({
               </button>
             </>
           )}
-          <span className="text-[10px] text-muted-foreground/50">
-            Arrastra clips para reordenar
-          </span>
+          {/* Zoom control */}
+          <div className="flex items-center gap-1 ml-2 border-l border-border/30 pl-2">
+            <button
+              onClick={onZoomOut}
+              disabled={zoom <= 1}
+              className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-30"
+              title="Alejar (Ctrl+-)"
+            >
+              <Minus className="h-3 w-3" />
+            </button>
+            <button
+              onClick={onZoomReset}
+              className="text-[10px] text-muted-foreground hover:text-foreground tabular-nums min-w-[2.5rem] text-center"
+              title="Reset zoom (Ctrl+0)"
+            >
+              {zoom === 1 ? "Fit" : `${zoom}x`}
+            </button>
+            <button
+              onClick={onZoomIn}
+              disabled={zoom >= 10}
+              className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-30"
+              title="Acercar (Ctrl++)"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Tracks container */}
+      {/* Tracks container — scrollable when zoomed */}
       <div
-        className="relative space-y-1.5 select-none"
+        ref={scrollContainerRef}
+        className="overflow-x-auto select-none"
         onMouseDown={handleTimelineMouseDown}
       >
+        <div className="relative space-y-1.5" style={{ width: zoom > 1 ? `${zoom * 100}%` : undefined }}>
         {timeline.tracks.map((track, trackIndex) => (
           <TimelineTrackRow
             key={track.id}
@@ -1190,24 +1259,56 @@ function VisualTimeline({
             0:00
           </div>
         </div>
-      </div>
 
-      {/* Time markers */}
-      <div className="flex items-center gap-2 mt-1">
-        <div className="w-28 flex-shrink-0" />
-        <div className="flex-1 flex justify-between text-[10px] text-muted-foreground/50">
-          <span>0:00</span>
-          <span>{formatTime(Math.floor(totalFrames / 4), timeline.fps)}</span>
-          <span>{formatTime(Math.floor(totalFrames / 2), timeline.fps)}</span>
-          <span>{formatTime(Math.floor((totalFrames * 3) / 4), timeline.fps)}</span>
-          <span>{formatTime(totalFrames, timeline.fps)}</span>
-        </div>
-      </div>
+        {/* Time markers — scale with zoom */}
+        <TimeRuler totalFrames={totalFrames} fps={timeline.fps} />
+        </div>{/* close zoom width div */}
+      </div>{/* close scroll container */}
 
       {/* Floating tooltip */}
       {hoveredClip && (
         <TimelineTooltip clip={hoveredClip.clip} rect={hoveredClip.rect} fps={timeline.fps} />
       )}
+    </div>
+  );
+}
+
+// ─── Time Ruler ─────────────────────────────────────────
+
+function TimeRuler({ totalFrames, fps }: { totalFrames: number; fps: number }) {
+  const totalSec = totalFrames / fps;
+  // Decide interval: aim for ~8-12 marks visible
+  let interval: number;
+  if (totalSec <= 30) interval = 5;
+  else if (totalSec <= 120) interval = 10;
+  else if (totalSec <= 300) interval = 30;
+  else interval = 60;
+
+  const marks: number[] = [];
+  for (let s = 0; s <= totalSec; s += interval) {
+    marks.push(s);
+  }
+  // Always include the end
+  if (marks[marks.length - 1] < totalSec) marks.push(totalSec);
+
+  return (
+    <div className="relative h-4 mt-1">
+      <div className="absolute inset-0 flex items-center" style={{ marginLeft: "7rem" }}>
+        {marks.map((s) => {
+          const pct = (s / totalSec) * 100;
+          const min = Math.floor(s / 60);
+          const sec = Math.floor(s % 60);
+          return (
+            <span
+              key={s}
+              className="absolute text-[9px] text-muted-foreground/50 -translate-x-1/2"
+              style={{ left: `${pct}%` }}
+            >
+              {min}:{sec.toString().padStart(2, "0")}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1634,6 +1735,214 @@ function ClipRow({
           {clip.audioEffect}
         </span>
       )}
+    </div>
+  );
+}
+
+// ─── Browser Render Section (Experimental Fallback) ──────
+
+function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
+  const [state, setState] = useState<"idle" | "checking" | "rendering" | "done" | "error" | "unsupported">("idle");
+  const [progress, setProgress] = useState(0);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [blobSize, setBlobSize] = useState<number | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Check browser support on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { canRenderMediaOnWeb } = await import("@remotion/web-renderer");
+        const result = await canRenderMediaOnWeb({
+          width: timeline.width,
+          height: timeline.height,
+        });
+        if (!cancelled && !result.canRender) {
+          setState("unsupported");
+        }
+      } catch {
+        if (!cancelled) setState("unsupported");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [timeline.width, timeline.height]);
+
+  async function startBrowserRender() {
+    setState("rendering");
+    setProgress(0);
+    setErrorMsg(null);
+    setBlobUrl(null);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const { renderMediaOnWeb } = await import("@remotion/web-renderer");
+
+      // Strip proxySrc from clips — CDN URLs have CORS restrictions in browser
+      const browserTimeline = {
+        ...timeline,
+        tracks: timeline.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) => {
+            const { proxySrc: _p, ...rest } = clip;
+            return rest;
+          }),
+        })),
+      };
+
+      const { getBlob } = await renderMediaOnWeb({
+        composition: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          component: DynamicVideo as any,
+          durationInFrames: browserTimeline.durationInFrames,
+          fps: browserTimeline.fps,
+          width: browserTimeline.width,
+          height: browserTimeline.height,
+          id: "DynamicVideo",
+          defaultProps: browserTimeline as unknown as Record<string, unknown>,
+        },
+        inputProps: browserTimeline as unknown as Record<string, unknown>,
+        container: "webm",
+        videoCodec: "vp8",
+        onProgress: ({ renderedFrames }) => {
+          setProgress(Math.round((renderedFrames / timeline.durationInFrames) * 100));
+        },
+        signal: controller.signal,
+      });
+
+      const blob = await getBlob();
+      const url = URL.createObjectURL(blob);
+      setBlobUrl(url);
+      setBlobSize(blob.size);
+      setState("done");
+    } catch (err) {
+      if (controller.signal.aborted) {
+        setState("idle");
+      } else {
+        setErrorMsg(err instanceof Error ? err.message : "Error en render de navegador");
+        setState("error");
+      }
+    }
+  }
+
+  function cancelRender() {
+    abortRef.current?.abort();
+    setState("idle");
+    setProgress(0);
+  }
+
+  function downloadBlob() {
+    if (!blobUrl) return;
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = `video-${Date.now()}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  if (state === "unsupported") return null;
+
+  if (state === "done" && blobUrl) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+        <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-emerald-400">Render en navegador completado</p>
+          {blobSize && (
+            <p className="text-xs text-emerald-400/60 mt-0.5">
+              {(blobSize / 1024 / 1024).toFixed(1)} MB · WebM/VP8
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={downloadBlob}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Descargar
+          </button>
+          <button
+            onClick={() => { setState("idle"); setProgress(0); }}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-muted/30 text-muted-foreground border border-border/50 hover:bg-muted/50 transition-colors"
+          >
+            <Monitor className="h-3.5 w-3.5" />
+            Re-render
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (state === "rendering") {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+        <Loader2 className="h-5 w-5 text-amber-400 flex-shrink-0 animate-spin" />
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-sm text-amber-400">Renderizando en navegador...</p>
+            <span className="text-xs text-amber-400/70 font-mono">{progress}%</span>
+          </div>
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-amber-500 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            WebM/VP8 · {timeline.width}x{timeline.height} · Esto puede tardar varios minutos
+          </p>
+        </div>
+        <button
+          onClick={cancelRender}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors flex-shrink-0"
+        >
+          Cancelar
+        </button>
+      </div>
+    );
+  }
+
+  if (state === "error") {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3">
+        <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm text-red-400">Error en render de navegador</p>
+          {errorMsg && <p className="text-xs text-red-400/60 mt-0.5 line-clamp-2">{errorMsg}</p>}
+        </div>
+        <button
+          onClick={startBrowserRender}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors flex-shrink-0"
+        >
+          <Monitor className="h-3.5 w-3.5" />
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+
+  // idle
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card px-4 py-3">
+      <Monitor className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+      <div className="flex-1">
+        <p className="text-sm text-foreground">Render en Navegador</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Alternativa local — renderiza en tu navegador (WebM, experimental)
+        </p>
+      </div>
+      <button
+        onClick={startBrowserRender}
+        className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-md bg-amber-600 text-white hover:bg-amber-500 transition-colors font-medium flex-shrink-0"
+      >
+        <Monitor className="h-4 w-4" />
+        Renderizar Local
+      </button>
     </div>
   );
 }

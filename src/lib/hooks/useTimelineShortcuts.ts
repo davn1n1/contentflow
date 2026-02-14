@@ -8,7 +8,12 @@ import { useEditorStore } from "@/lib/stores/editor-store";
  */
 export function useTimelineShortcuts(
   playerRef: React.RefObject<PlayerRef | null>,
-  fps: number
+  fps: number,
+  options?: {
+    onZoomIn?: () => void;
+    onZoomOut?: () => void;
+    onZoomReset?: () => void;
+  }
 ) {
   const store = useEditorStore;
   const temporal = store.temporal;
@@ -117,6 +122,36 @@ export function useTimelineShortcuts(
     "escape",
     () => {
       store.getState().deselectAll();
+    },
+    { enableOnFormTags }
+  );
+
+  // Zoom in: Ctrl+= or Ctrl++
+  useHotkeys(
+    "mod+=, mod+plus",
+    (e) => {
+      e.preventDefault();
+      options?.onZoomIn?.();
+    },
+    { enableOnFormTags }
+  );
+
+  // Zoom out: Ctrl+-
+  useHotkeys(
+    "mod+minus",
+    (e) => {
+      e.preventDefault();
+      options?.onZoomOut?.();
+    },
+    { enableOnFormTags }
+  );
+
+  // Zoom reset: Ctrl+0
+  useHotkeys(
+    "mod+0",
+    (e) => {
+      e.preventDefault();
+      options?.onZoomReset?.();
     },
     { enableOnFormTags }
   );
