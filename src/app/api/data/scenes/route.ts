@@ -25,6 +25,14 @@ const SCENE_FIELDS = [
   "Zoom Camera",
   "Tipo Avatar (from Avatares) (from Camera Table)",
   "Photo S3 Avatar IV (from Avatares) (from Camera Table)",
+  "Heygen Render (from Camera Table)",
+  // Audio fields (lookups from linked Audio table)
+  "Tipo (from Audio)",
+  "Seccion (from Audio)",
+  "Attachments (from Audio)",
+  "Estilos Musicales (from Audio)",
+  "Muestra (from Audio) 2",
+  "Audio Favorito (from Audio)",
 ];
 
 interface SceneFields {
@@ -72,11 +80,19 @@ interface SceneFields {
   "Broll Offset"?: number;
   "Broll Duration"?: number;
   "Custom (from Videos Broll)"?: (boolean | null)[];
-  "Broll_Video (from Videos Broll)"?: string[];
+  "Broll_Video (from Videos Broll)"?: unknown[];
   // Camera / Avatar fields
   "Zoom Camera"?: string;
   "Tipo Avatar (from Avatares) (from Camera Table)"?: string[];
-  "Photo S3 Avatar IV (from Avatares) (from Camera Table)"?: string[];
+  "Photo S3 Avatar IV (from Avatares) (from Camera Table)"?: unknown[];
+  "Heygen Render (from Camera Table)"?: unknown[];
+  // Audio fields (lookups from linked Audio table)
+  "Tipo (from Audio)"?: string[];
+  "Seccion (from Audio)"?: string[];
+  "Attachments (from Audio)"?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  "Estilos Musicales (from Audio)"?: string[];
+  "Muestra (from Audio) 2"?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  "Audio Favorito (from Audio)"?: (boolean | null)[];
 }
 
 export async function GET(request: NextRequest) {
@@ -179,10 +195,54 @@ export async function GET(request: NextRequest) {
           const v = r.fields["Photo S3 Avatar IV (from Avatares) (from Camera Table)"];
           if (Array.isArray(v) && v.length > 0) {
             const first = v[0];
-            if (typeof first === "object" && first !== null && "url" in first) return first.thumbnails?.large?.url || first.url || null;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if (typeof first === "object" && first !== null && "url" in first) return (first as any).thumbnails?.large?.url || (first as any).url || null;
             if (typeof first === "string" && first.startsWith("http")) return first;
           }
           return null;
+        })(),
+        // Heygen Render (from Camera Table) — could be attachment or URL
+        heygen_render: (() => {
+          const v = r.fields["Heygen Render (from Camera Table)"];
+          if (Array.isArray(v) && v.length > 0) {
+            const first = v[0];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if (typeof first === "object" && first !== null && "url" in first) return (first as any).thumbnails?.large?.url || (first as any).url || null;
+            if (typeof first === "string" && first.startsWith("http")) return first;
+          }
+          return null;
+        })(),
+        // Audio fields (from linked Audio table)
+        audio_tipo: (() => {
+          const v = r.fields["Tipo (from Audio)"];
+          return Array.isArray(v) ? v[0] || null : null;
+        })(),
+        audio_seccion: (() => {
+          const v = r.fields["Seccion (from Audio)"];
+          return Array.isArray(v) ? v[0] || null : null;
+        })(),
+        audio_attachment: (() => {
+          const v = r.fields["Attachments (from Audio)"];
+          if (Array.isArray(v) && v.length > 0) {
+            return v[0]?.url || null;
+          }
+          return null;
+        })(),
+        estilos_musicales: (() => {
+          const v = r.fields["Estilos Musicales (from Audio)"];
+          return Array.isArray(v) ? v : [];
+        })(),
+        muestra_audio: (() => {
+          const v = r.fields["Muestra (from Audio) 2"];
+          if (Array.isArray(v) && v.length > 0) {
+            return v[0]?.thumbnails?.large?.url || v[0]?.url || null;
+          }
+          return null;
+        })(),
+        audio_favorito: (() => {
+          const c = r.fields["Audio Favorito (from Audio)"];
+          if (!Array.isArray(c) || c.length === 0) return false;
+          return c[0] === true;
         })(),
         camera_table_id: null,
         audio_id: null,

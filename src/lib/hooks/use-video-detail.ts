@@ -101,6 +101,14 @@ export interface SceneDetail {
   zoom_camera: string | null;
   tipo_avatar: string | null;
   photo_avatar: string | null;
+  heygen_render: string | null;
+  // Audio fields (from linked Audio table)
+  audio_tipo: string | null;
+  audio_seccion: string | null;
+  audio_attachment: string | null;
+  estilos_musicales: string[];
+  muestra_audio: string | null;
+  audio_favorito: boolean;
 }
 
 export interface LinkedIdea {

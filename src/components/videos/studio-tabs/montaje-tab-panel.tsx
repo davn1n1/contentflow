@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
   Play, Settings2, ChevronDown, Palette, Music, ImageIcon, Image as ImageLucide,
   ChevronRight, Loader2, CheckCircle2, XCircle, Wand2, Maximize2, X,
-  Film, User2, Tag,
+  Film, User2, Tag, Volume2, Star, Headphones,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -402,11 +402,11 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
         </td>
         {/* ── Slide group (violet bg) ── */}
         {/* Slide Activa (editable) */}
-        <td className="px-1 py-3 text-center bg-violet-500/[0.03] border-l border-violet-500/10">
+        <td className="px-1 py-3 text-center bg-violet-500/[0.06] border-l border-violet-500/10">
           <ActivaToggle active={scene.slide_activa} sceneId={scene.id} field="Slide Activa" color="emerald" />
         </td>
         {/* StatusSlide */}
-        <td className="px-1 py-3 bg-violet-500/[0.03]">
+        <td className="px-1 py-3 bg-violet-500/[0.06]">
           {isGenerating ? (
             <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium animate-pulse", "bg-amber-400/10 text-amber-400")}>
               Modificando
@@ -418,7 +418,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           ) : null}
         </td>
         {/* SlideEngine */}
-        <td className="px-1 py-3 bg-violet-500/[0.03]">
+        <td className="px-1 py-3 bg-violet-500/[0.06]">
           {scene.slide_engine && (
             <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium border", engineColor.bg, engineColor.text, engineColor.border)}>
               {scene.slide_engine}
@@ -426,7 +426,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           )}
         </td>
         {/* Calificacion Imagen Final */}
-        <td className="px-1 py-3 text-center bg-violet-500/[0.03]">
+        <td className="px-1 py-3 text-center bg-violet-500/[0.06]">
           {score && (
             <span className={cn(
               "inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold border",
@@ -437,7 +437,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           )}
         </td>
         {/* Slide thumbnail */}
-        <td className="px-0.5 py-1.5 bg-violet-500/[0.03]">
+        <td className="px-0.5 py-1.5 bg-violet-500/[0.06]">
           {isGenerating ? (
             <div className="w-16 h-10 rounded bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
               <Loader2 className="w-3 h-3 text-violet-400 animate-spin" />
@@ -454,17 +454,17 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
         </td>
         {/* ── Broll group (sky bg) ── */}
         {/* Broll Activa (editable) */}
-        <td className="px-1 py-3 text-center bg-sky-500/[0.03] border-l border-sky-500/10">
+        <td className="px-1 py-3 text-center bg-sky-500/[0.06] border-l border-sky-500/10">
           <ActivaToggle active={scene.broll_activa} sceneId={scene.id} field="Broll Activa" color="sky" />
         </td>
         {/* Custom (checkbox) */}
-        <td className="px-1 py-3 text-center bg-sky-500/[0.03]">
+        <td className="px-1 py-3 text-center bg-sky-500/[0.06]">
           {scene.broll_custom && (
             <CheckCircle2 className="w-4 h-4 text-sky-400 inline-block" />
           )}
         </td>
         {/* Broll thumbnail */}
-        <td className="px-0.5 py-1.5 bg-sky-500/[0.03]">
+        <td className="px-0.5 py-1.5 bg-sky-500/[0.06]">
           {scene.broll_thumb ? (
             <div className={cn("w-16 h-10 rounded overflow-hidden bg-muted border", scene.broll_custom ? "border-sky-500/40" : "border-border/30")}>
               <img src={scene.broll_thumb} alt={`Broll ${scene.n_escena}`} className="w-full h-full object-cover" />
@@ -477,7 +477,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
         </td>
         {/* ── Avatar group (amber bg) ── */}
         {/* Tipo Avatar */}
-        <td className="px-1 py-3 bg-amber-500/[0.03] border-l border-amber-500/10">
+        <td className="px-1 py-3 bg-amber-500/[0.06] border-l border-amber-500/10">
           {scene.tipo_avatar && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-400/10 text-amber-400 truncate max-w-[60px] inline-block">
               {scene.tipo_avatar}
@@ -485,20 +485,49 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           )}
         </td>
         {/* Zoom Camera */}
-        <td className="px-1 py-3 text-center bg-amber-500/[0.03]">
+        <td className="px-1 py-3 text-center bg-amber-500/[0.06]">
           {scene.zoom_camera && (
             <span className="text-[10px] font-mono text-muted-foreground">{scene.zoom_camera}%</span>
           )}
         </td>
-        {/* Avatar thumbnail */}
-        <td className="px-0.5 py-1.5 bg-amber-500/[0.03]">
-          {scene.photo_avatar ? (
+        {/* Heygen Render thumbnail (medium) */}
+        <td className="px-0.5 py-1.5 bg-amber-500/[0.06]">
+          {scene.heygen_render ? (
+            <div className="w-14 h-9 rounded overflow-hidden bg-muted border border-amber-500/30">
+              <img src={scene.heygen_render} alt="Heygen Render" className="w-full h-full object-cover" />
+            </div>
+          ) : scene.photo_avatar ? (
             <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border/30">
               <img src={scene.photo_avatar} alt="Avatar" className="w-full h-full object-cover" />
             </div>
           ) : (
-            <div className="w-10 h-10 rounded-full bg-muted/30 border border-border/20 flex items-center justify-center">
+            <div className="w-14 h-9 rounded bg-muted/30 border border-border/20 flex items-center justify-center">
               <User2 className="w-3 h-3 text-muted-foreground/20" />
+            </div>
+          )}
+        </td>
+        {/* ── Audio group (rose bg) ── */}
+        {/* Estilos Musicales */}
+        <td className="px-1 py-3 bg-rose-500/[0.06] border-l border-rose-500/10">
+          {scene.estilos_musicales?.length > 0 ? (
+            <div className="flex flex-wrap gap-0.5">
+              {scene.estilos_musicales.map((est, i) => (
+                <span key={i} className="text-[9px] px-1 py-0.5 rounded font-medium bg-rose-400/10 text-rose-400 truncate max-w-[60px] inline-block">
+                  {typeof est === "string" ? est : `#${i + 1}`}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </td>
+        {/* Muestra audio image (icon size) */}
+        <td className="px-0.5 py-1.5 bg-rose-500/[0.06]">
+          {scene.muestra_audio ? (
+            <div className="w-8 h-8 rounded overflow-hidden bg-muted border border-rose-500/30">
+              <img src={scene.muestra_audio} alt="Muestra" className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className="w-8 h-8 rounded bg-muted/30 border border-border/20 flex items-center justify-center">
+              <Volume2 className="w-3 h-3 text-muted-foreground/20" />
             </div>
           )}
         </td>
@@ -511,7 +540,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
       {/* Expanded Content */}
       {isExpanded && (
         <tr className="border-b border-border/40 bg-muted/10">
-          <td colSpan={16} className="px-4 py-4">
+          <td colSpan={20} className="px-4 py-4">
             <div className="space-y-5">
 
               {/* ── Row 1: Script + Topic ── */}
@@ -728,6 +757,145 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
                 </div>
               </div>
 
+              {/* ── Section: AVATAR ── */}
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <User2 className="w-3.5 h-3.5 text-amber-400" />
+                  <p className="text-[10px] uppercase tracking-wider text-amber-400 font-semibold">Avatar</p>
+                  {scene.tipo_avatar && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-400/10 text-amber-400 border border-amber-500/25">
+                      {scene.tipo_avatar}
+                    </span>
+                  )}
+                  {scene.zoom_camera && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-400/10 text-amber-400/70 border border-amber-500/20 ml-auto">
+                      Zoom: {scene.zoom_camera}%
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex gap-5 items-start">
+                  {/* Heygen Render image (medium) */}
+                  <div className="flex-shrink-0">
+                    {scene.heygen_render ? (
+                      <div
+                        className="relative group cursor-zoom-in"
+                        onClick={(e) => { e.stopPropagation(); setFullscreenSrc(scene.heygen_render || ""); }}
+                      >
+                        <div className="w-[200px] h-[112px] rounded-lg overflow-hidden bg-muted border border-amber-500/30 hover:border-amber-400/50 transition-colors">
+                          <img src={scene.heygen_render} alt="Heygen Render" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/50 text-white/60 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
+                          <Maximize2 className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                    ) : scene.photo_avatar ? (
+                      <div className="w-16 h-16 rounded-full overflow-hidden bg-muted border border-border/30">
+                        <img src={scene.photo_avatar} alt="Avatar" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-[200px] h-[112px] rounded-lg bg-muted/30 border border-border/20 flex items-center justify-center">
+                        <User2 className="w-8 h-8 text-muted-foreground/15" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Section: AUDIO ── */}
+              <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Headphones className="w-3.5 h-3.5 text-rose-400" />
+                  <p className="text-[10px] uppercase tracking-wider text-rose-400 font-semibold">Audio</p>
+                  {scene.audio_favorito && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-yellow-400/15 text-yellow-400 border border-yellow-500/25 ml-auto flex items-center gap-1">
+                      <Star className="w-3 h-3 fill-yellow-400" /> Favorito
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex gap-5 items-start">
+                  {/* Audio player */}
+                  {scene.audio_attachment && (
+                    <div className="flex-shrink-0">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Reproducir</p>
+                      <audio
+                        src={scene.audio_attachment}
+                        controls
+                        preload="metadata"
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-8 w-[240px]"
+                      />
+                    </div>
+                  )}
+
+                  {/* Muestra icon + Estilo Musical */}
+                  <div className="flex gap-4 items-start">
+                    {scene.muestra_audio && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1">Muestra</p>
+                        <div className="w-10 h-10 rounded overflow-hidden bg-muted border border-rose-500/30">
+                          <img src={scene.muestra_audio} alt="Muestra" className="w-full h-full object-cover" />
+                        </div>
+                      </div>
+                    )}
+
+                    {scene.estilos_musicales?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1">Estilos Musicales</p>
+                        <div className="flex flex-wrap gap-1">
+                          {scene.estilos_musicales.map((est, i) => (
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-rose-400/10 text-rose-400 border border-rose-500/25">
+                              {typeof est === "string" ? est : `Estilo ${i + 1}`}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Audio metadata */}
+                  <div className="flex gap-4 items-start ml-auto">
+                    {scene.audio_tipo && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1">Tipo</p>
+                        <span className={cn(
+                          "text-[10px] px-2 py-0.5 rounded-full font-medium border",
+                          scene.audio_tipo.toLowerCase().includes("musica") || scene.audio_tipo.toLowerCase().includes("música")
+                            ? "bg-pink-400/15 text-pink-400 border-pink-500/25"
+                            : scene.audio_tipo.toLowerCase().includes("sfx") || scene.audio_tipo.toLowerCase().includes("efecto")
+                            ? "bg-cyan-400/15 text-cyan-400 border-cyan-500/25"
+                            : "bg-violet-400/15 text-violet-400 border-violet-500/25"
+                        )}>
+                          {scene.audio_tipo}
+                        </span>
+                      </div>
+                    )}
+                    {scene.audio_seccion && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1">Sección</p>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-slate-400/15 text-slate-400 border border-slate-500/25">
+                          {scene.audio_seccion}
+                        </span>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1">Escena</p>
+                      <span className={cn(
+                        "inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold",
+                        colors.bg, colors.text
+                      )}>
+                        {scene.n_escena}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {!scene.audio_attachment && !scene.muestra_audio && scene.estilos_musicales?.length === 0 && (
+                  <p className="text-xs text-muted-foreground/40 italic mt-2">Sin audio asignado</p>
+                )}
+              </div>
+
             </div>
           </td>
         </tr>
@@ -763,7 +931,9 @@ function usePrefetchAdjacentScenes(scenes: SceneDetail[], expandedId: string | n
       if (s.slide_full) urls.push(s.slide_full);
       else if (s.slide) urls.push(s.slide);
       if (s.broll_thumb) urls.push(s.broll_thumb);
-      if (s.photo_avatar) urls.push(s.photo_avatar);
+      if (s.heygen_render) urls.push(s.heygen_render);
+      else if (s.photo_avatar) urls.push(s.photo_avatar);
+      if (s.muestra_audio) urls.push(s.muestra_audio);
     }
 
     // Preload images via Image() constructor — browser caches them
@@ -837,7 +1007,8 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
 
   const withSlides = scenes.filter((s) => s.slide).length;
   const withBroll = scenes.filter((s) => s.broll_thumb).length;
-  const withAvatar = scenes.filter((s) => s.photo_avatar).length;
+  const withAvatar = scenes.filter((s) => s.heygen_render || s.photo_avatar).length;
+  const withAudio = scenes.filter((s) => s.audio_attachment || s.muestra_audio).length;
   const activaSlideCount = scenes.filter((s) => s.slide_activa).length;
   const activaBrollCount = scenes.filter((s) => s.broll_activa).length;
 
@@ -859,6 +1030,7 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
           <span className="text-[10px] text-violet-400/80">{withSlides} slides · {activaSlideCount} act</span>
           <span className="text-[10px] text-sky-400/80">{withBroll} broll · {activaBrollCount} act</span>
           <span className="text-[10px] text-amber-400/80">{withAvatar} avatar</span>
+          <span className="text-[10px] text-rose-400/80">{withAudio} audio</span>
           <span className="text-[10px] text-muted-foreground/40">↑↓ navegar</span>
         </div>
       </div>
@@ -869,14 +1041,17 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
             {/* Group header row */}
             <tr className="border-b border-border/30">
               <th colSpan={4} className="text-left px-2 py-1.5 text-[9px] uppercase tracking-widest text-muted-foreground/60 font-semibold bg-muted/20">Escena</th>
-              <th colSpan={5} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-violet-400/70 font-semibold border-l border-violet-500/20 bg-violet-500/[0.07]">
+              <th colSpan={5} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-violet-400/70 font-semibold border-l border-violet-500/20 bg-violet-500/[0.12]">
                 <span className="flex items-center gap-1"><ImageLucide className="w-3 h-3" /> Slide</span>
               </th>
-              <th colSpan={3} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-sky-400/70 font-semibold border-l border-sky-500/20 bg-sky-500/[0.07]">
+              <th colSpan={3} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-sky-400/70 font-semibold border-l border-sky-500/20 bg-sky-500/[0.12]">
                 <span className="flex items-center gap-1"><Film className="w-3 h-3" /> B-Roll</span>
               </th>
-              <th colSpan={3} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-amber-400/70 font-semibold border-l border-amber-500/20 bg-amber-500/[0.07]">
+              <th colSpan={3} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-amber-400/70 font-semibold border-l border-amber-500/20 bg-amber-500/[0.12]">
                 <span className="flex items-center gap-1"><User2 className="w-3 h-3" /> Avatar</span>
+              </th>
+              <th colSpan={2} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-rose-400/70 font-semibold border-l border-rose-500/20 bg-rose-500/[0.12]">
+                <span className="flex items-center gap-1"><Headphones className="w-3 h-3" /> Audio</span>
               </th>
               <th className="w-4 bg-muted/20"></th>
             </tr>
@@ -888,19 +1063,22 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
               <th className="text-right px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12 bg-muted/30">Start</th>
               <th className="text-right px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12 bg-muted/30">Dur.</th>
               {/* Slide group */}
-              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-7 border-l border-violet-500/20 bg-violet-500/[0.05]" title="Slide Activa">A</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-18 bg-violet-500/[0.05]">Status</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-20 bg-violet-500/[0.05]">Engine</th>
-              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-8 bg-violet-500/[0.05]" title="Calificación Imagen">Sc</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-16 bg-violet-500/[0.05]">Img</th>
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-7 border-l border-violet-500/20 bg-violet-500/[0.08]" title="Slide Activa">A</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-18 bg-violet-500/[0.08]">Status</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-20 bg-violet-500/[0.08]">Engine</th>
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-8 bg-violet-500/[0.08]" title="Calificación Imagen">Sc</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-16 bg-violet-500/[0.08]">Img</th>
               {/* Broll group */}
-              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-sky-400/50 font-semibold w-7 border-l border-sky-500/20 bg-sky-500/[0.05]" title="Broll Activa">A</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-sky-400/50 font-semibold w-14 bg-sky-500/[0.05]">Custom</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-sky-400/50 font-semibold w-16 bg-sky-500/[0.05]">Img</th>
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-sky-400/50 font-semibold w-7 border-l border-sky-500/20 bg-sky-500/[0.08]" title="Broll Activa">A</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-sky-400/50 font-semibold w-14 bg-sky-500/[0.08]">Custom</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-sky-400/50 font-semibold w-16 bg-sky-500/[0.08]">Img</th>
               {/* Avatar group */}
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-amber-400/50 font-semibold w-16 border-l border-amber-500/20 bg-amber-500/[0.05]">Tipo</th>
-              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-amber-400/50 font-semibold w-10 bg-amber-500/[0.05]">Zoom</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-amber-400/50 font-semibold w-16 bg-amber-500/[0.05]">Img</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-amber-400/50 font-semibold w-16 border-l border-amber-500/20 bg-amber-500/[0.08]">Tipo</th>
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-amber-400/50 font-semibold w-10 bg-amber-500/[0.08]">Zoom</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-amber-400/50 font-semibold w-16 bg-amber-500/[0.08]">Img</th>
+              {/* Audio group */}
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-rose-400/50 font-semibold w-16 border-l border-rose-500/20 bg-rose-500/[0.08]">Estilo</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-rose-400/50 font-semibold w-10 bg-rose-500/[0.08]">Img</th>
               <th className="w-4 bg-muted/30"></th>
             </tr>
           </thead>
