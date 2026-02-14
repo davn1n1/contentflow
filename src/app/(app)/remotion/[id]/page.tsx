@@ -33,6 +33,7 @@ import {
   Bookmark,
   Magnet,
   X,
+  Upload,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -868,43 +869,88 @@ function RenderSection({
     pollRef.current = setTimeout(check, 3000);
   }
 
+  // Publish to S3 (save render URL to Airtable)
+  const [publishing, setPublishing] = useState(false);
+  const [published, setPublished] = useState(false);
+
+  async function publishToS3() {
+    setPublishing(true);
+    try {
+      const res = await fetch("/api/remotion/publish-s3", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timelineId }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Error al publicar");
+      setPublished(true);
+    } catch (err) {
+      console.error("Publish error:", err);
+      setErrorMsg(err instanceof Error ? err.message : "Error al publicar en S3");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   if (renderState === "done" && renderUrl) {
     return (
-      <div className="flex items-center gap-3 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-3">
-        <CheckCircle2 className="h-5 w-5 text-green-400 flex-shrink-0" />
-        <div className="flex-1">
-          <p className="text-sm font-medium text-green-400">Render completado</p>
-          <p className="text-xs text-green-400/60 mt-0.5">
-            {renderSize ? `${(renderSize / 1024 / 1024).toFixed(1)} MB · ` : ""}{elapsedTime}
-          </p>
+      <div className="space-y-2">
+        <div className="flex items-center gap-3 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-3">
+          <CheckCircle2 className="h-5 w-5 text-green-400 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-green-400">Render completado</p>
+            <p className="text-xs text-green-400/60 mt-0.5">
+              {renderSize ? `${(renderSize / 1024 / 1024).toFixed(1)} MB · ` : ""}{elapsedTime}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <a
+              href={renderUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Ver MP4
+            </a>
+            <a
+              href={renderUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Descargar
+            </a>
+            <button
+              onClick={launchRender}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-muted/30 text-muted-foreground border border-border/50 hover:bg-muted/50 transition-colors"
+            >
+              <Rocket className="h-3.5 w-3.5" />
+              Re-render
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <a
-            href={renderUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Ver MP4
-          </a>
-          <a
-            href={renderUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Descargar
-          </a>
+        {/* Publish to S3 / Airtable */}
+        {published ? (
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <p className="text-xs text-emerald-400">Publicado en S3 — URL guardada en Airtable &quot;URL S3 Montaje Final&quot;</p>
+          </div>
+        ) : (
           <button
-            onClick={launchRender}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-muted/30 text-muted-foreground border border-border/50 hover:bg-muted/50 transition-colors"
+            onClick={publishToS3}
+            disabled={publishing}
+            className="flex items-center gap-2 w-full justify-center text-xs px-4 py-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
           >
-            <Rocket className="h-3.5 w-3.5" />
-            Re-render
+            {publishing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Upload className="h-3.5 w-3.5" />
+            )}
+            {publishing ? "Publicando en Airtable..." : "Publicar en S3 → Airtable"}
           </button>
-        </div>
+        )}
       </div>
     );
   }

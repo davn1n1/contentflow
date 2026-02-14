@@ -130,7 +130,7 @@ export interface RemotionTimelineRecord {
   video_name?: string;
   shotstack_json: ShotstackPayload;
   remotion_timeline: RemotionTimeline;
-  status: "converted" | "previewing" | "rendering" | "rendered" | "failed";
+  status: "converted" | "previewing" | "rendering" | "rendered" | "published" | "failed";
   render_url?: string;
   render_id?: string;
   render_bucket?: string;
