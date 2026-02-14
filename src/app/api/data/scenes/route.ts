@@ -16,12 +16,15 @@ const SCENE_FIELDS = [
   "Slide Activa", "StatusSlide", "SlideEngine",
   "Feedback Slide", "Prompt Slide",
   "Calificacion Imagen Final",
-  // Broll fields
-  "Broll Thumb", "Broll Activa", "URL Broll S3",
+  // Broll fields (lookups include "(from Videos Broll)" in name)
+  "Broll Thumb (from Videos Broll)", "Broll Activa",
+  "URL Broll S3 (from Videos Broll)",
   "Broll Offset", "Broll Duration",
-  "Custom", "Broll_Video",
-  // Camera / Avatar fields
-  "Zoom Camera", "Tipo Avatar", "Photo S3 Avatar IV",
+  "Custom (from Videos Broll)", "Broll_Video (from Videos Broll)",
+  // Camera / Avatar fields (lookups include full path)
+  "Zoom Camera",
+  "Tipo Avatar (from Avatares) (from Camera Table)",
+  "Photo S3 Avatar IV (from Avatares) (from Camera Table)",
 ];
 
 interface SceneFields {
@@ -63,18 +66,18 @@ interface SceneFields {
   "Prompt Slide"?: string;
   "Calificacion Imagen Final"?: string;
   // Broll fields
-  "Broll Thumb"?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  "Broll Thumb (from Videos Broll)"?: { url: string; thumbnails?: { large?: { url: string } } }[];
   "Broll Activa"?: boolean;
-  "URL Broll S3"?: string[];
+  "URL Broll S3 (from Videos Broll)"?: string[];
   "Broll Offset"?: number;
   "Broll Duration"?: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  "Custom"?: any[];
-  "Broll_Video"?: string[];
+  "Custom (from Videos Broll)"?: any[];
+  "Broll_Video (from Videos Broll)"?: string[];
   // Camera / Avatar fields
   "Zoom Camera"?: string;
-  "Tipo Avatar"?: string[];
-  "Photo S3 Avatar IV"?: string[];
+  "Tipo Avatar (from Avatares) (from Camera Table)"?: string[];
+  "Photo S3 Avatar IV (from Avatares) (from Camera Table)"?: string[];
 }
 
 export async function GET(request: NextRequest) {
@@ -141,14 +144,18 @@ export async function GET(request: NextRequest) {
         feedback_slide: r.fields["Feedback Slide"] || null,
         prompt_slide: r.fields["Prompt Slide"] || null,
         calificacion_imagen_final: r.fields["Calificacion Imagen Final"] || null,
-        // Broll fields
-        broll_thumb: r.fields["Broll Thumb"]?.[0]?.thumbnails?.large?.url || r.fields["Broll Thumb"]?.[0]?.url || null,
+        // Broll fields (lookup names include "(from Videos Broll)")
+        broll_thumb: r.fields["Broll Thumb (from Videos Broll)"]?.[0]?.thumbnails?.large?.url || r.fields["Broll Thumb (from Videos Broll)"]?.[0]?.url || null,
         broll_activa: r.fields["Broll Activa"] || false,
-        url_broll_s3: Array.isArray(r.fields["URL Broll S3"]) ? r.fields["URL Broll S3"]?.[0] || null : r.fields["URL Broll S3"] || null,
+        url_broll_s3: (() => {
+          const v = r.fields["URL Broll S3 (from Videos Broll)"];
+          if (Array.isArray(v)) return v[0] || null;
+          return null;
+        })(),
         broll_offset: r.fields["Broll Offset"] ?? null,
         broll_duration: r.fields["Broll Duration"] ?? null,
         broll_custom: (() => {
-          const c = r.fields["Custom"];
+          const c = r.fields["Custom (from Videos Broll)"];
           if (!Array.isArray(c) || c.length === 0) return null;
           const first = c[0];
           // Attachment object (from lookup)
@@ -159,11 +166,31 @@ export async function GET(request: NextRequest) {
           if (typeof first === "string" && first.startsWith("http")) return first;
           return null;
         })(),
-        broll_video: Array.isArray(r.fields["Broll_Video"]) ? r.fields["Broll_Video"]?.[0] || null : null,
-        // Camera / Avatar fields
+        broll_video: (() => {
+          const v = r.fields["Broll_Video (from Videos Broll)"];
+          if (Array.isArray(v) && v.length > 0) {
+            const first = v[0];
+            // Could be attachment or URL string
+            if (typeof first === "object" && first !== null && "url" in first) return first.url || null;
+            if (typeof first === "string" && first.startsWith("http")) return first;
+          }
+          return null;
+        })(),
+        // Camera / Avatar fields (lookup names include full path)
         zoom_camera: r.fields["Zoom Camera"] || null,
-        tipo_avatar: Array.isArray(r.fields["Tipo Avatar"]) ? r.fields["Tipo Avatar"]?.[0] || null : null,
-        photo_avatar: Array.isArray(r.fields["Photo S3 Avatar IV"]) ? r.fields["Photo S3 Avatar IV"]?.[0] || null : null,
+        tipo_avatar: (() => {
+          const v = r.fields["Tipo Avatar (from Avatares) (from Camera Table)"];
+          return Array.isArray(v) ? v[0] || null : null;
+        })(),
+        photo_avatar: (() => {
+          const v = r.fields["Photo S3 Avatar IV (from Avatares) (from Camera Table)"];
+          if (Array.isArray(v) && v.length > 0) {
+            const first = v[0];
+            if (typeof first === "object" && first !== null && "url" in first) return first.thumbnails?.large?.url || first.url || null;
+            if (typeof first === "string" && first.startsWith("http")) return first;
+          }
+          return null;
+        })(),
         camera_table_id: null,
         audio_id: null,
       }))
