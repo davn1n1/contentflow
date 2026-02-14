@@ -1216,6 +1216,31 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
   );
 }
 
+// ─── ElevenLabs Script Collapsible ────────────────────────
+function ElevenLabsCollapsible({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 overflow-hidden">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-indigo-500/10 transition-colors"
+      >
+        <Volume2 className="w-3.5 h-3.5 text-indigo-400" />
+        <span className="text-[10px] uppercase tracking-wider text-indigo-400 font-semibold">Script ElevenLabs</span>
+        <span className="text-[10px] text-muted-foreground/50 ml-1">{text.length} chars</span>
+        <ChevronDown className={cn("w-3.5 h-3.5 text-indigo-400/60 ml-auto transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="px-3 pb-3">
+          <p className="text-xs font-mono whitespace-pre-wrap leading-relaxed bg-background/50 rounded-lg p-3 border border-indigo-500/15 text-foreground/80 max-h-[200px] overflow-y-auto">
+            {text}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Modifica Script Button (per-scene, same pattern as ModificaSlideButton) ──
 type ModificaScriptState = "idle" | "confirming" | "sending" | "generating" | "ready" | "error";
 
@@ -1657,14 +1682,9 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                 </div>
               )}
 
-              {/* Script ElevenLabs — compact */}
+              {/* Script ElevenLabs — collapsible */}
               {scene.script_elevenlabs && (
-                <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script ElevenLabs</span>
-                  <p className="text-xs font-mono whitespace-pre-wrap leading-relaxed mt-0.5 bg-muted/30 rounded p-2 text-muted-foreground max-h-[60px] overflow-y-auto">
-                    {scene.script_elevenlabs}
-                  </p>
-                </div>
+                <ElevenLabsCollapsible text={scene.script_elevenlabs} />
               )}
 
               {/* ── Feedback Copy + Modificar Script (per-scene) ── */}
