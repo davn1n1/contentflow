@@ -5,8 +5,11 @@ import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { ChatWidget } from "@/components/chat/chat-widget";
+import { PageTipBanner } from "@/components/engagement/page-tip-banner";
+import { NpsSurvey } from "@/components/engagement/nps-survey";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useAccountStore } from "@/lib/stores/account-store";
+import { useNpsStore } from "@/lib/stores/nps-store";
 import { useAuthUser } from "@/lib/hooks/use-auth-user";
 import { useAccounts } from "@/lib/hooks/use-accounts";
 import type { Account } from "@/types/database";
@@ -27,6 +30,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hasNavigated = useRef(false);
 
   const isLoading = authLoading || accountsLoading;
+
+  // Increment NPS session count (once per browser tab)
+  useEffect(() => {
+    useNpsStore.getState().incrementSession();
+  }, []);
 
   // Reset navigation flag when user changes (logout→login with different user)
   const prevUserRef = useRef<string | null>(null);
@@ -116,6 +124,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="p-6">{children}</main>
       </div>
       <ChatWidget />
+      <PageTipBanner />
+      <NpsSurvey />
     </div>
   );
 }

@@ -7,9 +7,9 @@
  * In production, Vercel Cron handles this via /api/cron/kb-sync.
  */
 export async function register() {
-  // Only run KB auto-sync in development on the server
+  // Only run in Node.js runtime (not Edge) and only in development
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.NODE_ENV !== "development") return;
-  if (typeof window !== "undefined") return; // skip client bundle
 
   const KB_SYNC_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -25,7 +25,7 @@ export async function register() {
 
 async function syncOnce() {
   try {
-    // Dynamic import to avoid bundling in production
+    // Dynamic import to avoid bundling in Edge runtime
     const { runKBSync } = await import("@/lib/kb/sync");
     const result = await runKBSync();
 
