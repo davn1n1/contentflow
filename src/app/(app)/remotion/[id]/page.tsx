@@ -825,7 +825,8 @@ function RenderSection({
           </a>
           <a
             href={renderUrl}
-            download
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
           >
             <Download className="h-3.5 w-3.5" />
