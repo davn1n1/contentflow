@@ -71,8 +71,7 @@ interface SceneFields {
   "URL Broll S3 (from Videos Broll)"?: string[];
   "Broll Offset"?: number;
   "Broll Duration"?: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  "Custom (from Videos Broll)"?: any[];
+  "Custom (from Videos Broll)"?: (boolean | null)[];
   "Broll_Video (from Videos Broll)"?: string[];
   // Camera / Avatar fields
   "Zoom Camera"?: string;
@@ -156,15 +155,9 @@ export async function GET(request: NextRequest) {
         broll_duration: r.fields["Broll Duration"] ?? null,
         broll_custom: (() => {
           const c = r.fields["Custom (from Videos Broll)"];
-          if (!Array.isArray(c) || c.length === 0) return null;
-          const first = c[0];
-          // Attachment object (from lookup)
-          if (typeof first === "object" && first !== null && "url" in first) {
-            return first.thumbnails?.large?.url || first.url || null;
-          }
-          // Direct URL string
-          if (typeof first === "string" && first.startsWith("http")) return first;
-          return null;
+          if (!Array.isArray(c) || c.length === 0) return false;
+          // Custom is a checkbox/boolean in Videos Broll table
+          return c[0] === true;
         })(),
         broll_video: (() => {
           const v = r.fields["Broll_Video (from Videos Broll)"];

@@ -400,12 +400,13 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
         <td className="px-2 py-3 text-right text-xs text-muted-foreground font-mono">
           {scene.duration != null ? `${scene.duration.toFixed(1)}s` : "—"}
         </td>
+        {/* ── Slide group (violet bg) ── */}
         {/* Slide Activa (editable) */}
-        <td className="px-1 py-3 text-center">
+        <td className="px-1 py-3 text-center bg-violet-500/[0.03] border-l border-violet-500/10">
           <ActivaToggle active={scene.slide_activa} sceneId={scene.id} field="Slide Activa" color="emerald" />
         </td>
         {/* StatusSlide */}
-        <td className="px-1 py-3">
+        <td className="px-1 py-3 bg-violet-500/[0.03]">
           {isGenerating ? (
             <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium animate-pulse", "bg-amber-400/10 text-amber-400")}>
               Modificando
@@ -417,7 +418,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           ) : null}
         </td>
         {/* SlideEngine */}
-        <td className="px-1 py-3">
+        <td className="px-1 py-3 bg-violet-500/[0.03]">
           {scene.slide_engine && (
             <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium border", engineColor.bg, engineColor.text, engineColor.border)}>
               {scene.slide_engine}
@@ -425,7 +426,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           )}
         </td>
         {/* Calificacion Imagen Final */}
-        <td className="px-1 py-3 text-center">
+        <td className="px-1 py-3 text-center bg-violet-500/[0.03]">
           {score && (
             <span className={cn(
               "inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold border",
@@ -436,7 +437,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           )}
         </td>
         {/* Slide thumbnail */}
-        <td className="px-0.5 py-1.5">
+        <td className="px-0.5 py-1.5 bg-violet-500/[0.03]">
           {isGenerating ? (
             <div className="w-16 h-10 rounded bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
               <Loader2 className="w-3 h-3 text-violet-400 animate-spin" />
@@ -451,24 +452,22 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
             </div>
           )}
         </td>
-        {/* ── Broll group ── */}
+        {/* ── Broll group (sky bg) ── */}
         {/* Broll Activa (editable) */}
-        <td className="px-1 py-3 text-center border-l border-border/20">
+        <td className="px-1 py-3 text-center bg-sky-500/[0.03] border-l border-sky-500/10">
           <ActivaToggle active={scene.broll_activa} sceneId={scene.id} field="Broll Activa" color="sky" />
         </td>
-        {/* Custom */}
-        <td className="px-1 py-3">
+        {/* Custom (checkbox) */}
+        <td className="px-1 py-3 text-center bg-sky-500/[0.03]">
           {scene.broll_custom && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-sky-400/10 text-sky-400 truncate max-w-[60px] inline-block">
-              {scene.broll_custom}
-            </span>
+            <CheckCircle2 className="w-4 h-4 text-sky-400 inline-block" />
           )}
         </td>
-        {/* Broll thumbnail (Custom priority > Broll Thumb) */}
-        <td className="px-0.5 py-1.5">
-          {(scene.broll_custom || scene.broll_thumb) ? (
+        {/* Broll thumbnail */}
+        <td className="px-0.5 py-1.5 bg-sky-500/[0.03]">
+          {scene.broll_thumb ? (
             <div className={cn("w-16 h-10 rounded overflow-hidden bg-muted border", scene.broll_custom ? "border-sky-500/40" : "border-border/30")}>
-              <img src={scene.broll_custom || scene.broll_thumb || ""} alt={`Broll ${scene.n_escena}`} className="w-full h-full object-cover" />
+              <img src={scene.broll_thumb} alt={`Broll ${scene.n_escena}`} className="w-full h-full object-cover" />
             </div>
           ) : (
             <div className="w-16 h-10 rounded bg-muted/30 border border-border/20 flex items-center justify-center">
@@ -476,9 +475,9 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
             </div>
           )}
         </td>
-        {/* ── Avatar group ── */}
+        {/* ── Avatar group (amber bg) ── */}
         {/* Tipo Avatar */}
-        <td className="px-1 py-3 border-l border-border/20">
+        <td className="px-1 py-3 bg-amber-500/[0.03] border-l border-amber-500/10">
           {scene.tipo_avatar && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-400/10 text-amber-400 truncate max-w-[60px] inline-block">
               {scene.tipo_avatar}
@@ -486,13 +485,13 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           )}
         </td>
         {/* Zoom Camera */}
-        <td className="px-1 py-3 text-center">
+        <td className="px-1 py-3 text-center bg-amber-500/[0.03]">
           {scene.zoom_camera && (
             <span className="text-[10px] font-mono text-muted-foreground">{scene.zoom_camera}%</span>
           )}
         </td>
         {/* Avatar thumbnail */}
-        <td className="px-0.5 py-1.5">
+        <td className="px-0.5 py-1.5 bg-amber-500/[0.03]">
           {scene.photo_avatar ? (
             <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border/30">
               <img src={scene.photo_avatar} alt="Avatar" className="w-full h-full object-cover" />
@@ -653,100 +652,80 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
                     <span className="text-[10px] text-muted-foreground">{scene.broll_activa ? "Activa" : "Inactiva"}</span>
                   </div>
                   {scene.broll_custom && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-sky-400/10 text-sky-400 border border-sky-500/25 ml-auto">
-                      {scene.broll_custom}
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-sky-400/10 text-sky-400 border border-sky-500/25 ml-auto flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Custom
                     </span>
                   )}
                 </div>
 
-                {(() => {
-                  // Priority: Custom > Broll Thumb
-                  const brollImg = scene.broll_custom || scene.broll_thumb || null;
-                  const isCustom = !!scene.broll_custom;
-                  return (
-                    <div className="flex gap-5">
-                      {/* Broll image — Custom has priority */}
-                      <div className="flex-shrink-0">
-                        {brollImg ? (
-                          <div>
-                            {isCustom && (
-                              <p className="text-[9px] uppercase tracking-wider text-sky-400/60 font-medium mb-1">Custom</p>
-                            )}
-                            <div
-                              className="relative group cursor-zoom-in"
-                              onClick={(e) => { e.stopPropagation(); setFullscreenSrc(brollImg); }}
-                            >
-                              <div className={cn(
-                                "w-[280px] h-[158px] rounded-lg overflow-hidden bg-muted border transition-colors",
-                                isCustom ? "border-sky-500/40 hover:border-sky-400/60" : "border-border/30 hover:border-sky-400/40"
-                              )}>
-                                <img src={brollImg} alt={`Broll ${scene.n_escena}`} className="w-full h-full object-cover" />
-                              </div>
-                              <div className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/50 text-white/60 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
-                                <Maximize2 className="w-3.5 h-3.5" />
-                              </div>
-                            </div>
-                            {/* Show Broll Thumb below if Custom is shown and both exist */}
-                            {isCustom && scene.broll_thumb && (
-                              <div className="mt-2">
-                                <p className="text-[9px] uppercase tracking-wider text-muted-foreground/50 font-medium mb-1">Broll Original</p>
-                                <div
-                                  className="relative group cursor-zoom-in"
-                                  onClick={(e) => { e.stopPropagation(); setFullscreenSrc(scene.broll_thumb || ""); }}
-                                >
-                                  <div className="w-[140px] h-[79px] rounded-md overflow-hidden bg-muted border border-border/20 hover:border-border/40 transition-colors">
-                                    <img src={scene.broll_thumb} alt={`Broll original ${scene.n_escena}`} className="w-full h-full object-cover" />
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="w-[280px] h-[158px] rounded-lg bg-muted/30 border border-border/20 flex items-center justify-center">
-                            <Film className="w-8 h-8 text-muted-foreground/15" />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Broll Video + Info */}
-                      <div className="flex-1 min-w-0 space-y-3">
-                        {/* Broll Video player */}
-                        {scene.broll_video && (
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Video B-Roll</p>
-                            <video
-                              src={scene.broll_video}
-                              controls
-                              preload="metadata"
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-full max-w-[360px] rounded-lg border border-border/30 bg-black"
-                            />
-                          </div>
-                        )}
-
-                        {/* Broll metadata */}
-                        <div className="flex gap-4">
-                          {scene.broll_offset != null && (
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Offset</p>
-                              <p className="text-xs font-mono text-foreground/80">{scene.broll_offset}s</p>
-                            </div>
-                          )}
-                          {scene.broll_duration != null && (
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Duración</p>
-                              <p className="text-xs font-mono text-foreground/80">{scene.broll_duration}s</p>
-                            </div>
-                          )}
+                <div className="flex gap-5">
+                  {/* Broll Thumbnail image */}
+                  <div className="flex-shrink-0">
+                    {scene.broll_thumb ? (
+                      <div
+                        className="relative group cursor-zoom-in"
+                        onClick={(e) => { e.stopPropagation(); setFullscreenSrc(scene.broll_thumb || ""); }}
+                      >
+                        <div className={cn(
+                          "w-[280px] h-[158px] rounded-lg overflow-hidden bg-muted border transition-colors",
+                          scene.broll_custom ? "border-sky-500/40 hover:border-sky-400/60" : "border-border/30 hover:border-sky-400/40"
+                        )}>
+                          <img src={scene.broll_thumb} alt={`Broll ${scene.n_escena}`} className="w-full h-full object-cover" />
                         </div>
-
-                        {!brollImg && !scene.broll_video && (
-                          <p className="text-xs text-muted-foreground/40 italic">Sin B-Roll asignado</p>
-                        )}
+                        <div className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/50 text-white/60 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
+                          <Maximize2 className="w-3.5 h-3.5" />
+                        </div>
                       </div>
+                    ) : (
+                      <div className="w-[280px] h-[158px] rounded-lg bg-muted/30 border border-border/20 flex items-center justify-center">
+                        <Film className="w-8 h-8 text-muted-foreground/15" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Broll Video + Info */}
+                  <div className="flex-1 min-w-0 space-y-3">
+                    {/* Broll Video player */}
+                    {scene.broll_video && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Video B-Roll</p>
+                        <video
+                          src={scene.broll_video}
+                          controls
+                          preload="metadata"
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-full max-w-[360px] rounded-lg border border-border/30 bg-black"
+                        />
+                      </div>
+                    )}
+
+                    {/* Broll metadata */}
+                    <div className="flex gap-4">
+                      {scene.broll_custom && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Custom</p>
+                          <CheckCircle2 className="w-4 h-4 text-sky-400 mt-0.5" />
+                        </div>
+                      )}
+                      {scene.broll_offset != null && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Offset</p>
+                          <p className="text-xs font-mono text-foreground/80">{scene.broll_offset}s</p>
+                        </div>
+                      )}
+                      {scene.broll_duration != null && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Duración</p>
+                          <p className="text-xs font-mono text-foreground/80">{scene.broll_duration}s</p>
+                        </div>
+                      )}
                     </div>
-                  );
-                })()}
+
+                    {!scene.broll_thumb && !scene.broll_video && (
+                      <p className="text-xs text-muted-foreground/40 italic">Sin B-Roll asignado</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
             </div>
@@ -766,10 +745,66 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
   );
 }
 
+// ─── Prefetch images for adjacent scenes ──────────────────
+function usePrefetchAdjacentScenes(scenes: SceneDetail[], expandedId: string | null) {
+  useEffect(() => {
+    if (!expandedId) return;
+    const idx = scenes.findIndex((s) => s.id === expandedId);
+    if (idx === -1) return;
+
+    // Prefetch next 3 scenes (ahead) + 1 behind
+    const indicesToPrefetch = [idx + 1, idx + 2, idx + 3, idx - 1].filter(
+      (i) => i >= 0 && i < scenes.length
+    );
+
+    const urls: string[] = [];
+    for (const i of indicesToPrefetch) {
+      const s = scenes[i];
+      if (s.slide_full) urls.push(s.slide_full);
+      else if (s.slide) urls.push(s.slide);
+      if (s.broll_thumb) urls.push(s.broll_thumb);
+      if (s.photo_avatar) urls.push(s.photo_avatar);
+    }
+
+    // Preload images via Image() constructor — browser caches them
+    const images: HTMLImageElement[] = [];
+    for (const url of urls) {
+      const img = new Image();
+      img.src = url;
+      images.push(img);
+    }
+
+    // Prefetch videos via link[rel=prefetch] for next 2 scenes
+    const videoUrls: string[] = [];
+    for (const i of [idx + 1, idx + 2]) {
+      if (i >= 0 && i < scenes.length && scenes[i].broll_video) {
+        videoUrls.push(scenes[i].broll_video!);
+      }
+    }
+    const links: HTMLLinkElement[] = [];
+    for (const url of videoUrls) {
+      if (document.querySelector(`link[href="${url}"]`)) continue;
+      const link = document.createElement("link");
+      link.rel = "prefetch";
+      link.as = "video";
+      link.href = url;
+      document.head.appendChild(link);
+      links.push(link);
+    }
+
+    return () => {
+      links.forEach((l) => l.remove());
+    };
+  }, [scenes, expandedId]);
+}
+
 // ─── Montaje Scene Table ──────────────────────────────────
 function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const expandedRowRef = useRef<HTMLTableRowElement>(null);
+
+  // Prefetch images/videos for adjacent scenes
+  usePrefetchAdjacentScenes(scenes, expandedId);
 
   // Scroll expanded scene — summary row pinned to top
   useEffect(() => {
@@ -801,7 +836,7 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
   );
 
   const withSlides = scenes.filter((s) => s.slide).length;
-  const withBroll = scenes.filter((s) => s.broll_custom || s.broll_thumb).length;
+  const withBroll = scenes.filter((s) => s.broll_thumb).length;
   const withAvatar = scenes.filter((s) => s.photo_avatar).length;
   const activaSlideCount = scenes.filter((s) => s.slide_activa).length;
   const activaBrollCount = scenes.filter((s) => s.broll_activa).length;
@@ -832,41 +867,41 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
         <table className="w-full text-sm">
           <thead>
             {/* Group header row */}
-            <tr className="bg-muted/20 border-b border-border/30">
-              <th colSpan={4} className="text-left px-2 py-1.5 text-[9px] uppercase tracking-widest text-muted-foreground/60 font-semibold">Escena</th>
-              <th colSpan={5} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-violet-400/70 font-semibold border-l border-border/30">
+            <tr className="border-b border-border/30">
+              <th colSpan={4} className="text-left px-2 py-1.5 text-[9px] uppercase tracking-widest text-muted-foreground/60 font-semibold bg-muted/20">Escena</th>
+              <th colSpan={5} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-violet-400/70 font-semibold border-l border-violet-500/20 bg-violet-500/[0.07]">
                 <span className="flex items-center gap-1"><ImageLucide className="w-3 h-3" /> Slide</span>
               </th>
-              <th colSpan={3} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-sky-400/70 font-semibold border-l border-border/30">
+              <th colSpan={3} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-sky-400/70 font-semibold border-l border-sky-500/20 bg-sky-500/[0.07]">
                 <span className="flex items-center gap-1"><Film className="w-3 h-3" /> B-Roll</span>
               </th>
-              <th colSpan={3} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-amber-400/70 font-semibold border-l border-border/30">
+              <th colSpan={3} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-amber-400/70 font-semibold border-l border-amber-500/20 bg-amber-500/[0.07]">
                 <span className="flex items-center gap-1"><User2 className="w-3 h-3" /> Avatar</span>
               </th>
-              <th className="w-4"></th>
+              <th className="w-4 bg-muted/20"></th>
             </tr>
             {/* Column header row */}
-            <tr className="border-b border-border bg-muted/30">
+            <tr className="border-b border-border">
               {/* Escena group */}
-              <th className="text-center px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">#</th>
-              <th className="text-left px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-20">Tipo</th>
-              <th className="text-right px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12">Start</th>
-              <th className="text-right px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12">Dur.</th>
+              <th className="text-center px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8 bg-muted/30">#</th>
+              <th className="text-left px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-20 bg-muted/30">Tipo</th>
+              <th className="text-right px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12 bg-muted/30">Start</th>
+              <th className="text-right px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12 bg-muted/30">Dur.</th>
               {/* Slide group */}
-              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-7 border-l border-border/30" title="Slide Activa">A</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-18">Status</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-20">Engine</th>
-              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8" title="Calificación Imagen">Sc</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Img</th>
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-7 border-l border-violet-500/20 bg-violet-500/[0.05]" title="Slide Activa">A</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-18 bg-violet-500/[0.05]">Status</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-20 bg-violet-500/[0.05]">Engine</th>
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-8 bg-violet-500/[0.05]" title="Calificación Imagen">Sc</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-violet-400/50 font-semibold w-16 bg-violet-500/[0.05]">Img</th>
               {/* Broll group */}
-              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-7 border-l border-border/30" title="Broll Activa">A</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-14">Custom</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Img</th>
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-sky-400/50 font-semibold w-7 border-l border-sky-500/20 bg-sky-500/[0.05]" title="Broll Activa">A</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-sky-400/50 font-semibold w-14 bg-sky-500/[0.05]">Custom</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-sky-400/50 font-semibold w-16 bg-sky-500/[0.05]">Img</th>
               {/* Avatar group */}
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16 border-l border-border/30">Tipo</th>
-              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-10">Zoom</th>
-              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Img</th>
-              <th className="w-4"></th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-amber-400/50 font-semibold w-16 border-l border-amber-500/20 bg-amber-500/[0.05]">Tipo</th>
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-amber-400/50 font-semibold w-10 bg-amber-500/[0.05]">Zoom</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-amber-400/50 font-semibold w-16 bg-amber-500/[0.05]">Img</th>
+              <th className="w-4 bg-muted/30"></th>
             </tr>
           </thead>
           <tbody>
