@@ -1348,134 +1348,78 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
       {isExpanded && (
         <tr className="bg-primary/5">
           <td colSpan={11} className="px-4 py-4">
-            <div className="space-y-3">
-              {/* Two-column layout: Script + Metadata */}
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
-                {/* Left: Editable script */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
+            <div className="space-y-2">
+              {/* Editable script — full width */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script completo</span>
-                    <span className="text-[10px] text-muted-foreground/50">
-                      {saving ? (
-                        <span className="flex items-center gap-1 text-amber-400">
-                          <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
-                        </span>
-                      ) : saved ? (
-                        <span className="flex items-center gap-1 text-emerald-400">
-                          <CheckCircle2 className="w-3 h-3" /> Guardado
-                        </span>
-                      ) : (
-                        <span>Esc para salir · ↑↓ navegar</span>
-                      )}
-                    </span>
+                    {scene.topic && <TopicTags topic={scene.topic} />}
                   </div>
-                  <textarea
-                    ref={textareaRef}
-                    value={scriptValue}
-                    onChange={handleScriptChange}
-                    onKeyDown={handleTextareaKeyDown}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none transition-colors text-xs"
-                    rows={4}
-                  />
+                  <span className="text-[10px] text-muted-foreground/50">
+                    {saving ? (
+                      <span className="flex items-center gap-1 text-amber-400">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
+                      </span>
+                    ) : saved ? (
+                      <span className="flex items-center gap-1 text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3" /> Guardado
+                      </span>
+                    ) : (
+                      <span>Esc para salir · ↑↓ navegar</span>
+                    )}
+                  </span>
                 </div>
+                <textarea
+                  ref={textareaRef}
+                  value={scriptValue}
+                  onChange={handleScriptChange}
+                  onKeyDown={handleTextareaKeyDown}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none transition-colors text-xs"
+                  rows={3}
+                />
+              </div>
 
-                {/* Right: Metadata */}
-                <div className="space-y-3">
+              {/* ── All feedback fields in a single compact grid ── */}
+              {(scene.informe_resumen_emoticonos || scene.solo_observaciones || scene.montaje_copy_con_observaciones || scene.comparativa_transcript_original || scene.conclusion_general_datos_difieren_mucho || scene.informe_guardarailes || scene.palabras_conflictivas) && (
+                <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/5 p-2.5">
+                  <p className="text-[10px] uppercase tracking-wider text-emerald-400/70 font-semibold mb-2 flex items-center gap-1">
+                    <FileText className="w-3 h-3" /> Informe & Observaciones
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
-                    {scene.topic && (
+                    {scene.informe_resumen_emoticonos && (
                       <div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Topic</span>
-                        <div className="mt-1">
-                          <TopicTags topic={scene.topic} />
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5">Resumen</p>
+                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-emerald-500/15 max-h-[80px] overflow-y-auto">
+                          {scene.informe_resumen_emoticonos}
                         </div>
                       </div>
                     )}
-                    {scene.role && (
-                      <div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Role</span>
-                        <p className="text-sm mt-0.5">{scene.role}</p>
-                      </div>
-                    )}
-                    {scene.importance && (
-                      <div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Importancia</span>
-                        <p className="text-sm mt-0.5">{scene.importance}</p>
-                      </div>
-                    )}
-                    {scene.voice_length != null && (
-                      <div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Duración voz</span>
-                        <p className="text-sm mt-0.5">{scene.voice_length.toFixed(1)}s</p>
-                      </div>
-                    )}
-                    {scene.status && (
-                      <div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status</span>
-                        <p className="text-sm mt-0.5">{scene.status}</p>
-                      </div>
-                    )}
-                    {scene.status_script && (
-                      <div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status Script</span>
-                        <p className="text-sm mt-0.5">{scene.status_script}</p>
-                      </div>
-                    )}
-                    {scene.clasificación_escena && (
-                      <div>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Tipo</span>
-                        <p className="mt-0.5"><SceneTypeBadge type={scene.clasificación_escena} /></p>
-                      </div>
-                    )}
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Copy OK</span>
-                      <p className="text-sm mt-0.5">{scene.copy_revisado_ok ? "✅ Sí" : "❌ No"}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Full informe */}
-              {scene.informe_resumen_emoticonos && (
-                <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Informe Resumen</span>
-                  <p className="text-xs whitespace-pre-wrap leading-relaxed mt-1 bg-muted/30 rounded-lg p-3">
-                    {scene.informe_resumen_emoticonos}
-                  </p>
-                </div>
-              )}
+                    {scene.solo_observaciones && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
+                          Observaciones
+                          <span title="Lo ha creado el Agente Informe, revisando el copy y consultando decenas de fuentes externas para confirmar los datos.">
+                            <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
+                          </span>
+                        </p>
+                        <div className="text-[11px] text-amber-200 whitespace-pre-wrap leading-relaxed bg-amber-500/10 rounded p-2 border border-amber-500/15 max-h-[80px] overflow-y-auto">
+                          {scene.solo_observaciones}
+                        </div>
+                      </div>
+                    )}
 
-              {/* Full observaciones */}
-              {scene.solo_observaciones && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1">
-                    Observaciones
-                    <span title="Lo ha creado el Agente Informe, revisando el copy y consultando decenas de fuentes externas para confirmar los datos.">
-                      <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
-                    </span>
-                  </p>
-                  <p className="text-xs whitespace-pre-wrap leading-relaxed mt-1 bg-amber-500/10 rounded-lg p-3 text-amber-200">
-                    {scene.solo_observaciones}
-                  </p>
-                </div>
-              )}
-
-              {/* ── Feedback grid — Copy con Observaciones, Comparativa, Conclusión, Guardaraíles, Conflictivas ── */}
-              {(scene.montaje_copy_con_observaciones || scene.comparativa_transcript_original || scene.conclusion_general_datos_difieren_mucho || scene.informe_guardarailes || scene.palabras_conflictivas) && (
-                <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/5 p-3">
-                  <p className="text-[10px] uppercase tracking-wider text-emerald-400/70 font-semibold mb-2 flex items-center gap-1">
-                    <FileText className="w-3 h-3" /> Informe Detallado
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
                     {scene.montaje_copy_con_observaciones && (
                       <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
                           Copy con Observaciones
                           <span title="El texto combinado con el informe, para saber exactamente donde está.">
                             <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
                           </span>
                         </p>
-                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-emerald-500/15 max-h-[120px] overflow-y-auto">
+                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-emerald-500/15 max-h-[80px] overflow-y-auto">
                           {scene.montaje_copy_con_observaciones}
                         </div>
                       </div>
@@ -1483,14 +1427,14 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
 
                     {scene.comparativa_transcript_original && (
                       <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
                           Comparativa Transcript
                           <span title="Cuanto difiere de la fuente original. OK green es que no hay grandes diferencias.">
                             <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
                           </span>
                         </p>
                         <div className={cn(
-                          "text-[11px] whitespace-pre-wrap leading-relaxed rounded-lg p-2.5 border max-h-[120px] overflow-y-auto",
+                          "text-[11px] whitespace-pre-wrap leading-relaxed rounded p-2 border max-h-[80px] overflow-y-auto",
                           scene.comparativa_transcript_original.toLowerCase().startsWith("ok") || scene.comparativa_transcript_original.startsWith("✅")
                             ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                             : "bg-background/40 border-emerald-500/15 text-foreground/70"
@@ -1502,10 +1446,10 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
 
                     {scene.conclusion_general_datos_difieren_mucho && (
                       <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3 text-amber-400/60" /> Conclusión General
                         </p>
-                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-amber-500/15 max-h-[120px] overflow-y-auto">
+                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-amber-500/15 max-h-[80px] overflow-y-auto">
                           {scene.conclusion_general_datos_difieren_mucho}
                         </div>
                       </div>
@@ -1513,10 +1457,10 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
 
                     {scene.informe_guardarailes && (
                       <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
                           <Shield className="w-3 h-3 text-blue-400/60" /> Guardaraíles
                         </p>
-                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-blue-500/15 max-h-[120px] overflow-y-auto">
+                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-blue-500/15 max-h-[80px] overflow-y-auto">
                           {scene.informe_guardarailes}
                         </div>
                       </div>
@@ -1524,10 +1468,10 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
 
                     {scene.palabras_conflictivas && (
                       <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
                           <AlertTriangle className="w-3 h-3 text-red-400/60" /> Palabras Conflictivas
                         </p>
-                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-red-500/15 max-h-[120px] overflow-y-auto">
+                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-red-500/15 max-h-[80px] overflow-y-auto">
                           {scene.palabras_conflictivas}
                         </div>
                       </div>
@@ -1536,11 +1480,11 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                 </div>
               )}
 
-              {/* Script ElevenLabs */}
+              {/* Script ElevenLabs — compact */}
               {scene.script_elevenlabs && (
                 <div>
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script ElevenLabs</span>
-                  <p className="text-xs font-mono whitespace-pre-wrap leading-relaxed mt-1 bg-muted/30 rounded-lg p-3 text-muted-foreground">
+                  <p className="text-xs font-mono whitespace-pre-wrap leading-relaxed mt-0.5 bg-muted/30 rounded p-2 text-muted-foreground max-h-[60px] overflow-y-auto">
                     {scene.script_elevenlabs}
                   </p>
                 </div>
