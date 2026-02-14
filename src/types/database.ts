@@ -85,6 +85,17 @@ export interface Video {
   formato: string | null;
   draft_publicacion_ids: string[];
   sponsor_ids: string[];
+  // Listado Todos fields
+  status_copy_analysis: string | null;
+  logo_account: string | null;
+  portada_b: string | null;
+  portada_c: string | null;
+  status_edicion_manual: string | null;
+  notas_revision: string | null;
+  url_drive: string | null;
+  yt_video_id: string | null;
+  logo_fuentes_inspiracion: string | null;
+  n_capitulo_podcast: string | null;
 }
 
 export interface Scene {

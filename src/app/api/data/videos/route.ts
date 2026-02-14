@@ -36,6 +36,17 @@ const VIDEO_FIELDS = [
   "Extensión Palabras",
   "Estimated Duration mm:ss",
   "Draft Publicacion",
+  // Listado Todos columns
+  "Status YouTube Publishing",
+  "URL Youtube",
+  "Logo (from AI Account)",
+  "Status Edición manual",
+  "NOTAS para la revisión (Post Edición)",
+  "URL Drive",
+  "URL Shotstack Production",
+  "YT_VideoID",
+  "Logo (from Fuentes Inspiracion) (from Ideas Inspiracion)",
+  "N. Capitulo Podcast",
 ];
 
 interface VideoFields {
@@ -90,6 +101,16 @@ interface VideoFields {
   "Extensión Palabras"?: number;
   "Estimated Duration mm:ss"?: string;
   "Draft Publicacion"?: string[];
+  "Status YouTube Publishing"?: string;
+  "URL Youtube"?: string;
+  "Logo (from AI Account)"?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  "Status Edición manual"?: string;
+  "NOTAS para la revisión (Post Edición)"?: string;
+  "URL Drive"?: string;
+  "URL Shotstack Production"?: string;
+  "YT_VideoID"?: string;
+  "Logo (from Fuentes Inspiracion) (from Ideas Inspiracion)"?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  "N. Capitulo Podcast"?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -237,5 +258,17 @@ function mapVideo(r: { id: string; createdTime: string; fields: VideoFields }) {
     extension_palabras: r.fields["Extensión Palabras"] ?? null,
     estimated_duration: r.fields["Estimated Duration mm:ss"] || null,
     draft_publicacion_ids: r.fields["Draft Publicacion"] || [],
+    // Listado Todos fields
+    status_youtube_publishing: r.fields["Status YouTube Publishing"] || null,
+    url_youtube: r.fields["URL Youtube"] || null,
+    logo_account: r.fields["Logo (from AI Account)"]?.[0]?.thumbnails?.large?.url || r.fields["Logo (from AI Account)"]?.[0]?.url || null,
+    status_edicion_manual: r.fields["Status Edición manual"] || null,
+    notas_revision: r.fields["NOTAS para la revisión (Post Edición)"] || null,
+    url_drive: r.fields["URL Drive"] || null,
+    url_shotstack_production: r.fields["URL Shotstack Production"] || null,
+    yt_video_id: r.fields["YT_VideoID"] || null,
+    logo_fuentes_inspiracion: r.fields["Logo (from Fuentes Inspiracion) (from Ideas Inspiracion)"]?.[0]?.thumbnails?.large?.url || r.fields["Logo (from Fuentes Inspiracion) (from Ideas Inspiracion)"]?.[0]?.url || null,
+    n_capitulo_podcast: r.fields["N. Capitulo Podcast"] || null,
+    horizontalvertical: r.fields["Horizontal/Vertical"] || null,
   };
 }

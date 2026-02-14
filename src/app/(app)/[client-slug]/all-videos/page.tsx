@@ -7,7 +7,7 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { useVideos } from "@/lib/hooks/use-videos";
 import { useQuery } from "@tanstack/react-query";
 import { AllVideoFilters } from "@/components/videos/all-video-filters";
-import { VideoTable } from "@/components/videos/video-table";
+import { AllVideoTable } from "@/components/videos/all-video-table";
 import { VideoCard } from "@/components/videos/video-card";
 import { VideoCalendar } from "@/components/videos/video-calendar";
 import type { Video } from "@/types/database";
@@ -169,7 +169,7 @@ export default function AllVideosPage() {
           ))}
         </div>
       ) : allVideosViewMode === "table" ? (
-        <VideoTable videos={filteredVideos} clientSlug={clientSlug} />
+        <AllVideoTable videos={filteredVideos} clientSlug={clientSlug} sponsorMap={sponsorMap} />
       ) : allVideosViewMode === "calendar" ? (
         <VideoCalendar videos={filteredVideos} clientSlug={clientSlug} />
       ) : (
