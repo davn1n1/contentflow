@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { useAccountStore } from "@/lib/stores/account-store";
 import { useIdeas } from "@/lib/hooks/use-ideas";
+import { useAppData } from "@/lib/hooks/use-app-data";
 import { IdeaCard } from "@/components/ideas/idea-card";
 import { IdeaFilters } from "@/components/ideas/idea-filters";
 import { IdeaDetailDrawer } from "@/components/ideas/idea-detail-drawer";
@@ -13,7 +14,7 @@ export default function IdeasPage() {
   const { currentAccount } = useAccountStore();
   const [search, setSearch] = useState("");
   const [tipoIdea, setTipoIdea] = useState("");
-  const [shortLong, setShortLong] = useState("");
+  const [fuenteId, setFuenteId] = useState("");
   const [favorita, setFavorita] = useState(false);
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
 
@@ -22,12 +23,13 @@ export default function IdeasPage() {
     tipoIdea: tipoIdea || undefined,
     search: search || undefined,
     favorita: favorita || undefined,
+    fuenteId: fuenteId || undefined,
   });
 
-  const filteredIdeas = useMemo(() => {
-    if (!ideas || !shortLong) return ideas;
-    return ideas.filter((idea) => idea.short_long === shortLong);
-  }, [ideas, shortLong]);
+  const { data: fuentes = [] } = useAppData({
+    table: "fuentes",
+    accountId: currentAccount?.id,
+  });
 
   const handleCloseDrawer = useCallback(() => setSelectedIdea(null), []);
 
@@ -44,9 +46,9 @@ export default function IdeasPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          {filteredIdeas && (
+          {ideas && (
             <span className="px-2 py-1 bg-muted rounded-md font-medium">
-              {filteredIdeas.length} ideas
+              {ideas.length} ideas
             </span>
           )}
         </div>
@@ -58,10 +60,11 @@ export default function IdeasPage() {
         onSearchChange={setSearch}
         tipoIdea={tipoIdea}
         onTipoIdeaChange={setTipoIdea}
-        shortLong={shortLong}
-        onShortLongChange={setShortLong}
+        fuenteId={fuenteId}
+        onFuenteIdChange={setFuenteId}
         favorita={favorita}
         onFavoritaChange={setFavorita}
+        fuentes={fuentes}
       />
 
       {/* Content */}
@@ -78,9 +81,9 @@ export default function IdeasPage() {
             Failed to load ideas. Please try again.
           </p>
         </div>
-      ) : filteredIdeas && filteredIdeas.length > 0 ? (
+      ) : ideas && ideas.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-          {filteredIdeas.map((idea) => (
+          {ideas.map((idea) => (
             <IdeaCard
               key={idea.id}
               idea={idea}
@@ -95,7 +98,7 @@ export default function IdeasPage() {
             No ideas found
           </p>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            {search || tipoIdea || shortLong || favorita
+            {search || tipoIdea || fuenteId || favorita
               ? "Try adjusting your filters to see more ideas."
               : "Ideas from YouTube, X, and Meta will appear here when collected."}
           </p>
