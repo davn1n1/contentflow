@@ -1125,6 +1125,7 @@ function useSceneAutoSave(sceneId: string, field: string, delay = 800) {
 
 function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [fontSize, setFontSize] = useState(12);
 
   // Keyboard navigation: up/down arrows to move between scenes, space to play/pause
   const handleKeyNav = useCallback(
@@ -1225,6 +1226,8 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
                   isExpanded={isExpanded}
                   onToggle={() => setExpandedId(isExpanded ? null : scene.id)}
                   expandedRef={isExpanded ? expandedRowRef : undefined}
+                  fontSize={fontSize}
+                  onFontSizeChange={setFontSize}
                 />
               );
             })}
@@ -1405,11 +1408,13 @@ function ModificaScriptButton({ sceneId, currentScript, onStateChange }: { scene
   );
 }
 
-function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
+function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, onFontSizeChange }: {
   scene: SceneDetail;
   isExpanded: boolean;
   onToggle: () => void;
   expandedRef?: React.RefObject<HTMLTableRowElement | null>;
+  fontSize: number;
+  onFontSizeChange: (size: number) => void;
 }) {
   const [scriptValue, setScriptValue] = useState(scene.script || "");
   const { save: saveScript, saving, saved } = useSceneAutoSave(scene.id, "Script");
@@ -1419,7 +1424,6 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   const { save: saveCopyRevisado } = useSceneAutoSave(scene.id, "Copy Revisado OK");
   const [modificaState, setModificaState] = useState<ModificaScriptState>("idle");
   const isModifying = modificaState === "generating" || modificaState === "sending";
-  const [fontSize, setFontSize] = useState(12); // px
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const feedbackCopyRef = useRef<HTMLTextAreaElement>(null);
   const feedbackCopyFocusedRef = useRef(false);
@@ -1621,7 +1625,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                   <div className="flex items-center gap-1.5">
                     <div className="flex items-center rounded-md border border-border/60 overflow-hidden">
                       <button
-                        onClick={(e) => { e.stopPropagation(); setFontSize((s) => Math.max(10, s - 2)); }}
+                        onClick={(e) => { e.stopPropagation(); onFontSizeChange(Math.max(10, fontSize - 2)); }}
                         className="px-1.5 py-0.5 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                         title="Reducir texto"
                       >
@@ -1629,7 +1633,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                       </button>
                       <span className="text-[9px] text-muted-foreground/60 tabular-nums px-1 border-x border-border/40">{fontSize}</span>
                       <button
-                        onClick={(e) => { e.stopPropagation(); setFontSize((s) => Math.min(24, s + 2)); }}
+                        onClick={(e) => { e.stopPropagation(); onFontSizeChange(Math.min(24, fontSize + 2)); }}
                         className="px-1.5 py-0.5 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                         title="Aumentar texto"
                       >
