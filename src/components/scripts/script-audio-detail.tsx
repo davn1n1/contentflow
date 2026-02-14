@@ -691,7 +691,55 @@ function AvatarPersonaSection({ videoId, video }: { videoId: string; video: Vide
 }
 
 
-// ─── Action Button with Double Confirmation ──────────────
+// ─── Action Button with Generating State + Polling ──────────────
+
+type ActionState = "idle" | "confirming" | "sending" | "generating" | "ready" | "error";
+
+// Polling config per action: what to check and how to detect completion
+const ACTION_POLL_CONFIG: Record<string, {
+  pollEndpoint: "video" | "scenes";
+  detectReady: (data: Record<string, unknown>, baseline: Record<string, unknown>) => boolean;
+  generatingLabel: string;
+  readyLabel: string;
+  maxTimeout: number; // ms
+}> = {
+  GenerateCopy: {
+    pollEndpoint: "video",
+    detectReady: (d, b) => {
+      // Copy done when status_copy becomes true or scenes appear/change
+      const escenas = d.escenas_ids as string[] | undefined;
+      const baseEscenas = b.escenas_ids as string[] | undefined;
+      return (
+        d.status_copy === true ||
+        (!!escenas && escenas.length > 0 && (!baseEscenas || escenas.length !== baseEscenas.length))
+      );
+    },
+    generatingLabel: "Generando copy…",
+    readyLabel: "Copy generado!",
+    maxTimeout: 600000, // 10 min
+  },
+  GenerateAudio: {
+    pollEndpoint: "video",
+    detectReady: (d) => d.status_audio === true,
+    generatingLabel: "Generando audio…",
+    readyLabel: "Audio generado!",
+    maxTimeout: 600000,
+  },
+  GenerateAvatars: {
+    pollEndpoint: "video",
+    detectReady: (d) => d.status_avatares === true,
+    generatingLabel: "Generando avatares…",
+    readyLabel: "Avatares generados!",
+    maxTimeout: 600000,
+  },
+  ProcesoFinalRender: {
+    pollEndpoint: "video",
+    detectReady: (d) => d.status_rendering_video === true,
+    generatingLabel: "Renderizando video…",
+    readyLabel: "Render completado!",
+    maxTimeout: 900000, // 15 min
+  },
+};
 
 export function ActionButton({
   videoId,
@@ -708,10 +756,28 @@ export function ActionButton({
   icon: React.ReactNode;
   color: "blue" | "green" | "amber" | "rose";
 }) {
-  const [state, setState] = useState<"idle" | "confirming" | "executing" | "success" | "error">("idle");
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryClient = useQueryClient();
+  const [state, setState] = useState<ActionState>("idle");
+  const stateRef = useRef<ActionState>(state);
+  stateRef.current = state;
 
-  // Auto-reset from confirming state after 5s
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const startTimeRef = useRef<number>(0);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const baselineRef = useRef<Record<string, unknown>>({});
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (tickRef.current) clearInterval(tickRef.current);
+    };
+  }, []);
+
+  // Auto-dismiss confirming after 5s
   useEffect(() => {
     if (state === "confirming") {
       timerRef.current = setTimeout(() => setState("idle"), 5000);
@@ -719,62 +785,127 @@ export function ActionButton({
     }
   }, [state]);
 
-  // Auto-reset success/error after 3s
+  // Auto-dismiss ready/error after 8s
   useEffect(() => {
-    if (state === "success" || state === "error") {
-      const t = setTimeout(() => setState("idle"), 3000);
+    if (state === "ready" || state === "error") {
+      const t = setTimeout(() => setState("idle"), 8000);
       return () => clearTimeout(t);
     }
   }, [state]);
 
-  const handleClick = useCallback(async () => {
-    if (state === "idle") {
-      setState("confirming");
+  // Elapsed timer during generating
+  useEffect(() => {
+    if (state === "generating") {
+      startTimeRef.current = Date.now();
+      setElapsed(0);
+      tickRef.current = setInterval(() => {
+        setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      }, 1000);
+      return () => { if (tickRef.current) clearInterval(tickRef.current); };
+    } else {
+      if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
+    }
+  }, [state]);
+
+  // Polling for status changes
+  useEffect(() => {
+    if (state !== "generating") {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       return;
     }
-    if (state === "confirming") {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      setState("executing");
+    const config = ACTION_POLL_CONFIG[action];
+    if (!config) return; // No polling config — stay in generating until timeout
+
+    const checkStatus = async () => {
       try {
+        const res = await fetch(`/api/data/videos?id=${videoId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (config.detectReady(data, baselineRef.current)) {
+          queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+          setState("ready");
+        }
+      } catch { /* ignore */ }
+    };
+    pollRef.current = setInterval(checkStatus, 8000);
+    const maxTimeout = setTimeout(() => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      // After max timeout, show ready (webhook was sent successfully)
+      setState((s) => s === "generating" ? "ready" : s);
+    }, config.maxTimeout);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      clearTimeout(maxTimeout);
+    };
+  }, [state, action, videoId, queryClient]);
+
+  const handleClick = useCallback(async () => {
+    const cur = stateRef.current;
+    if (cur === "error" || cur === "ready") { setState("idle"); return; }
+    if (cur === "idle") { setState("confirming"); return; }
+    if (cur === "confirming") {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setState("sending");
+      try {
+        // Capture baseline before sending
+        const baseRes = await fetch(`/api/data/videos?id=${videoId}`).catch(() => null);
+        if (baseRes?.ok) baselineRef.current = await baseRes.json();
+
         const res = await fetch("/api/webhooks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action, recordId: videoId }),
         });
-        setState(res.ok ? "success" : "error");
+        if (res.ok) {
+          setState("generating");
+        } else {
+          setState("error");
+        }
       } catch {
         setState("error");
       }
     }
-  }, [state, action, videoId]);
+  }, [action, videoId]);
+
+  const formatElapsed = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}:${sec.toString().padStart(2, "0")}` : `${sec}s`;
+  };
+
+  const config = ACTION_POLL_CONFIG[action];
 
   const colorStyles = {
     blue: {
       idle: "bg-blue-600 hover:bg-blue-500 text-white",
       confirming: "bg-amber-500 hover:bg-amber-400 text-black",
-      executing: "bg-blue-600/50 text-white",
-      success: "bg-emerald-600 text-white",
+      sending: "bg-blue-600/50 text-white/70",
+      generating: "bg-blue-600/30 border-blue-400/50 text-blue-300 animate-pulse",
+      ready: "bg-emerald-600 text-white",
       error: "bg-red-600 text-white",
     },
     green: {
       idle: "bg-emerald-600 hover:bg-emerald-500 text-white",
       confirming: "bg-amber-500 hover:bg-amber-400 text-black",
-      executing: "bg-emerald-600/50 text-white",
-      success: "bg-emerald-600 text-white",
+      sending: "bg-emerald-600/50 text-white/70",
+      generating: "bg-emerald-600/30 border-emerald-400/50 text-emerald-300 animate-pulse",
+      ready: "bg-emerald-600 text-white",
       error: "bg-red-600 text-white",
     },
     amber: {
       idle: "bg-amber-600 hover:bg-amber-500 text-white",
       confirming: "bg-red-500 hover:bg-red-400 text-white",
-      executing: "bg-amber-600/50 text-white",
-      success: "bg-emerald-600 text-white",
+      sending: "bg-amber-600/50 text-white/70",
+      generating: "bg-amber-600/30 border-amber-400/50 text-amber-300 animate-pulse",
+      ready: "bg-emerald-600 text-white",
       error: "bg-red-600 text-white",
     },
     rose: {
       idle: "bg-rose-600 hover:bg-rose-500 text-white",
       confirming: "bg-amber-500 hover:bg-amber-400 text-black",
-      executing: "bg-rose-600/50 text-white",
-      success: "bg-emerald-600 text-white",
+      sending: "bg-rose-600/50 text-white/70",
+      generating: "bg-rose-600/30 border-rose-400/50 text-rose-300 animate-pulse",
+      ready: "bg-emerald-600 text-white",
       error: "bg-red-600 text-white",
     },
   };
@@ -783,19 +914,13 @@ export function ActionButton({
 
   return (
     <div className="space-y-2">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-        Pulsar para crear script
-      </p>
-      <p className="text-xs text-muted-foreground mb-3">
-        Esperar unos minutos hasta que salga en la parte inferior
-      </p>
       <button
         onClick={handleClick}
-        disabled={state === "executing" || state === "success"}
+        disabled={state === "sending" || state === "generating"}
         className={cn(
-          "w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-sm font-bold transition-all duration-300",
+          "w-full flex items-center justify-center gap-3 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 border border-transparent",
           styles[state],
-          (state === "executing" || state === "success") && "cursor-not-allowed"
+          (state === "sending" || state === "generating") && "cursor-wait"
         )}
       >
         {state === "idle" && (
@@ -810,28 +935,39 @@ export function ActionButton({
             {confirmLabel} — Click para ejecutar
           </>
         )}
-        {state === "executing" && (
+        {state === "sending" && (
           <>
             <Loader2 className="w-5 h-5 animate-spin" />
-            Ejecutando...
+            Enviando…
           </>
         )}
-        {state === "success" && (
+        {state === "generating" && (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" />
+            {config?.generatingLabel || "Procesando…"} {formatElapsed(elapsed)}
+          </>
+        )}
+        {state === "ready" && (
           <>
             <CheckCircle2 className="w-5 h-5" />
-            Enviado correctamente
+            {config?.readyLabel || "Completado!"}
           </>
         )}
         {state === "error" && (
           <>
             <XCircle className="w-5 h-5" />
-            Error al ejecutar
+            Error — click para reintentar
           </>
         )}
       </button>
       {state === "confirming" && (
         <p className="text-[10px] text-center text-amber-400/80 animate-pulse">
           Se reiniciará en 5 segundos si no confirmas
+        </p>
+      )}
+      {state === "generating" && (
+        <p className="text-[10px] text-center text-muted-foreground/60">
+          Procesando en n8n… la tabla se actualizará automáticamente
         </p>
       )}
     </div>
