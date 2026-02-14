@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { airtableFetch, airtableCreate, TABLES } from "@/lib/airtable/client";
+import {
+  airtableFetch,
+  airtableCreate,
+  airtableUpdate,
+  TABLES,
+} from "@/lib/airtable/client";
 import { inviteSupabaseUser } from "@/lib/auth/create-supabase-user";
 
 const GHL_API_KEY = process.env.GHL_API_KEY || process.env.GHL_WEBHOOK_SECRET || "";
@@ -29,11 +34,13 @@ const APP_PRODUCTS = ["content ia", "pro"];
  * POST /api/webhooks/ghl-sale
  *
  * Called by GoHighLevel Workflow on "Order Submitted".
- * Creates Account + User in Airtable, invites via Supabase (email with magic link).
- * Only processes orders for Content IA and Pro products (ignores Bots IA).
+ * Handles both new users and existing users (upgrades, new purchases).
  *
+ * - New user: Creates Account + User in Airtable, invites via Supabase.
+ * - Existing user: Updates Account Product, logs the purchase.
+ *
+ * Only processes Content IA and Pro products (ignores Bots IA).
  * Auth: Bearer token | X-Api-Key | X-Webhook-Secret (unified GHL_API_KEY)
- * Idempotent: if user with email already exists, returns existing data.
  */
 export async function POST(request: Request) {
   if (!authenticateWebhook(request)) {
@@ -68,7 +75,7 @@ export async function POST(request: Request) {
 
     const email = contactEmail.trim().toLowerCase();
 
-    // Idempotency: check if user already exists in Airtable
+    // Check if user already exists in Airtable
     const existing = await airtableFetch<{ Email?: string; Account?: string[] }>(
       TABLES.USUARIOS,
       {
@@ -78,16 +85,29 @@ export async function POST(request: Request) {
       }
     );
 
+    // --- EXISTING USER: update account with new purchase ---
     if (existing.records.length > 0) {
+      const userId = existing.records[0].id;
+      const accountId = existing.records[0].fields.Account?.[0] || null;
+
+      // Update account Product if we have both accountId and plan
+      if (accountId && plan) {
+        await airtableUpdate(TABLES.ACCOUNT, accountId, {
+          Product: plan,
+        });
+      }
+
       return NextResponse.json({
         success: true,
-        status: "already_exists",
-        user_airtable_id: existing.records[0].id,
-        account_airtable_id: existing.records[0].fields.Account?.[0] || null,
+        status: "existing_user_updated",
+        user_airtable_id: userId,
+        account_airtable_id: accountId,
+        ...(plan && { plan }),
+        ...(phone && { phone }),
       });
     }
 
-    // 1. Create Account in Airtable
+    // --- NEW USER: create everything ---
     const slug = companyName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -101,7 +121,6 @@ export async function POST(request: Request) {
       ...(industria && { Industria: Array.isArray(industria) ? industria : [industria] }),
     });
 
-    // 2. Create User in Airtable
     const user = await airtableCreate(TABLES.USUARIOS, {
       Name: contactName,
       Email: email,
@@ -110,7 +129,6 @@ export async function POST(request: Request) {
       Account: [account.id],
     });
 
-    // 3. Invite via Supabase (sends email with magic link to set password)
     const supabaseResult = await inviteSupabaseUser({
       email,
       name: contactName,
