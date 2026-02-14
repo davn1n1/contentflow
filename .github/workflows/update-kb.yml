@@ -4,128 +4,65 @@ on:
   push:
     branches: [main]
     paths:
-      # Pages and routes
-      - 'src/app/(app)/**'
-      - 'src/app/(onboarding)/**'
-      # Components that are KB sources
+      # App pages (any change to routes triggers KB update)
+      - 'src/app/(app)/**/page.tsx'
+      - 'src/app/(onboarding)/**/page.tsx'
+      # Key components
       - 'src/components/layout/sidebar.tsx'
-      - 'src/components/chat/chat-widget.tsx'
-      # APIs that are KB sources
+      - 'src/components/chat/**'
+      # Chat tools (affects "what can the bot do" article)
       - 'src/lib/chat/tools.ts'
-      # Documentation
-      - '../docs/**'
-      # The source map itself (new articles added)
+      # The source map itself
       - 'src/lib/kb/source-map.ts'
 
 jobs:
   update-kb:
     runs-on: ubuntu-latest
-    # Wait for Vercel deploy to complete (~2 min typical)
-    # The endpoint needs the deployed app running
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Need previous commit to diff
+          fetch-depth: 2
 
-      - name: Get changed files
-        id: changed
+      - name: Detect changed files and decide scope
+        id: scope
         run: |
-          FILES=$(git diff --name-only HEAD~1 HEAD | tr '\n' ',')
-          echo "files=$FILES" >> $GITHUB_OUTPUT
-          echo "Changed files: $FILES"
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          echo "Changed files:"
+          echo "$CHANGED"
 
-      - name: Map changed files to KB slugs
-        id: slugs
-        run: |
-          # Use Node.js to run the mapping logic
-          cat > /tmp/map-slugs.mjs << 'SCRIPT'
-          // Inline mapping of file paths to slugs (mirrors source-map.ts)
-          const FILE_TO_SLUGS = {
-            'src/app/(app)/[client-slug]/research/page.tsx': ['research-ideas'],
-            'src/app/(app)/[client-slug]/ideas/page.tsx': ['ideas-inspiracion'],
-            'src/app/(app)/[client-slug]/scripts/page.tsx': ['crear-copy-guion'],
-            'src/app/(app)/[client-slug]/videos/page.tsx': ['buscar-videos-filtros', 'ver-detalle-video'],
-            'src/app/(app)/[client-slug]/videos/[id]/page.tsx': ['ver-detalle-video'],
-            'src/app/(app)/[client-slug]/scenes/[id]/page.tsx': ['ver-detalle-video'],
-            'src/app/(app)/[client-slug]/renders/page.tsx': ['render-final-publicacion'],
-            'src/app/(app)/[client-slug]/settings/page.tsx': ['gestionar-cuenta'],
-            'src/app/(app)/[client-slug]/team/page.tsx': ['gestionar-equipo'],
-            'src/app/(app)/[client-slug]/campanas/page.tsx': ['gestionar-campanas'],
-            'src/app/(app)/[client-slug]/app-data/avatares/page.tsx': ['configurar-avatares'],
-            'src/app/(app)/[client-slug]/app-data/avatares-set/page.tsx': ['configurar-avatares'],
-            'src/app/(app)/[client-slug]/app-data/persona/page.tsx': ['configurar-persona'],
-            'src/app/(app)/[client-slug]/app-data/guardarails/page.tsx': ['configurar-persona'],
-            'src/app/(app)/[client-slug]/app-data/ctas/page.tsx': ['configurar-ctas'],
-            'src/app/(app)/[client-slug]/app-data/broll/page.tsx': ['gestionar-broll'],
-            'src/app/(app)/[client-slug]/app-data/voices/page.tsx': ['configurar-voces'],
-            'src/app/(app)/[client-slug]/app-data/voicedna-sources/page.tsx': ['configurar-voicedna-sources'],
-            'src/app/(app)/[client-slug]/app-data/audiencia/page.tsx': ['configurar-audiencia'],
-            'src/app/(app)/[client-slug]/app-data/sponsors/page.tsx': ['gestionar-sponsors-brands'],
-            'src/app/(app)/[client-slug]/app-data/brands/page.tsx': ['gestionar-sponsors-brands'],
-            'src/app/(app)/[client-slug]/app-data/identidad-visual/page.tsx': ['identidad-visual'],
-            'src/app/(app)/[client-slug]/app-data/default-settings/page.tsx': ['configuracion-defecto'],
-            'src/app/(app)/[client-slug]/app-data/fuentes/page.tsx': ['fuentes-inspiracion'],
-            'src/app/(app)/[client-slug]/app-data/spy/page.tsx': ['spy-ads-reels'],
-            'src/app/(app)/[client-slug]/app-data/social-profiles/page.tsx': ['perfiles-sociales'],
-            'src/app/(app)/remotion/page.tsx': ['remotion-lista-timelines'],
-            'src/app/(app)/remotion/[id]/page.tsx': ['remotion-preview'],
-            'src/app/(app)/dashboard/page.tsx': ['seleccionar-cuenta'],
-            'src/app/(onboarding)/onboarding/page.tsx': ['configurar-cuenta-inicial'],
-            'src/components/layout/sidebar.tsx': ['navegar-app', 'menu-lateral-secciones', 'seleccionar-cuenta'],
-            'src/components/chat/chat-widget.tsx': ['usar-chat-ia'],
-            'src/lib/chat/tools.ts': ['que-puede-hacer-chat'],
-            'src/lib/kb/source-map.ts': ['__all__'],
-          };
+          # If source-map.ts changed → regenerate ALL
+          if echo "$CHANGED" | grep -q "src/lib/kb/source-map.ts"; then
+            echo "mode=all" >> $GITHUB_OUTPUT
+            echo "Mode: regenerate ALL (source-map changed)"
+            exit 0
+          fi
 
-          const changedFiles = process.env.CHANGED_FILES?.split(',').filter(Boolean) || [];
-          const slugs = new Set();
-
-          for (const file of changedFiles) {
-            const mapped = FILE_TO_SLUGS[file];
-            if (mapped) {
-              for (const slug of mapped) slugs.add(slug);
-            }
-          }
-
-          // If source-map itself changed, regenerate all
-          if (slugs.has('__all__')) {
-            console.log('__all__');
-          } else if (slugs.size > 0) {
-            console.log([...slugs].join(','));
-          } else {
-            console.log('__none__');
-          }
-          SCRIPT
-
-          CHANGED_FILES="${{ steps.changed.outputs.files }}" SLUGS=$(node /tmp/map-slugs.mjs)
-          echo "slugs=$SLUGS" >> $GITHUB_OUTPUT
-          echo "Slugs to regenerate: $SLUGS"
+          # Otherwise → just run with auto-discovery (only new/changed articles)
+          echo "mode=auto" >> $GITHUB_OUTPUT
+          echo "Mode: auto-discovery (incremental)"
 
       - name: Wait for Vercel deploy
-        if: steps.slugs.outputs.slugs != '__none__'
         run: |
-          echo "Waiting 120s for Vercel deploy to complete..."
-          sleep 120
+          echo "Waiting 150s for Vercel deploy..."
+          sleep 150
 
-      - name: Regenerate affected KB articles
-        if: steps.slugs.outputs.slugs != '__none__'
+      - name: Regenerate KB articles
         env:
           APP_URL: ${{ secrets.APP_URL }}
           ADMIN_KEY: ${{ secrets.N8N_WEBHOOK_AUTH_VALUE }}
         run: |
-          SLUGS="${{ steps.slugs.outputs.slugs }}"
+          MODE="${{ steps.scope.outputs.mode }}"
+          URL="${APP_URL:-https://app.contentflow365.com}"
 
-          if [ "$SLUGS" = "__all__" ]; then
+          if [ "$MODE" = "all" ]; then
             echo "Regenerating ALL articles..."
             BODY='{"regenerate": true}'
           else
-            echo "Regenerating: $SLUGS"
-            # Convert comma-separated slugs to JSON array
-            JSON_SLUGS=$(echo "$SLUGS" | tr ',' '\n' | sed 's/.*/"&"/' | tr '\n' ',' | sed 's/,$//')
-            BODY="{\"slugs\": [$JSON_SLUGS], \"regenerate\": true}"
+            echo "Running incremental update (new pages auto-discovered)..."
+            BODY='{}'
           fi
 
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${APP_URL:-https://app.contentflow365.com}/api/admin/kb/generate" \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$URL/api/admin/kb/generate" \
             -H "X-Admin-Key: $ADMIN_KEY" \
             -H "Content-Type: application/json" \
             -d "$BODY")

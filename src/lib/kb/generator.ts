@@ -1,8 +1,9 @@
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
-import { readFile } from "fs/promises";
-import { join } from "path";
+import { readFile, readdir } from "fs/promises";
+import { join, relative } from "path";
 import type { KBSource, KBSourceFile } from "./source-map";
+import { KB_SOURCES } from "./source-map";
 
 const openrouter = createOpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -166,4 +167,120 @@ export async function generateArticles(
   }
 
   return results;
+}
+
+// =====================================================
+// AUTO-DISCOVERY: detect new pages not in source-map
+// =====================================================
+
+/** Category guesses based on route path segments */
+const PATH_TO_CATEGORY: Record<string, string> = {
+  "app-data": "app-data",
+  research: "copy-script",
+  ideas: "copy-script",
+  scripts: "copy-script",
+  videos: "video",
+  scenes: "video",
+  renders: "render",
+  remotion: "remotion",
+  settings: "account",
+  team: "account",
+  campanas: "account",
+  help: "getting-started",
+  dashboard: "getting-started",
+  onboarding: "getting-started",
+};
+
+function guessCategory(routePath: string): string {
+  for (const [segment, category] of Object.entries(PATH_TO_CATEGORY)) {
+    if (routePath.includes(`/${segment}/`) || routePath.includes(`/${segment}`)) {
+      return category;
+    }
+  }
+  return "getting-started";
+}
+
+function pathToSlug(routePath: string): string {
+  // Extract meaningful path segments, skip Next.js conventions
+  return routePath
+    .replace(/^src\/app\/\(.*?\)\//, "")  // remove (app)/, (onboarding)/ etc
+    .replace(/\/\[client-slug\]\//, "/")   // remove [client-slug]
+    .replace(/\/page\.tsx$/, "")           // remove page.tsx
+    .replace(/\/\[.*?\]/g, "")            // remove [id], [slug] etc
+    .replace(/\//g, "-")                  // slashes → dashes
+    .replace(/^-|-$/g, "")               // trim dashes
+    .toLowerCase() || "index";
+}
+
+function pathToTitle(routePath: string): string {
+  const slug = pathToSlug(routePath);
+  return slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
+ * Scan the filesystem for page.tsx files not covered by KB_SOURCES.
+ * Returns KBSource entries for any new pages found.
+ */
+export async function discoverNewPages(): Promise<KBSource[]> {
+  const projectRoot = process.cwd();
+  const appDir = join(projectRoot, "src/app/(app)");
+
+  // Collect all existing source paths from KB_SOURCES
+  const existingPaths = new Set<string>();
+  for (const source of KB_SOURCES) {
+    for (const file of source.sources) {
+      if (file.path) existingPaths.add(file.path);
+    }
+  }
+
+  const discovered: KBSource[] = [];
+
+  async function scanDir(dir: string) {
+    try {
+      const entries = await readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          await scanDir(fullPath);
+        } else if (entry.name === "page.tsx") {
+          const relPath = relative(projectRoot, fullPath);
+          // Skip if already covered by source-map
+          if (existingPaths.has(relPath)) continue;
+
+          // Skip dynamic routes like [id] or [slug] — they're detail pages
+          // that usually share an article with their parent list page
+          const segments = relPath.split("/");
+          const lastDir = segments[segments.length - 2];
+          if (lastDir?.startsWith("[") && lastDir !== "[client-slug]") continue;
+
+          // Skip help pages (they ARE the KB, not sources for it)
+          if (relPath.includes("/help/")) continue;
+
+          const slug = `auto-${pathToSlug(relPath)}`;
+          const category = guessCategory(relPath);
+
+          discovered.push({
+            id: slug,
+            title: pathToTitle(relPath),
+            category,
+            tags: [pathToSlug(relPath).split("-")[0]],
+            sources: [{ type: "route", path: relPath }],
+            priority: 3,
+          });
+        }
+      }
+    } catch {
+      // Directory doesn't exist — skip
+    }
+  }
+
+  await scanDir(appDir);
+
+  // Also scan onboarding
+  await scanDir(join(projectRoot, "src/app/(onboarding)"));
+
+  return discovered;
 }

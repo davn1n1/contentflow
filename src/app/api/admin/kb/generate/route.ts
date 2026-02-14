@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { KB_SOURCES } from "@/lib/kb/source-map";
-import { generateArticles } from "@/lib/kb/generator";
+import { generateArticles, discoverNewPages } from "@/lib/kb/generator";
 import { embedTexts } from "@/lib/rag/embeddings";
 
 /**
@@ -44,10 +44,23 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
+    // Auto-discover new pages not in source-map
+    let discoveredPages: typeof KB_SOURCES = [];
+    if (!slugs) {
+      try {
+        discoveredPages = await discoverNewPages();
+      } catch (err) {
+        console.warn("[KB Generate] Auto-discovery failed:", err instanceof Error ? err.message : err);
+      }
+    }
+
+    // Combine manual sources + auto-discovered pages
+    const allSources = [...KB_SOURCES, ...discoveredPages];
+
     // Filter sources based on request
     let sources = slugs
-      ? KB_SOURCES.filter((s) => slugs!.includes(s.id))
-      : KB_SOURCES;
+      ? allSources.filter((s) => slugs!.includes(s.id))
+      : allSources;
 
     // Check which articles already exist
     const { data: existingArticles } = await supabase
