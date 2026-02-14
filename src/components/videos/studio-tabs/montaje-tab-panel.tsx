@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Play, Settings2, ChevronDown, Palette, Music, ImageIcon, Image as ImageLucide,
   ChevronRight, Loader2, CheckCircle2, XCircle, Wand2, Maximize2, X,
@@ -78,14 +79,13 @@ function useSceneAutoSave(sceneId: string, field: string, delay = 800) {
   return { save, saving, saved };
 }
 
-// ─── Fullscreen Lightbox ─────────────────────────────────
+// ─── Fullscreen Lightbox (Portal → body, above everything) ──
 function FullscreenImageModal({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleKey);
-    // Prevent body scroll while lightbox is open
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", handleKey);
@@ -93,15 +93,17 @@ function FullscreenImageModal({ src, alt, onClose }: { src: string; alt: string;
     };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md cursor-pointer animate-[fade-in_0.15s_ease-out]"
+      className="fixed inset-0 flex items-center justify-center bg-black/95 backdrop-blur-md cursor-pointer animate-[fade-in_0.15s_ease-out]"
+      style={{ zIndex: 99999 }}
       onClick={onClose}
     >
       {/* X button */}
       <button
         onClick={onClose}
-        className="absolute top-5 right-5 p-2.5 rounded-full bg-white/10 hover:bg-white/25 text-white/80 hover:text-white transition-all z-10 backdrop-blur-sm border border-white/10"
+        className="absolute top-5 right-5 p-2.5 rounded-full bg-white/10 hover:bg-white/25 text-white/80 hover:text-white transition-all backdrop-blur-sm border border-white/10"
+        style={{ zIndex: 100000 }}
       >
         <X className="w-5 h-5" />
       </button>
@@ -112,7 +114,8 @@ function FullscreenImageModal({ src, alt, onClose }: { src: string; alt: string;
         className="max-w-[92vw] max-h-[92vh] rounded-xl shadow-2xl shadow-black/50 animate-[scale-in_0.2s_ease-out]"
         style={{ objectFit: "scale-down" }}
       />
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -318,7 +321,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
         )}
       >
         {/* # */}
-        <td className="px-2 py-2 text-center">
+        <td className="px-2 py-3 text-center">
           <span
             key={popKey}
             className={cn(
@@ -333,28 +336,28 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           </span>
         </td>
         {/* Clasificación */}
-        <td className="px-2 py-2">
+        <td className="px-2 py-3">
           <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium border", colors.bg, colors.text, colors.border)}>
             {scene.clasificación_escena || "—"}
           </span>
         </td>
         {/* Start */}
-        <td className="px-2 py-2 text-right text-xs text-muted-foreground font-mono">
+        <td className="px-2 py-3 text-right text-xs text-muted-foreground font-mono">
           {scene.start != null ? `${scene.start.toFixed(1)}s` : "—"}
         </td>
         {/* Duration */}
-        <td className="px-2 py-2 text-right text-xs text-muted-foreground font-mono">
+        <td className="px-2 py-3 text-right text-xs text-muted-foreground font-mono">
           {scene.duration != null ? `${scene.duration.toFixed(1)}s` : "—"}
         </td>
         {/* Slide Activa */}
-        <td className="px-1 py-2 text-center">
+        <td className="px-1 py-3 text-center">
           <span className={cn(
             "inline-block w-2.5 h-2.5 rounded-full",
             scene.slide_activa ? "bg-emerald-400" : "bg-muted-foreground/20"
           )} title={scene.slide_activa ? "Activa" : "Inactiva"} />
         </td>
         {/* StatusSlide */}
-        <td className="px-1 py-2">
+        <td className="px-1 py-3">
           {isGenerating ? (
             <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium animate-pulse", "bg-amber-400/10 text-amber-400")}>
               Modificando
@@ -366,7 +369,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           ) : null}
         </td>
         {/* SlideEngine */}
-        <td className="px-1 py-2">
+        <td className="px-1 py-3">
           {scene.slide_engine && (
             <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium border", engineColor.bg, engineColor.text, engineColor.border)}>
               {scene.slide_engine}
@@ -374,7 +377,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           )}
         </td>
         {/* Calificacion Imagen Final */}
-        <td className="px-1 py-2 text-center">
+        <td className="px-1 py-3 text-center">
           {score && (
             <span className={cn(
               "inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold border",
@@ -385,17 +388,17 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           )}
         </td>
         {/* Slide thumbnail */}
-        <td className="px-1 py-2">
+        <td className="px-0.5 py-1.5">
           {isGenerating ? (
-            <div className="w-12 h-8 rounded bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
+            <div className="w-16 h-10 rounded bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
               <Loader2 className="w-3 h-3 text-violet-400 animate-spin" />
             </div>
           ) : scene.slide ? (
-            <div className="w-12 h-8 rounded overflow-hidden bg-muted border border-border/30">
+            <div className="w-16 h-10 rounded overflow-hidden bg-muted border border-border/30">
               <img src={scene.slide} alt={`Slide ${scene.n_escena}`} className="w-full h-full object-cover" />
             </div>
           ) : (
-            <div className="w-12 h-8 rounded bg-muted/30 border border-border/20 flex items-center justify-center">
+            <div className="w-16 h-10 rounded bg-muted/30 border border-border/20 flex items-center justify-center">
               <ImageIcon className="w-3 h-3 text-muted-foreground/20" />
             </div>
           )}
