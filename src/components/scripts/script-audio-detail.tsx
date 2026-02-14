@@ -9,7 +9,7 @@ import {
   Volume2, Calendar, ExternalLink, Lightbulb,
   Save, AlertCircle, Users, UserCog,
   Cpu, Zap, Shield, Play, Info,
-  ChevronDown, Twitter, Newspaper, ImageIcon, AlertTriangle, Edit3,
+  ChevronDown, Twitter, Newspaper, ImageIcon, AlertTriangle, Edit3, Minus, Plus,
 } from "lucide-react";
 import type { VideoWithScenes, LinkedIdea, LinkedIdeaFull, SceneDetail } from "@/lib/hooks/use-video-detail";
 import { WaveformAudioPlayer } from "@/components/shared/waveform-audio-player";
@@ -1419,6 +1419,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   const { save: saveCopyRevisado } = useSceneAutoSave(scene.id, "Copy Revisado OK");
   const [modificaState, setModificaState] = useState<ModificaScriptState>("idle");
   const isModifying = modificaState === "generating" || modificaState === "sending";
+  const [fontSize, setFontSize] = useState(12); // px
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const feedbackCopyRef = useRef<HTMLTextAreaElement>(null);
   const feedbackCopyFocusedRef = useRef(false);
@@ -1617,7 +1618,25 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                       {copyRevisado ? "Copy OK" : "No OK"}
                     </button>
                   </div>
-                  <span className="text-[10px] text-muted-foreground/50">
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex items-center rounded-md border border-border/60 overflow-hidden">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setFontSize((s) => Math.max(10, s - 2)); }}
+                        className="px-1.5 py-0.5 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        title="Reducir texto"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="text-[9px] text-muted-foreground/60 tabular-nums px-1 border-x border-border/40">{fontSize}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setFontSize((s) => Math.min(24, s + 2)); }}
+                        className="px-1.5 py-0.5 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        title="Aumentar texto"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground/50">
                     {isModifying ? (
                       <span className="flex items-center gap-1 text-amber-400 animate-pulse">
                         <Loader2 className="w-3 h-3 animate-spin" /> Modificando script…
@@ -1634,6 +1653,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                       <span>Esc para salir · ↑↓ navegar</span>
                     )}
                   </span>
+                  </div>
                 </div>
                 {isModifying ? (
                   <div className="w-full rounded-lg p-6 border border-amber-500/30 bg-amber-500/5 flex flex-col items-center justify-center gap-2 animate-pulse">
@@ -1648,7 +1668,8 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                   onChange={handleScriptChange}
                   onKeyDown={handleTextareaKeyDown}
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none transition-colors text-xs"
+                  style={{ fontSize: `${fontSize}px` }}
+                  className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none transition-colors"
                   rows={3}
                 />
                 )}
