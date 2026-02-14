@@ -11,6 +11,12 @@ export interface ShotstackTimeline {
   cache?: boolean;
   background?: string;
   tracks: ShotstackTrack[];
+  scenes?: Array<{
+    type: string;   // "hook" | "intro" | "desarrollo" | "cta" etc.
+    label?: string;
+    startSeconds: number;
+    endSeconds: number;
+  }>;
 }
 
 export interface ShotstackTrack {
@@ -64,6 +70,7 @@ export interface RemotionTimeline {
   durationInFrames: number;
   backgroundColor: string;
   tracks: RemotionTrack[];
+  scenes?: TimelineScene[]; // optional scene markers (from n8n or heuristic)
 }
 
 export interface RemotionTrack {
@@ -101,6 +108,17 @@ export interface ClipTransition {
 }
 
 export type AudioEffect = "fadeIn" | "fadeOut" | "fadeInFadeOut" | "none";
+
+// Scene / section markers for the timeline
+export type SceneType = "hook" | "intro" | "desarrollo" | "cta" | "outro" | "transicion";
+
+export interface TimelineScene {
+  type: SceneType;
+  label: string;
+  fromFrame: number;
+  toFrame: number;
+  color: string; // CSS color for the timeline zone
+}
 
 // =============================================================================
 // Supabase record type

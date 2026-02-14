@@ -8,6 +8,8 @@ import type {
   ClipEffect,
   ClipTransition,
   AudioEffect,
+  TimelineScene,
+  SceneType,
 } from "./types";
 import { RESOLUTION_MAP, DEFAULTS, STATIC_ASSETS } from "./constants";
 
@@ -301,6 +303,20 @@ export function shotstack2Remotion(
   // Calculate total duration from all clips
   const durationInFrames = calculateTotalDuration(remotionTracks, fps);
 
+  // Detect scenes: explicit from Shotstack JSON, or heuristic from music transitions
+  let scenes: TimelineScene[] | undefined;
+  if (timeline.scenes && timeline.scenes.length > 0) {
+    scenes = timeline.scenes.map((s) => ({
+      type: (s.type as SceneType) || "desarrollo",
+      label: s.label || s.type,
+      fromFrame: Math.round(s.startSeconds * fps),
+      toFrame: Math.round(s.endSeconds * fps),
+      color: SCENE_COLORS[s.type as SceneType] || SCENE_COLORS.desarrollo,
+    }));
+  } else {
+    scenes = detectScenesFromMusic(remotionTracks, durationInFrames, fps);
+  }
+
   return {
     videoId,
     fps,
@@ -309,6 +325,7 @@ export function shotstack2Remotion(
     durationInFrames,
     backgroundColor,
     tracks: remotionTracks,
+    scenes,
   };
 }
 
@@ -447,4 +464,98 @@ function calculateTotalDuration(
 
   // Add 1 second buffer at the end
   return maxFrame + fps;
+}
+
+// ─── Scene Detection ──────────────────────────────────────
+
+const SCENE_COLORS: Record<SceneType, string> = {
+  hook: "#ef4444",       // red
+  intro: "#f59e0b",      // amber
+  desarrollo: "#3b82f6", // blue
+  cta: "#10b981",        // emerald
+  outro: "#8b5cf6",      // violet
+  transicion: "#6b7280", // gray
+};
+
+/**
+ * Heuristic scene detection based on music track transitions.
+ * Music changes roughly correspond to narrative section boundaries.
+ * The first segment is Hook+Intro, middle is Desarrollo, last is CTA.
+ */
+function detectScenesFromMusic(
+  tracks: RemotionTrack[],
+  totalFrames: number,
+  fps: number
+): TimelineScene[] {
+  // Find the music track (background audio with SunoMusic or low volume)
+  const musicTrack = tracks.find(
+    (t) =>
+      t.type === "audio" &&
+      t.clips.length > 1 &&
+      t.clips.some((c) => c.src.includes("SunoMusic") || c.src.includes("suno"))
+  );
+
+  if (!musicTrack || musicTrack.clips.length < 2) {
+    // Fallback: single scene for the whole video
+    return [{
+      type: "desarrollo",
+      label: "Video completo",
+      fromFrame: 0,
+      toFrame: totalFrames,
+      color: SCENE_COLORS.desarrollo,
+    }];
+  }
+
+  // Sort music clips by start time
+  const sorted = [...musicTrack.clips].sort((a, b) => a.from - b.from);
+  const totalDurationSec = totalFrames / fps;
+
+  const scenes: TimelineScene[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const clip = sorted[i];
+    const fromFrame = clip.from;
+    const toFrame = clip.from + clip.durationInFrames;
+    const fromSec = fromFrame / fps;
+    const toSec = toFrame / fps;
+
+    let type: SceneType;
+    let label: string;
+
+    if (i === 0 && fromSec < 5) {
+      // First segment starting near 0 = Hook
+      if (toSec <= 30) {
+        type = "hook";
+        label = "Hook";
+      } else if (toSec <= 100) {
+        type = "hook";
+        label = "Hook + Intro";
+      } else {
+        type = "intro";
+        label = "Intro";
+      }
+    } else if (i === sorted.length - 1 && totalDurationSec - fromSec < 60) {
+      // Last segment within 60s of the end = CTA
+      type = "cta";
+      label = "CTA";
+    } else if (i === 1 && fromSec < 100) {
+      type = "intro";
+      label = "Intro";
+    } else {
+      type = "desarrollo";
+      // Number the development sections
+      const devIndex = scenes.filter((s) => s.type === "desarrollo").length + 1;
+      label = `Desarrollo ${devIndex}`;
+    }
+
+    scenes.push({
+      type,
+      label,
+      fromFrame,
+      toFrame: Math.min(toFrame, totalFrames),
+      color: SCENE_COLORS[type],
+    });
+  }
+
+  return scenes;
 }

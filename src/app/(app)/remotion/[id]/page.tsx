@@ -1300,6 +1300,33 @@ function VisualTimeline({
         onMouseDown={handleTimelineMouseDown}
       >
         <div className="relative space-y-1.5" style={{ width: zoom > 1 ? `${zoom * 100}%` : undefined }}>
+
+        {/* Scene zones — colored bands showing Hook, Intro, Desarrollo, CTA */}
+        {timeline.scenes && timeline.scenes.length > 1 && (
+          <div className="relative h-5 rounded overflow-hidden flex mb-1">
+            {timeline.scenes.map((scene, i) => {
+              const widthPct = ((scene.toFrame - scene.fromFrame) / totalFrames) * 100;
+              return (
+                <div
+                  key={i}
+                  className="relative h-full flex items-center justify-center overflow-hidden border-r border-black/20 last:border-r-0"
+                  style={{ width: `${widthPct}%`, backgroundColor: `${scene.color}33` }}
+                  title={`${scene.label}: ${(scene.fromFrame / timeline.fps).toFixed(0)}s – ${(scene.toFrame / timeline.fps).toFixed(0)}s`}
+                >
+                  {widthPct > 4 && (
+                    <span
+                      className="text-[9px] font-semibold tracking-wide truncate px-1"
+                      style={{ color: scene.color }}
+                    >
+                      {scene.label}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {timeline.tracks.map((track, trackIndex) => (
           <TimelineTrackRow
             key={track.id}
