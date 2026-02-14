@@ -282,6 +282,11 @@ export interface DraftPublicacion {
   slideengine: string | null;
   pone_persona: string | null;
   expresion_ids: string[];
+  muestra_expresion_url: string | null;
+  numero_variaciones: string | null;
+  prompt_anadir_persona: string | null;
+  persona_lookup: string[];
+  archivar: boolean;
   feedback: string | null;
   notes: string | null;
   video_ids: string[];

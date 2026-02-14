@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useVideoContextStore } from "@/lib/stores/video-context-store";
 import { useVideoDetail } from "@/lib/hooks/use-video-detail";
 import { useDraftPublicacion } from "@/lib/hooks/use-draft-publicacion";
@@ -9,12 +10,13 @@ import { PipelineHeader } from "@/components/shared/pipeline-header";
 import { ThumbnailCard } from "@/components/thumbnails/thumbnail-card";
 import { ThumbnailDetail } from "@/components/thumbnails/thumbnail-detail";
 import type { DraftPublicacion } from "@/types/database";
-import { ImageIcon, Star } from "lucide-react";
+import { ImageIcon, Star, RefreshCw } from "lucide-react";
 
 export default function ThumbnailsPage() {
   const searchParams = useSearchParams();
   const urlVideoId = searchParams.get("videoId");
   const { activeVideoId, setActiveVideo } = useVideoContextStore();
+  const queryClient = useQueryClient();
 
   const videoId = urlVideoId || activeVideoId;
 
@@ -29,6 +31,47 @@ export default function ThumbnailsPage() {
   const { data: drafts = [], isLoading } = useDraftPublicacion(videoDetail?.draft_publicacion_ids);
 
   const [selectedDraft, setSelectedDraft] = useState<DraftPublicacion | null>(null);
+
+  // Auto-refresh polling after triggering new variations
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
+
+  const startPolling = useCallback(() => {
+    // Clear any existing timers
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+
+    setIsPolling(true);
+
+    // Poll every 8 seconds
+    pollTimerRef.current = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["draft-publicacion"] });
+      queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+    }, 8000);
+
+    // Stop after 2 minutes
+    pollTimeoutRef.current = setTimeout(() => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      setIsPolling(false);
+    }, 120000);
+  }, [queryClient]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+    };
+  }, []);
+
+  // Keep selectedDraft in sync with latest data
+  useEffect(() => {
+    if (selectedDraft && drafts.length > 0) {
+      const updated = drafts.find((d) => d.id === selectedDraft.id);
+      if (updated) setSelectedDraft(updated);
+    }
+  }, [drafts, selectedDraft]);
 
   // Sort by most recent first, then split into sections
   const allDrafts = [...drafts].sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
@@ -59,6 +102,12 @@ export default function ThumbnailsPage() {
             <span className="text-sm font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
               {allDrafts.length} thumbs
             </span>
+            {isPolling && (
+              <span className="flex items-center gap-1.5 text-xs text-primary animate-pulse">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                Actualizando...
+              </span>
+            )}
           </div>
         </div>
 
@@ -136,6 +185,7 @@ export default function ThumbnailsPage() {
         onOpenChange={(open) => {
           if (!open) setSelectedDraft(null);
         }}
+        onVariationsTriggered={startPolling}
       />
     </div>
   );

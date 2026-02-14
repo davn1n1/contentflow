@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { airtableFetch, airtableFetchByIds, TABLES } from "@/lib/airtable/client";
+import { airtableFetch, airtableFetchByIds, airtableUpdate, TABLES } from "@/lib/airtable/client";
 import { authenticateApiRequest } from "@/lib/auth/api-guard";
 
 const DRAFT_FIELDS = [
@@ -17,9 +17,14 @@ const DRAFT_FIELDS = [
   "Tipo Creatividad",
   "Formato",
   "Status Nuevas Miniaturas",
-  "Slideengine",
+  "SlideEngine",
   "Pone Persona",
-  "Expresión",
+  "Expresion",
+  "Muestra (from Expresion)",
+  "Numero Variaciones",
+  "Prompt Anadir Persona",
+  "Persona (from Youtube 365 Full Posts)",
+  "Archivar",
   "Feedback",
   "Notes",
   "Youtube 365 Full Posts",
@@ -27,12 +32,17 @@ const DRAFT_FIELDS = [
   "Created",
 ];
 
+interface AttachmentValue {
+  url: string;
+  thumbnails?: { large?: { url: string } };
+}
+
 interface DraftFields {
   Name?: string;
   Titulo?: string;
   Status?: string;
   "Numero Concepto"?: string;
-  Miniatura?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  Miniatura?: AttachmentValue[];
   "URL Miniatura"?: string;
   Descripcion?: string;
   "Prompt Miniatura"?: string;
@@ -42,15 +52,34 @@ interface DraftFields {
   "Tipo Creatividad"?: string;
   Formato?: string;
   "Status Nuevas Miniaturas"?: string;
-  Slideengine?: string;
+  SlideEngine?: string;
   "Pone Persona"?: string;
-  "Expresión"?: string[];
+  Expresion?: string[];
+  "Muestra (from Expresion)"?: AttachmentValue[];
+  "Numero Variaciones"?: string;
+  "Prompt Anadir Persona"?: string;
+  "Persona (from Youtube 365 Full Posts)"?: string[];
+  Archivar?: boolean;
   Feedback?: string;
   Notes?: string;
   "Youtube 365 Full Posts"?: string[];
   "🏢Account"?: string[];
   Created?: string;
 }
+
+// Allowed fields for PATCH updates
+const UPDATABLE_FIELDS: Record<string, string> = {
+  titulo: "Titulo",
+  descripcion: "Descripcion",
+  feedback: "Feedback",
+  favorita: "Favorita",
+  portada: "Portada",
+  portada_youtube_abc: "Portada Youtube ABC",
+  pone_persona: "Pone Persona",
+  numero_variaciones: "Numero Variaciones",
+  archivar: "Archivar",
+  expresion_ids: "Expresion",
+};
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest();
@@ -90,6 +119,39 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  const auth = await authenticateApiRequest();
+  if ("error" in auth) return auth.error;
+
+  try {
+    const body = await request.json();
+    const { id, ...updates } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "id required" }, { status: 400 });
+    }
+
+    // Map frontend field names to Airtable field names
+    const airtableFields: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      const airtableField = UPDATABLE_FIELDS[key];
+      if (airtableField) {
+        airtableFields[airtableField] = value;
+      }
+    }
+
+    if (Object.keys(airtableFields).length === 0) {
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+    }
+
+    await airtableUpdate(TABLES.DRAFT_PUBLICACION, id, airtableFields);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Draft Publicacion update error:", error);
+    return NextResponse.json({ error: "Failed to update draft" }, { status: 500 });
+  }
+}
+
 function mapDraft(r: { id: string; createdTime: string; fields: DraftFields }) {
   return {
     id: r.id,
@@ -110,9 +172,17 @@ function mapDraft(r: { id: string; createdTime: string; fields: DraftFields }) {
     tipo_creatividad: r.fields["Tipo Creatividad"] || null,
     formato: r.fields.Formato || null,
     status_nuevas_miniaturas: r.fields["Status Nuevas Miniaturas"] || null,
-    slideengine: r.fields.Slideengine || null,
+    slideengine: r.fields.SlideEngine || null,
     pone_persona: r.fields["Pone Persona"] || null,
-    expresion_ids: r.fields["Expresión"] || [],
+    expresion_ids: r.fields.Expresion || [],
+    muestra_expresion_url:
+      r.fields["Muestra (from Expresion)"]?.[0]?.thumbnails?.large?.url ||
+      r.fields["Muestra (from Expresion)"]?.[0]?.url ||
+      null,
+    numero_variaciones: r.fields["Numero Variaciones"] || null,
+    prompt_anadir_persona: r.fields["Prompt Anadir Persona"] || null,
+    persona_lookup: r.fields["Persona (from Youtube 365 Full Posts)"] || [],
+    archivar: r.fields.Archivar || false,
     feedback: r.fields.Feedback || null,
     notes: r.fields.Notes || null,
     video_ids: r.fields["Youtube 365 Full Posts"] || [],

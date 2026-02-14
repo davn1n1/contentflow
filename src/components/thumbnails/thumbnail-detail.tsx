@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { DraftPublicacion } from "@/types/database";
 import {
   Dialog,
@@ -10,78 +10,157 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { useTriggerThumbnail } from "@/lib/hooks/use-trigger-thumbnail";
+import { useUpdateDraft } from "@/lib/hooks/use-update-draft";
 import { cn } from "@/lib/utils";
 import {
-  RefreshCw,
+  X,
+  Heart,
+  Award,
   Loader2,
   Check,
   AlertCircle,
   ImageIcon,
-  Star,
-  ThumbsUp,
+  Info,
+  Sparkles,
+  User,
   Calendar,
+  Save,
 } from "lucide-react";
+
+// SlideEngine colors (Airtable-style)
+const ENGINE_COLORS: Record<string, { text: string; bg: string; border: string }> = {
+  OpenAI: { text: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/30" },
+  NanoBanana: { text: "text-violet-400", bg: "bg-violet-400/10", border: "border-violet-400/30" },
+  "NanoBanana Pro": { text: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/30" },
+  SeeDream4: { text: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/30" },
+  "z-image": { text: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-400/30" },
+  Flux: { text: "text-pink-400", bg: "bg-pink-400/10", border: "border-pink-400/30" },
+  Midjourney: { text: "text-cyan-400", bg: "bg-cyan-400/10", border: "border-cyan-400/30" },
+  "DALL-E": { text: "text-teal-400", bg: "bg-teal-400/10", border: "border-teal-400/30" },
+};
+
+function getEngineColor(engine: string) {
+  return ENGINE_COLORS[engine] || { text: "text-cyan-400", bg: "bg-cyan-400/10", border: "border-cyan-400/30" };
+}
+
+const ABC_OPTIONS = ["A", "B", "C"];
+const VARIACIONES_OPTIONS = ["1", "2", "3", "4"];
+const PONE_PERSONA_OPTIONS = ["Si", "No"];
 
 interface ThumbnailDetailProps {
   draft: DraftPublicacion | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onVariationsTriggered?: () => void;
 }
 
-export function ThumbnailDetail({ draft, open, onOpenChange }: ThumbnailDetailProps) {
-  const { mutate: trigger, isPending, isSuccess, isError, error, reset } = useTriggerThumbnail();
-  const [regenerateConfirm, setRegenerateConfirm] = useState(false);
+export function ThumbnailDetail({ draft, open, onOpenChange, onVariationsTriggered }: ThumbnailDetailProps) {
+  const { mutate: triggerVariations, isPending: isTriggering, isSuccess: triggerSuccess, isError: triggerError, error: triggerErrorMsg, reset: resetTrigger } = useTriggerThumbnail();
+  const { mutate: updateDraft, isPending: isUpdating } = useUpdateDraft();
+
+  // Local editable state
+  const [titulo, setTitulo] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [favorita, setFavorita] = useState(false);
+  const [portada, setPortada] = useState(false);
+  const [archivar, setArchivar] = useState(false);
+  const [portadaAbc, setPortadaAbc] = useState<string | null>(null);
+  const [ponePersona, setPonePersona] = useState<string | null>(null);
+  const [numVariaciones, setNumVariaciones] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Sync draft data to local state
+  useEffect(() => {
+    if (draft) {
+      setTitulo(draft.titulo || "");
+      setDescripcion(draft.descripcion || "");
+      setFeedback(draft.feedback || "");
+      setFavorita(draft.favorita);
+      setPortada(draft.portada);
+      setArchivar(draft.archivar);
+      setPortadaAbc(draft.portada_youtube_abc);
+      setPonePersona(draft.pone_persona);
+      setNumVariaciones(draft.numero_variaciones);
+      setHasChanges(false);
+    }
+  }, [draft]);
+
+  const markChanged = useCallback(() => setHasChanges(true), []);
+
+  const handleSave = () => {
+    if (!draft) return;
+    updateDraft({
+      id: draft.id,
+      titulo,
+      descripcion,
+      feedback,
+      favorita,
+      portada,
+      archivar,
+      portada_youtube_abc: portadaAbc,
+      pone_persona: ponePersona,
+      numero_variaciones: numVariaciones,
+    });
+    setHasChanges(false);
+  };
+
+  const handleToggle = (field: string, value: boolean, setter: (v: boolean) => void) => {
+    if (!draft) return;
+    setter(value);
+    updateDraft({ id: draft.id, [field]: value });
+  };
+
+  const handleSelectChange = (field: string, value: string | null, setter: (v: string | null) => void) => {
+    if (!draft) return;
+    setter(value);
+    updateDraft({ id: draft.id, [field]: value });
+  };
+
+  const handleCreateVariations = () => {
+    if (!draft) return;
+    const videoId = draft.video_ids[0];
+    if (videoId) {
+      triggerVariations({ recordId: videoId });
+      onVariationsTriggered?.();
+    }
+  };
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      resetTrigger();
+    }
+    onOpenChange(isOpen);
+  };
 
   if (!draft) return null;
 
   const imageUrl = draft.miniatura_url || draft.url_miniatura;
-
-  const handleRegenerate = () => {
-    if (!regenerateConfirm) {
-      setRegenerateConfirm(true);
-      return;
-    }
-    setRegenerateConfirm(false);
-    reset();
-    // Trigger ModificaMiniatura on the video, not the draft itself
-    const videoId = draft.video_ids[0];
-    if (videoId) {
-      trigger({ recordId: videoId });
-    }
-  };
-
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      setRegenerateConfirm(false);
-      reset();
-    }
-    onOpenChange(open);
-  };
+  const engineColor = draft.slideengine ? getEngineColor(draft.slideengine) : null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             {draft.numero_concepto && (
-              <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                #{draft.numero_concepto}
+              <span className="text-sm font-bold font-mono text-white bg-black/70 px-3 py-1 rounded-lg">
+                {draft.numero_concepto}
               </span>
             )}
-            {draft.titulo || draft.name || "Miniatura"}
-            {draft.favorita && (
-              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-            )}
+            <span className="text-lg">{draft.titulo || draft.name || "Miniatura"}</span>
           </DialogTitle>
-          <DialogDescription className="flex items-center gap-2">
+          <DialogDescription className="flex items-center gap-2 pt-1">
             {draft.status && (
-              <span className="text-xs font-medium text-primary bg-primary/10 rounded px-1.5 py-0.5">
+              <span className="text-xs font-medium text-primary bg-primary/10 rounded-full px-2 py-0.5">
                 {draft.status}
               </span>
             )}
-            {draft.portada_youtube_abc && (
-              <span className="text-xs font-bold text-white bg-primary rounded-full w-5 h-5 flex items-center justify-center">
-                {draft.portada_youtube_abc}
+            {draft.created && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {new Date(draft.created).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}
               </span>
             )}
           </DialogDescription>
@@ -91,11 +170,7 @@ export function ThumbnailDetail({ draft, open, onOpenChange }: ThumbnailDetailPr
           {/* Miniatura grande */}
           <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
             {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt={draft.titulo || "Miniatura"}
-                className="w-full h-full object-cover"
-              />
+              <img src={imageUrl} alt={draft.titulo || "Miniatura"} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center gap-3">
                 <ImageIcon className="w-16 h-16 text-muted-foreground/20" />
@@ -104,66 +179,275 @@ export function ThumbnailDetail({ draft, open, onOpenChange }: ThumbnailDetailPr
             )}
           </div>
 
-          {/* Description */}
-          {draft.descripcion && (
-            <div className="glass-card rounded-lg p-4">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Descripcion
-              </h4>
-              <p className="text-sm text-foreground whitespace-pre-wrap">{draft.descripcion}</p>
+          {/* Toggle actions row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Archivar */}
+            <button
+              onClick={() => handleToggle("archivar", !archivar, setArchivar)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                archivar
+                  ? "bg-red-500/10 border-red-500/30 text-red-400"
+                  : "bg-muted/50 border-border/50 text-muted-foreground hover:border-red-500/30 hover:text-red-400"
+              )}
+            >
+              <X className="w-3.5 h-3.5" />
+              {archivar ? "Archivada" : "Archivar"}
+            </button>
+
+            {/* Favorita */}
+            <button
+              onClick={() => handleToggle("favorita", !favorita, setFavorita)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                favorita
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                  : "bg-muted/50 border-border/50 text-muted-foreground hover:border-emerald-500/30 hover:text-emerald-400"
+              )}
+            >
+              <Heart className={cn("w-3.5 h-3.5", favorita && "fill-emerald-400")} />
+              Favorita
+              {favorita && <Check className="w-3 h-3" />}
+            </button>
+
+            {/* Portada */}
+            <button
+              onClick={() => handleToggle("portada", !portada, setPortada)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                portada
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                  : "bg-muted/50 border-border/50 text-muted-foreground hover:border-amber-500/30 hover:text-amber-400"
+              )}
+            >
+              <Award className={cn("w-3.5 h-3.5", portada && "fill-amber-400")} />
+              Portada
+              {portada && <Check className="w-3 h-3" />}
+            </button>
+
+            {/* Portada Youtube ABC selector */}
+            <div className="flex items-center gap-1 ml-2">
+              <span className="text-[10px] text-muted-foreground mr-1">ABC:</span>
+              {ABC_OPTIONS.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => handleSelectChange("portada_youtube_abc", portadaAbc === opt ? null : opt, setPortadaAbc)}
+                  className={cn(
+                    "w-7 h-7 rounded-full text-xs font-bold transition-all",
+                    portadaAbc === opt
+                      ? "bg-primary text-white shadow-lg shadow-primary/30"
+                      : "bg-muted/50 text-muted-foreground hover:bg-primary/20 hover:text-primary"
+                  )}
+                >
+                  {opt}
+                </button>
+              ))}
             </div>
+          </div>
+
+          {/* Titulo editable */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Titulo</label>
+            <input
+              type="text"
+              value={titulo}
+              onChange={(e) => { setTitulo(e.target.value); markChanged(); }}
+              className="w-full bg-muted/30 border border-border/50 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+              placeholder="Titulo de la miniatura..."
+            />
+          </div>
+
+          {/* Descripcion editable */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Descripcion</label>
+            <textarea
+              value={descripcion}
+              onChange={(e) => { setDescripcion(e.target.value); markChanged(); }}
+              rows={3}
+              className="w-full bg-muted/30 border border-border/50 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 resize-none"
+              placeholder="Descripcion de la miniatura..."
+            />
+          </div>
+
+          {/* Feedback editable */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Feedback</label>
+            <textarea
+              value={feedback}
+              onChange={(e) => { setFeedback(e.target.value); markChanged(); }}
+              rows={2}
+              className="w-full bg-muted/30 border border-border/50 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 resize-none"
+              placeholder="Escribe feedback para mejorar la miniatura..."
+            />
+          </div>
+
+          {/* Save button for text fields */}
+          {hasChanges && (
+            <button
+              onClick={handleSave}
+              disabled={isUpdating}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-all"
+            >
+              {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Guardar cambios
+            </button>
           )}
 
-          {/* Tags & metadata */}
-          <div className="glass-card rounded-lg p-4">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Detalles
-            </h4>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              {draft.slideengine && (
+          {/* Info tooltip */}
+          <div className="relative">
+            <button
+              onClick={() => setShowInfo(!showInfo)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+            >
+              <Info className="w-3.5 h-3.5" />
+              Tips para miniaturas
+            </button>
+            {showInfo && (
+              <div className="mt-2 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20 text-xs text-blue-300 space-y-1.5">
+                <p>Pocas cosas en la miniatura, sencillez, cinematografico, muy poco texto.</p>
+                <p>Para personajes conocidos: que aparezca el <strong>nombre de la persona</strong> en la miniatura.</p>
+              </div>
+            )}
+          </div>
+
+          {/* SlideEngine + Metadata grid */}
+          <div className="glass-card rounded-lg p-4 space-y-4">
+            {/* SlideEngine - grande y con colores */}
+            {draft.slideengine && engineColor && (
+              <div className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-bold", engineColor.text, engineColor.bg, engineColor.border)}>
+                <Sparkles className="w-4 h-4" />
+                {draft.slideengine}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Persona lookup */}
+              {draft.persona_lookup.length > 0 && (
                 <div>
-                  <span className="text-muted-foreground text-xs">Modelo</span>
-                  <p className="text-foreground font-medium">{draft.slideengine}</p>
+                  <span className="text-xs text-muted-foreground block mb-1">Persona</span>
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-purple-400" />
+                    <span className="text-sm font-medium text-foreground">{draft.persona_lookup.join(", ")}</span>
+                  </div>
                 </div>
               )}
+
+              {/* Pone Persona selector */}
+              <div>
+                <span className="text-xs text-muted-foreground block mb-1.5">Pone Persona</span>
+                <div className="flex items-center gap-1.5">
+                  {PONE_PERSONA_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => handleSelectChange("pone_persona", opt, setPonePersona)}
+                      className={cn(
+                        "px-3 py-1 rounded-lg text-xs font-medium transition-all border",
+                        ponePersona === opt
+                          ? opt === "Si"
+                            ? "bg-cyan-400/10 border-cyan-400/30 text-cyan-400"
+                            : "bg-blue-400/10 border-blue-400/30 text-blue-400"
+                          : "bg-muted/30 border-border/50 text-muted-foreground hover:border-primary/30"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Expresion */}
+              {draft.expresion_ids.length > 0 && (
+                <div>
+                  <span className="text-xs text-muted-foreground block mb-1">Expresion</span>
+                  <div className="flex items-center gap-2">
+                    {draft.muestra_expresion_url && (
+                      <img src={draft.muestra_expresion_url} alt="Expresion" className="w-8 h-8 rounded-full object-cover border border-border/50" />
+                    )}
+                    <span className="text-xs text-foreground">{draft.expresion_ids.length} seleccionada(s)</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Numero Variaciones selector */}
+              <div>
+                <span className="text-xs text-muted-foreground block mb-1.5">Variaciones</span>
+                <div className="flex items-center gap-1">
+                  {VARIACIONES_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => handleSelectChange("numero_variaciones", opt, setNumVariaciones)}
+                      className={cn(
+                        "w-8 h-8 rounded-lg text-xs font-bold transition-all border",
+                        numVariaciones === opt
+                          ? "bg-primary/10 border-primary/40 text-primary shadow-sm"
+                          : "bg-muted/30 border-border/50 text-muted-foreground hover:border-primary/30"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tipo Creatividad */}
               {draft.tipo_creatividad && (
                 <div>
-                  <span className="text-muted-foreground text-xs">Tipo Creatividad</span>
-                  <p className="text-foreground font-medium">{draft.tipo_creatividad}</p>
+                  <span className="text-xs text-muted-foreground block mb-1">Tipo Creatividad</span>
+                  <span className="text-sm font-medium text-foreground">{draft.tipo_creatividad}</span>
                 </div>
               )}
-              {draft.pone_persona && (
-                <div>
-                  <span className="text-muted-foreground text-xs">Expresion</span>
-                  <p className="text-foreground font-medium">{draft.pone_persona}</p>
-                </div>
-              )}
+
+              {/* Formato */}
               {draft.formato && (
                 <div>
-                  <span className="text-muted-foreground text-xs">Formato</span>
-                  <p className="text-foreground font-medium">{draft.formato}</p>
-                </div>
-              )}
-              {draft.portada && (
-                <div className="flex items-center gap-1.5">
-                  <ThumbsUp className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400 font-medium">Aprobada como portada</span>
-                </div>
-              )}
-              {draft.created && (
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Calendar className="w-3.5 h-3.5" />
-                  {new Date(draft.created).toLocaleDateString("es-ES", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  <span className="text-xs text-muted-foreground block mb-1">Formato</span>
+                  <span className="text-sm font-medium text-foreground">{draft.formato}</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Prompt */}
+          {/* Crea Nuevas Variaciones - BOTON PRINCIPAL */}
+          <div className="space-y-2">
+            <button
+              onClick={handleCreateVariations}
+              disabled={isTriggering || draft.video_ids.length === 0}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-semibold transition-all",
+                isTriggering
+                  ? "bg-primary/10 border-2 border-primary/40 text-primary"
+                  : triggerSuccess
+                    ? "bg-emerald-500/10 border-2 border-emerald-500/30 text-emerald-400"
+                    : "bg-gradient-to-r from-primary/20 to-violet-500/20 border-2 border-primary/30 text-primary hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
+              )}
+            >
+              {isTriggering ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Generando variaciones...
+                </>
+              ) : triggerSuccess ? (
+                <>
+                  <Check className="w-5 h-5" />
+                  Enviado a n8n — se actualizara automaticamente
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5" />
+                  Crea Nuevas Variaciones
+                </>
+              )}
+            </button>
+
+            {triggerError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                {triggerErrorMsg?.message || "Error al crear variaciones"}
+              </div>
+            )}
+          </div>
+
+          {/* Prompt (read-only) */}
           {draft.prompt_miniatura && (
             <div className="glass-card rounded-lg p-4">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -172,64 +456,6 @@ export function ThumbnailDetail({ draft, open, onOpenChange }: ThumbnailDetailPr
               <p className="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
                 {draft.prompt_miniatura}
               </p>
-            </div>
-          )}
-
-          {/* Feedback / Notes */}
-          {(draft.feedback || draft.notes) && (
-            <div className="glass-card rounded-lg p-4">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                {draft.feedback ? "Feedback" : "Notas"}
-              </h4>
-              <p className="text-sm text-foreground">{draft.feedback || draft.notes}</p>
-            </div>
-          )}
-
-          {/* Acciones */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleRegenerate}
-              disabled={isPending || draft.video_ids.length === 0}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
-                isPending
-                  ? "bg-primary/10 border border-primary/40 text-primary"
-                  : isSuccess
-                    ? "bg-success/10 border border-success/20 text-success"
-                    : regenerateConfirm
-                      ? "bg-amber-500/10 border border-amber-500/30 text-amber-500 hover:bg-amber-500/20"
-                      : "bg-primary/5 border border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/40"
-              )}
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Regenerando...
-                </>
-              ) : isSuccess ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  Enviado a n8n
-                </>
-              ) : regenerateConfirm ? (
-                <>
-                  <RefreshCw className="w-4 h-4" />
-                  Click para confirmar
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4" />
-                  Regenerar Miniatura
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Error */}
-          {isError && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              {error?.message || "Error al regenerar miniatura"}
             </div>
           )}
         </div>
