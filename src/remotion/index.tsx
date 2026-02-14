@@ -3,6 +3,7 @@ import { Composition } from "remotion";
 import React from "react";
 import { DynamicVideo } from "../lib/remotion/compositions/DynamicVideo";
 import type { RemotionTimeline } from "../lib/remotion/types";
+import { TEMPLATES } from "../lib/remotion/templates";
 
 const Root: React.FC = () => {
   return (
@@ -33,6 +34,20 @@ const Root: React.FC = () => {
           };
         }}
       />
+
+      {/* AE Template compositions */}
+      {Object.values(TEMPLATES).map((tpl) => (
+        <Composition
+          key={tpl.id}
+          id={`Template-${tpl.id}`}
+          component={tpl.component}
+          durationInFrames={tpl.durationInFrames}
+          fps={tpl.fps}
+          width={tpl.width}
+          height={tpl.height}
+          defaultProps={tpl.defaultProps}
+        />
+      ))}
     </>
   );
 };

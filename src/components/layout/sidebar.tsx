@@ -144,6 +144,7 @@ const sections: NavSection[] = [
       { name: "Clips Opus", href: "/clips", icon: Clapperboard },
       { name: "Remotion Pro", href: "/remotion", icon: Film, global: true },
       { name: "Remotion Lite", href: "/remotion-lite", icon: Rocket, global: true },
+      { name: "Templates", href: "/remotion/templates", icon: LayoutTemplate, global: true },
     ],
   },
   {
