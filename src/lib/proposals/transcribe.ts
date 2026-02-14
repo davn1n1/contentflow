@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function getOpenAI() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
 /**
  * Transcribe a call recording using OpenAI Whisper.
@@ -17,7 +19,7 @@ export async function transcribeRecording(
   const buffer = await response.arrayBuffer();
   const file = new File([buffer], "recording.mp3", { type: "audio/mpeg" });
 
-  const transcription = await openai.audio.transcriptions.create({
+  const transcription = await getOpenAI().audio.transcriptions.create({
     file,
     model: "whisper-1",
     language: "es",
