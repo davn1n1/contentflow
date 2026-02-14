@@ -19,7 +19,7 @@ const SCENE_FIELDS = [
   // Broll fields
   "Broll Thumb", "Broll Activa", "URL Broll S3",
   "Broll Offset", "Broll Duration",
-  "Custom",
+  "Custom", "Broll_Video",
   // Camera / Avatar fields
   "Zoom Camera", "Tipo Avatar", "Photo S3 Avatar IV",
 ];
@@ -69,6 +69,7 @@ interface SceneFields {
   "Broll Offset"?: number;
   "Broll Duration"?: number;
   "Custom"?: string[];
+  "Broll_Video"?: string[];
   // Camera / Avatar fields
   "Zoom Camera"?: string;
   "Tipo Avatar"?: string[];
@@ -146,6 +147,7 @@ export async function GET(request: NextRequest) {
         broll_offset: r.fields["Broll Offset"] ?? null,
         broll_duration: r.fields["Broll Duration"] ?? null,
         broll_custom: Array.isArray(r.fields["Custom"]) ? r.fields["Custom"]?.[0] || null : null,
+        broll_video: Array.isArray(r.fields["Broll_Video"]) ? r.fields["Broll_Video"]?.[0] || null : null,
         // Camera / Avatar fields
         zoom_camera: r.fields["Zoom Camera"] || null,
         tipo_avatar: Array.isArray(r.fields["Tipo Avatar"]) ? r.fields["Tipo Avatar"]?.[0] || null : null,

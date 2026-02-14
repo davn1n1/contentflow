@@ -96,6 +96,7 @@ export interface SceneDetail {
   broll_offset: number | null;
   broll_duration: number | null;
   broll_custom: string | null;
+  broll_video: string | null;
   // Camera / Avatar fields
   zoom_camera: string | null;
   tipo_avatar: string | null;

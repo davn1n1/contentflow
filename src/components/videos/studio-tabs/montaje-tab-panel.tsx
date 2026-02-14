@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
   Play, Settings2, ChevronDown, Palette, Music, ImageIcon, Image as ImageLucide,
   ChevronRight, Loader2, CheckCircle2, XCircle, Wand2, Maximize2, X,
-  Film, User2,
+  Film, User2, Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,6 +44,56 @@ function sceneClassColors(type: string | null) {
   if (t.includes("desarrollo")) return { bg: "bg-slate-500/15", text: "text-slate-400", border: "border-slate-500/30" };
   if (t.includes("cta")) return { bg: "bg-orange-500/15", text: "text-orange-400", border: "border-orange-500/30" };
   return { bg: "bg-slate-500/10", text: "text-slate-500", border: "border-slate-500/20" };
+}
+
+// ─── Topic tag colors ───────────────────────────────────
+const TOPIC_COLORS = [
+  { bg: "bg-violet-400/15", text: "text-violet-400", border: "border-violet-500/25" },
+  { bg: "bg-sky-400/15", text: "text-sky-400", border: "border-sky-500/25" },
+  { bg: "bg-rose-400/15", text: "text-rose-400", border: "border-rose-500/25" },
+  { bg: "bg-emerald-400/15", text: "text-emerald-400", border: "border-emerald-500/25" },
+  { bg: "bg-amber-400/15", text: "text-amber-400", border: "border-amber-500/25" },
+  { bg: "bg-cyan-400/15", text: "text-cyan-400", border: "border-cyan-500/25" },
+  { bg: "bg-pink-400/15", text: "text-pink-400", border: "border-pink-500/25" },
+  { bg: "bg-teal-400/15", text: "text-teal-400", border: "border-teal-500/25" },
+];
+function topicTagColor(idx: number) {
+  return TOPIC_COLORS[idx % TOPIC_COLORS.length];
+}
+
+// ─── Editable Activa Toggle ─────────────────────────────
+function ActivaToggle({ active, sceneId, field, color = "emerald" }: {
+  active: boolean; sceneId: string; field: string; color?: "emerald" | "sky";
+}) {
+  const [value, setValue] = useState(active);
+  const { save, saving } = useSceneAutoSave(sceneId, field, 0);
+
+  useEffect(() => { setValue(active); }, [active]);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !value;
+    setValue(next);
+    save(next);
+  };
+
+  const activeColor = color === "sky" ? "bg-sky-400" : "bg-emerald-400";
+  const activeRing = color === "sky" ? "ring-sky-400/40" : "ring-emerald-400/40";
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={saving}
+      className={cn(
+        "inline-flex items-center justify-center w-4 h-4 rounded-full border transition-all cursor-pointer",
+        value
+          ? cn(activeColor, "border-transparent ring-2", activeRing)
+          : "bg-muted-foreground/10 border-muted-foreground/30 hover:border-muted-foreground/50",
+        saving && "opacity-50"
+      )}
+      title={value ? "Activa — click para desactivar" : "Inactiva — click para activar"}
+    />
+  );
 }
 
 // ─── Auto-save hook (same pattern as Audio) ───────────────
@@ -350,12 +400,9 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
         <td className="px-2 py-3 text-right text-xs text-muted-foreground font-mono">
           {scene.duration != null ? `${scene.duration.toFixed(1)}s` : "—"}
         </td>
-        {/* Slide Activa */}
+        {/* Slide Activa (editable) */}
         <td className="px-1 py-3 text-center">
-          <span className={cn(
-            "inline-block w-2.5 h-2.5 rounded-full",
-            scene.slide_activa ? "bg-emerald-400" : "bg-muted-foreground/20"
-          )} title={scene.slide_activa ? "Activa" : "Inactiva"} />
+          <ActivaToggle active={scene.slide_activa} sceneId={scene.id} field="Slide Activa" color="emerald" />
         </td>
         {/* StatusSlide */}
         <td className="px-1 py-3">
@@ -405,12 +452,9 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           )}
         </td>
         {/* ── Broll group ── */}
-        {/* Broll Activa */}
+        {/* Broll Activa (editable) */}
         <td className="px-1 py-3 text-center border-l border-border/20">
-          <span className={cn(
-            "inline-block w-2.5 h-2.5 rounded-full",
-            scene.broll_activa ? "bg-sky-400" : "bg-muted-foreground/20"
-          )} title={scene.broll_activa ? "Activa" : "Inactiva"} />
+          <ActivaToggle active={scene.broll_activa} sceneId={scene.id} field="Broll Activa" color="sky" />
         </td>
         {/* Custom */}
         <td className="px-1 py-3">
@@ -469,126 +513,213 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
       {isExpanded && (
         <tr className="border-b border-border/40 bg-muted/10">
           <td colSpan={16} className="px-4 py-4">
-            <div className="space-y-4">
-              {/* Script (readonly) */}
-              {(scene.script || scene.script_elevenlabs) && (
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Script</p>
-                  <p className="text-xs text-foreground/80 whitespace-pre-wrap leading-relaxed bg-background/50 rounded-lg p-3 border border-border/30 max-h-[120px] overflow-y-auto">
-                    {scene.script || scene.script_elevenlabs}
-                  </p>
-                </div>
-              )}
+            <div className="space-y-5">
 
-              {/* Slide image large + controls */}
+              {/* ── Row 1: Script + Topic ── */}
               <div className="flex gap-6">
-                {/* Slide image — large */}
-                <div className="flex-shrink-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Slide</p>
-                    {score && (
-                      <span className={cn(
-                        "text-[10px] px-1.5 py-0.5 rounded-md font-bold border",
-                        score.bg, score.text, score.border,
-                      )}>
-                        Score: {scene.calificacion_imagen_final}/10
-                      </span>
-                    )}
+                {(scene.script || scene.script_elevenlabs) && (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Script</p>
+                    <p className="text-xs text-foreground/80 whitespace-pre-wrap leading-relaxed bg-background/50 rounded-lg p-3 border border-border/30 max-h-[120px] overflow-y-auto">
+                      {scene.script || scene.script_elevenlabs}
+                    </p>
                   </div>
-                  {isGenerating ? (
-                    <div className="w-[480px] h-[270px] rounded-xl bg-muted/20 border border-violet-500/30 flex flex-col items-center justify-center gap-3 animate-pulse">
-                      <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
-                      <p className="text-xs text-violet-300 font-medium">Generando nueva slide…</p>
-                      <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", "bg-amber-400/10 text-amber-400")}>
-                        Modificando
-                      </span>
-                    </div>
-                  ) : (scene.slide_full || scene.slide) ? (
-                    <div
-                      className="relative group cursor-zoom-in"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFullscreenSrc(scene.slide_full || scene.slide || "");
-                      }}
-                    >
-                      <div className="w-[480px] h-[270px] rounded-xl overflow-hidden bg-muted border border-border/30 hover:border-primary/40 transition-colors">
-                        <img
-                          src={scene.slide_full || scene.slide || ""}
-                          alt={`Slide ${scene.n_escena}`}
-                          className="w-full h-full object-contain bg-black/20"
-                        />
-                      </div>
-                      {/* Fullscreen hint */}
-                      <div className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white/60 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
-                        <Maximize2 className="w-4 h-4" />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="w-[480px] h-[270px] rounded-xl bg-muted/30 border border-border/20 flex items-center justify-center">
-                      <ImageLucide className="w-10 h-10 text-muted-foreground/15" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Controls */}
-                <div className="flex-1 space-y-3 min-w-0">
-                  {/* SlideEngine selector */}
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Slide Engine</p>
+                )}
+                {scene.topic && (
+                  <div className="flex-shrink-0">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5 flex items-center gap-1">
+                      <Tag className="w-3 h-3" /> Topic
+                    </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {SLIDE_ENGINES.map((eng) => {
-                        const ec = getEngineColor(eng);
-                        const isActive = engineValue === eng;
+                      {scene.topic.split(/[,;]+/).map((t) => t.trim()).filter(Boolean).map((tag, idx) => {
+                        const tc = topicTagColor(idx);
                         return (
-                          <button
-                            key={eng}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEngineValue(eng);
-                              saveEngine(eng);
-                            }}
-                            className={cn(
-                              "text-[10px] px-2 py-1 rounded-md font-medium border transition-all",
-                              isActive
-                                ? cn(ec.bg, ec.text, ec.border, "ring-1 ring-offset-1 ring-offset-background", ec.border)
-                                : "bg-muted/30 text-muted-foreground border-border/30 hover:bg-muted/50"
-                            )}
-                          >
-                            {eng}
-                          </button>
+                          <span key={idx} className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium border", tc.bg, tc.text, tc.border)}>
+                            {tag}
+                          </span>
                         );
                       })}
                     </div>
                   </div>
+                )}
+              </div>
 
-                  {/* Feedback Slide */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Feedback Slide</p>
-                      {savingFeedback && <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />}
-                      {savedFeedback && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
-                    </div>
-                    <textarea
-                      ref={feedbackRef}
-                      value={feedbackValue}
-                      onChange={(e) => { setFeedbackValue(e.target.value); saveFeedback(e.target.value); }}
-                      onClick={(e) => e.stopPropagation()}
-                      placeholder="Instrucciones para regenerar la slide..."
-                      className="w-full bg-background/50 border border-border/30 rounded-lg px-3 py-2 text-xs text-foreground resize-none overflow-hidden focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 min-h-[60px]"
-                    />
+              {/* ── Section: SLIDE ── */}
+              <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <ImageLucide className="w-3.5 h-3.5 text-violet-400" />
+                  <p className="text-[10px] uppercase tracking-wider text-violet-400 font-semibold">Slide</p>
+                  <div className="flex items-center gap-1.5 ml-2">
+                    <ActivaToggle active={scene.slide_activa} sceneId={scene.id} field="Slide Activa" color="emerald" />
+                    <span className="text-[10px] text-muted-foreground">{scene.slide_activa ? "Activa" : "Inactiva"}</span>
+                  </div>
+                  {score && (
+                    <span className={cn("text-[10px] px-1.5 py-0.5 rounded-md font-bold border ml-auto", score.bg, score.text, score.border)}>
+                      Score: {scene.calificacion_imagen_final}/10
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex gap-6">
+                  {/* Slide image — large */}
+                  <div className="flex-shrink-0">
+                    {isGenerating ? (
+                      <div className="w-[480px] h-[270px] rounded-xl bg-muted/20 border border-violet-500/30 flex flex-col items-center justify-center gap-3 animate-pulse">
+                        <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+                        <p className="text-xs text-violet-300 font-medium">Generando nueva slide…</p>
+                        <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", "bg-amber-400/10 text-amber-400")}>Modificando</span>
+                      </div>
+                    ) : (scene.slide_full || scene.slide) ? (
+                      <div
+                        className="relative group cursor-zoom-in"
+                        onClick={(e) => { e.stopPropagation(); setFullscreenSrc(scene.slide_full || scene.slide || ""); }}
+                      >
+                        <div className="w-[480px] h-[270px] rounded-xl overflow-hidden bg-muted border border-border/30 hover:border-primary/40 transition-colors">
+                          <img src={scene.slide_full || scene.slide || ""} alt={`Slide ${scene.n_escena}`} className="w-full h-full object-contain bg-black/20" />
+                        </div>
+                        <div className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white/60 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
+                          <Maximize2 className="w-4 h-4" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-[480px] h-[270px] rounded-xl bg-muted/30 border border-border/20 flex items-center justify-center">
+                        <ImageLucide className="w-10 h-10 text-muted-foreground/15" />
+                      </div>
+                    )}
                   </div>
 
-                  {/* Actions row */}
-                  <div className="flex items-center gap-3">
-                    <ModificaSlideButton sceneId={scene.id} currentSlide={scene.slide} onStateChange={setModificaState} />
-                    {scene.status_slide && (
-                      <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", statusSlideStyle(scene.status_slide).bg, statusSlideStyle(scene.status_slide).text)}>
-                        {scene.status_slide}
-                      </span>
+                  {/* Slide Controls */}
+                  <div className="flex-1 space-y-3 min-w-0">
+                    {/* SlideEngine selector */}
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Slide Engine</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {SLIDE_ENGINES.map((eng) => {
+                          const ec = getEngineColor(eng);
+                          const isActive = engineValue === eng;
+                          return (
+                            <button
+                              key={eng}
+                              onClick={(e) => { e.stopPropagation(); setEngineValue(eng); saveEngine(eng); }}
+                              className={cn(
+                                "text-[10px] px-2 py-1 rounded-md font-medium border transition-all",
+                                isActive ? cn(ec.bg, ec.text, ec.border, "ring-1 ring-offset-1 ring-offset-background", ec.border) : "bg-muted/30 text-muted-foreground border-border/30 hover:bg-muted/50"
+                              )}
+                            >
+                              {eng}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Feedback Slide */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Feedback Slide</p>
+                        {savingFeedback && <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />}
+                        {savedFeedback && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                      </div>
+                      <textarea
+                        ref={feedbackRef}
+                        value={feedbackValue}
+                        onChange={(e) => { setFeedbackValue(e.target.value); saveFeedback(e.target.value); }}
+                        onClick={(e) => e.stopPropagation()}
+                        placeholder="Instrucciones para regenerar la slide..."
+                        className="w-full bg-background/50 border border-border/30 rounded-lg px-3 py-2 text-xs text-foreground resize-none overflow-hidden focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 min-h-[60px]"
+                      />
+                    </div>
+
+                    {/* Actions row */}
+                    <div className="flex items-center gap-3">
+                      <ModificaSlideButton sceneId={scene.id} currentSlide={scene.slide} onStateChange={setModificaState} />
+                      {scene.status_slide && (
+                        <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", statusSlideStyle(scene.status_slide).bg, statusSlideStyle(scene.status_slide).text)}>
+                          {scene.status_slide}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Section: B-ROLL ── */}
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Film className="w-3.5 h-3.5 text-sky-400" />
+                  <p className="text-[10px] uppercase tracking-wider text-sky-400 font-semibold">B-Roll</p>
+                  <div className="flex items-center gap-1.5 ml-2">
+                    <ActivaToggle active={scene.broll_activa} sceneId={scene.id} field="Broll Activa" color="sky" />
+                    <span className="text-[10px] text-muted-foreground">{scene.broll_activa ? "Activa" : "Inactiva"}</span>
+                  </div>
+                  {scene.broll_custom && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-sky-400/10 text-sky-400 border border-sky-500/25 ml-auto">
+                      {scene.broll_custom}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex gap-5">
+                  {/* Broll Thumb — medium size */}
+                  <div className="flex-shrink-0">
+                    {scene.broll_thumb ? (
+                      <div
+                        className="relative group cursor-zoom-in"
+                        onClick={(e) => { e.stopPropagation(); setFullscreenSrc(scene.broll_thumb || ""); }}
+                      >
+                        <div className="w-[280px] h-[158px] rounded-lg overflow-hidden bg-muted border border-border/30 hover:border-sky-400/40 transition-colors">
+                          <img src={scene.broll_thumb} alt={`Broll ${scene.n_escena}`} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/50 text-white/60 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
+                          <Maximize2 className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-[280px] h-[158px] rounded-lg bg-muted/30 border border-border/20 flex items-center justify-center">
+                        <Film className="w-8 h-8 text-muted-foreground/15" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Broll Video + Info */}
+                  <div className="flex-1 min-w-0 space-y-3">
+                    {/* Broll Video player */}
+                    {scene.broll_video && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Video B-Roll</p>
+                        <video
+                          src={scene.broll_video}
+                          controls
+                          preload="metadata"
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-full max-w-[360px] rounded-lg border border-border/30 bg-black"
+                        />
+                      </div>
+                    )}
+
+                    {/* Broll metadata */}
+                    <div className="flex gap-4">
+                      {scene.broll_offset != null && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Offset</p>
+                          <p className="text-xs font-mono text-foreground/80">{scene.broll_offset}s</p>
+                        </div>
+                      )}
+                      {scene.broll_duration != null && (
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Duración</p>
+                          <p className="text-xs font-mono text-foreground/80">{scene.broll_duration}s</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {!scene.broll_thumb && !scene.broll_video && (
+                      <p className="text-xs text-muted-foreground/40 italic">Sin B-Roll asignado</p>
                     )}
                   </div>
                 </div>
               </div>
+
             </div>
           </td>
         </tr>
