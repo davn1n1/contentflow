@@ -1405,7 +1405,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                             <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
                           </span>
                         </p>
-                        <div className="text-[11px] text-amber-200 whitespace-pre-wrap leading-relaxed bg-amber-500/10 rounded p-2 border border-amber-500/15 max-h-[80px] overflow-y-auto">
+                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-emerald-500/15 max-h-[80px] overflow-y-auto">
                           {scene.solo_observaciones}
                         </div>
                       </div>
