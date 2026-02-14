@@ -52,8 +52,8 @@ function VideoHoverCard({ video, clientSlug, children }: { video: Video; clientS
   return (
     <div className="relative group/hover">
       {children}
-      {/* Hover popover */}
-      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 hidden group-hover/hover:block">
+      {/* Hover popover — pb-3 creates invisible bridge so cursor can travel to the card */}
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-full z-50 pb-3 hidden group-hover/hover:block">
         <div className="w-64 rounded-xl border border-border bg-popover shadow-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
           {/* Portada */}
           {video.portada_a ? (
