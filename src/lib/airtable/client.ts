@@ -79,7 +79,7 @@ export async function airtableFetch<T = Record<string, unknown>>(
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${pat}` },
-    next: { revalidate: 60 }, // Cache responses for 60s, then revalidate
+    cache: "no-store", // Disable cache — fix stale Escenas data
   });
 
   if (!res.ok) {

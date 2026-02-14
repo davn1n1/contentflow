@@ -890,6 +890,11 @@ function TabAudio({ video }: { video: VideoWithScenes }) {
         color="green"
       />
 
+      {/* ── Audio Scene Summary Table ── */}
+      {video.scenes.length > 0 && (
+        <AudioSceneSummaryTable scenes={video.scenes} />
+      )}
+
       {/* Safety toggles */}
       <InfoSection title="Estado Pipeline Audio">
         <div className="grid grid-cols-[180px_1fr] gap-y-2 gap-x-4 text-sm">
@@ -907,58 +912,6 @@ function TabAudio({ video }: { video: VideoWithScenes }) {
           )}
         </div>
       </InfoSection>
-
-      {/* Scenes Audio Table */}
-      {video.scenes.length > 0 && (
-        <InfoSection title="Audio por Escena">
-          <div className="overflow-x-auto -mx-4">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground">
-                  <th className="text-left py-2 px-3 font-medium">#</th>
-                  <th className="text-left py-2 px-3 font-medium">Clasificación</th>
-                  <th className="text-left py-2 px-3 font-medium">Status</th>
-                  <th className="text-left py-2 px-3 font-medium">Audio</th>
-                  <th className="text-right py-2 px-3 font-medium">Duración</th>
-                  <th className="text-center py-2 px-3 font-medium">Revisado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {video.scenes.map((scene) => (
-                  <tr key={scene.id} className="border-b border-border/50 hover:bg-muted/30">
-                    <td className="py-2 px-3 font-mono font-medium">{scene.n_escena}</td>
-                    <td className="py-2 px-3">
-                      <SceneTypeBadge type={scene.clasificación_escena} />
-                    </td>
-                    <td className="py-2 px-3">
-                      <SceneStatusBadge status={scene.status} />
-                    </td>
-                    <td className="py-2 px-3">
-                      {scene.voice_s3 ? (
-                        <span className="text-emerald-400 flex items-center gap-1">
-                          <Volume2 className="w-3 h-3" /> Audio OK
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono">
-                      {scene.voice_length ? `${scene.voice_length.toFixed(1)}s` : "—"}
-                    </td>
-                    <td className="py-2 px-3 text-center">
-                      {scene.audio_revisado_ok ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mx-auto" />
-                      ) : (
-                        <XCircle className="w-3.5 h-3.5 text-muted-foreground/30 mx-auto" />
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </InfoSection>
-      )}
     </div>
   );
 }
@@ -1034,6 +987,8 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
     }
   }, [expandedId]);
 
+  const copyOkCount = scenes.filter((s) => s.copy_revisado_ok).length;
+
   return (
     <div
       className="glass-card rounded-xl overflow-hidden"
@@ -1043,12 +998,17 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
       <div className="px-5 py-3 border-b border-border flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Clapperboard className="w-4 h-4 text-primary" />
-          Escenas
+          Script & Copy por Escena
           <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full font-medium text-muted-foreground">
             {scenes.length}
           </span>
         </h3>
-        <span className="text-[10px] text-muted-foreground/60">↑↓ navegar entre escenas</span>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-muted-foreground/80">
+            {copyOkCount}/{scenes.length} copy OK
+          </span>
+          <span className="text-[10px] text-muted-foreground/40">↑↓ navegar</span>
+        </div>
       </div>
 
       {/* Table */}
@@ -1056,12 +1016,13 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30">
-              <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">#</th>
-              <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-28">Clasificación</th>
-              <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script</th>
-              <th className="text-center px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Copy OK</th>
-              <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-48">Informe Resumen</th>
-              <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-48">Observaciones</th>
+              <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">#</th>
+              <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-20">Tipo</th>
+              <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script</th>
+              <th className="text-center px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-10">OK</th>
+              <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-48">Informe Resumen</th>
+              <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-48">Observaciones</th>
+              <th className="w-5"></th>
             </tr>
           </thead>
           <tbody>
@@ -1115,7 +1076,6 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
 
   // Handle keyboard in textarea
   const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Escape: save, exit textarea, scroll to top, focus table for arrow nav
     if (e.key === "Escape") {
       e.preventDefault();
       saveScript(scriptValue);
@@ -1127,7 +1087,6 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
       if (table instanceof HTMLElement) table.focus();
       return;
     }
-    // Ctrl/Cmd + ArrowUp/Down: navigate scenes
     if ((e.key === "ArrowUp" || e.key === "ArrowDown") && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       saveScript(scriptValue);
@@ -1139,8 +1098,9 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
     }
   };
 
+  const colors = sceneClassColors(scene.clasificación_escena);
   const scriptPreview = scene.script
-    ? scene.script.length > 120 ? scene.script.slice(0, 120) + "..." : scene.script
+    ? scene.script.length > 100 ? scene.script.slice(0, 100) + "..." : scene.script
     : "—";
 
   return (
@@ -1154,141 +1114,146 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
           isExpanded ? "bg-primary/5" : "hover:bg-muted/30"
         )}
       >
-        <td className="px-4 py-3">
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-primary/10 text-primary text-xs font-bold">
+        <td className="px-3 py-2.5">
+          <span className={cn("inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold", colors.numBg, colors.numText)}>
             {scene.n_escena}
           </span>
         </td>
-        <td className="px-4 py-3">
+        <td className="px-3 py-2.5">
           <SceneTypeBadge type={scene.clasificación_escena} />
         </td>
-        <td className="px-4 py-3">
-          <p className="text-xs text-foreground/80 line-clamp-2 leading-relaxed">{scriptPreview}</p>
+        <td className="px-3 py-2.5">
+          <p className="text-xs text-foreground/80 line-clamp-1 leading-relaxed">{scriptPreview}</p>
         </td>
-        <td className="px-4 py-3 text-center">
+        <td className="px-3 py-2.5 text-center">
           {scene.copy_revisado_ok ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 mx-auto" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mx-auto" />
           ) : (
-            <XCircle className="w-5 h-5 text-muted-foreground/30 mx-auto" />
+            <XCircle className="w-3.5 h-3.5 text-muted-foreground/30 mx-auto" />
           )}
         </td>
-        <td className="px-4 py-3">
-          <p className="text-xs text-foreground/80 line-clamp-2 leading-relaxed">
+        <td className="px-3 py-2.5">
+          <p className="text-xs text-foreground/80 line-clamp-1 leading-relaxed">
             {scene.informe_resumen_emoticonos || "—"}
           </p>
         </td>
-        <td className="px-4 py-3">
-          <div className="flex items-center gap-1">
-            <p className="text-xs text-foreground/80 line-clamp-2 leading-relaxed flex-1">
-              {scene.solo_observaciones || "—"}
-            </p>
-            <ChevronDown className={cn(
-              "w-3.5 h-3.5 text-muted-foreground flex-shrink-0 transition-transform",
-              isExpanded && "rotate-180"
-            )} />
-          </div>
+        <td className="px-3 py-2.5">
+          <p className="text-xs text-foreground/80 line-clamp-1 leading-relaxed">
+            {scene.solo_observaciones || "—"}
+          </p>
+        </td>
+        <td className="px-1 py-2.5">
+          <ChevronDown className={cn(
+            "w-3 h-3 text-muted-foreground transition-transform",
+            isExpanded && "rotate-180"
+          )} />
         </td>
       </tr>
 
       {/* Expanded detail */}
       {isExpanded && (
         <tr className="bg-primary/5">
-          <td colSpan={6} className="px-4 py-4">
+          <td colSpan={7} className="px-4 py-4">
             <div className="space-y-3 max-w-4xl">
-              {/* Editable script */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script completo</span>
-                  <span className="text-[10px] text-muted-foreground/50">
-                    {saving ? (
-                      <span className="flex items-center gap-1 text-amber-400">
-                        <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
-                      </span>
-                    ) : saved ? (
-                      <span className="flex items-center gap-1 text-emerald-400">
-                        <CheckCircle2 className="w-3 h-3" /> Guardado
-                      </span>
-                    ) : (
-                      <span>Esc para salir · ↑↓ navegar</span>
+              {/* Two-column layout: Script + Metadata */}
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+                {/* Left: Editable script */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script completo</span>
+                    <span className="text-[10px] text-muted-foreground/50">
+                      {saving ? (
+                        <span className="flex items-center gap-1 text-amber-400">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
+                        </span>
+                      ) : saved ? (
+                        <span className="flex items-center gap-1 text-emerald-400">
+                          <CheckCircle2 className="w-3 h-3" /> Guardado
+                        </span>
+                      ) : (
+                        <span>Esc para salir · ↑↓ navegar</span>
+                      )}
+                    </span>
+                  </div>
+                  <textarea
+                    ref={textareaRef}
+                    value={scriptValue}
+                    onChange={handleScriptChange}
+                    onKeyDown={handleTextareaKeyDown}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none transition-colors text-xs"
+                    rows={4}
+                  />
+                </div>
+
+                {/* Right: Metadata */}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    {scene.topic && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Topic</span>
+                        <p className="text-sm mt-0.5">{scene.topic}</p>
+                      </div>
                     )}
-                  </span>
-                </div>
-                <textarea
-                  ref={textareaRef}
-                  value={scriptValue}
-                  onChange={handleScriptChange}
-                  onKeyDown={handleTextareaKeyDown}
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-full text-sm whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none transition-colors"
-                  rows={3}
-                />
-              </div>
-
-              {/* Metadata grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {scene.topic && (
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Topic</span>
-                    <p className="text-sm mt-0.5">{scene.topic}</p>
+                    {scene.role && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Role</span>
+                        <p className="text-sm mt-0.5">{scene.role}</p>
+                      </div>
+                    )}
+                    {scene.importance && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Importancia</span>
+                        <p className="text-sm mt-0.5">{scene.importance}</p>
+                      </div>
+                    )}
+                    {scene.voice_length != null && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Duración voz</span>
+                        <p className="text-sm mt-0.5">{scene.voice_length.toFixed(1)}s</p>
+                      </div>
+                    )}
+                    {scene.status && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status</span>
+                        <p className="text-sm mt-0.5">{scene.status}</p>
+                      </div>
+                    )}
+                    {scene.status_script && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status Script</span>
+                        <p className="text-sm mt-0.5">{scene.status_script}</p>
+                      </div>
+                    )}
+                    {scene.clasificación_escena && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Tipo</span>
+                        <p className="mt-0.5"><SceneTypeBadge type={scene.clasificación_escena} /></p>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Copy OK</span>
+                      <p className="text-sm mt-0.5">{scene.copy_revisado_ok ? "✅ Sí" : "❌ No"}</p>
+                    </div>
                   </div>
-                )}
-                {scene.role && (
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Role</span>
-                    <p className="text-sm mt-0.5">{scene.role}</p>
-                  </div>
-                )}
-                {scene.importance && (
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Importancia</span>
-                    <p className="text-sm mt-0.5">{scene.importance}</p>
-                  </div>
-                )}
-                {scene.voice_length != null && (
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Duración voz</span>
-                    <p className="text-sm mt-0.5">{scene.voice_length.toFixed(1)}s</p>
-                  </div>
-                )}
-                {scene.status && (
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status</span>
-                    <p className="text-sm mt-0.5">{scene.status}</p>
-                  </div>
-                )}
-                {scene.status_script && (
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status Script</span>
-                    <p className="text-sm mt-0.5">{scene.status_script}</p>
-                  </div>
-                )}
-                {scene.status_audio && (
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status Audio</span>
-                    <p className="text-sm mt-0.5">{scene.status_audio}</p>
-                  </div>
-                )}
-                <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Audio OK</span>
-                  <p className="text-sm mt-0.5">{scene.audio_revisado_ok ? "✅" : "❌"}</p>
                 </div>
               </div>
 
-              {/* Full informe if longer than preview */}
-              {scene.informe_resumen_emoticonos && scene.informe_resumen_emoticonos.length > 80 && (
+              {/* Full informe */}
+              {scene.informe_resumen_emoticonos && (
                 <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Informe Resumen Completo</span>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed mt-1 bg-muted/30 rounded-lg p-3">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Informe Resumen</span>
+                  <p className="text-xs whitespace-pre-wrap leading-relaxed mt-1 bg-muted/30 rounded-lg p-3">
                     {scene.informe_resumen_emoticonos}
                   </p>
                 </div>
               )}
 
-              {/* Full observaciones if longer */}
-              {scene.solo_observaciones && scene.solo_observaciones.length > 80 && (
+              {/* Full observaciones */}
+              {scene.solo_observaciones && (
                 <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Observaciones Completas</span>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed mt-1 bg-amber-500/10 rounded-lg p-3 text-amber-200">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Observaciones</span>
+                  <p className="text-xs whitespace-pre-wrap leading-relaxed mt-1 bg-amber-500/10 rounded-lg p-3 text-amber-200">
                     {scene.solo_observaciones}
                   </p>
                 </div>
@@ -1301,6 +1266,358 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                   <p className="text-xs font-mono whitespace-pre-wrap leading-relaxed mt-1 bg-muted/30 rounded-lg p-3 text-muted-foreground">
                     {scene.script_elevenlabs}
                   </p>
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// ─── Audio Scene Summary Table (below Crear Audio button) ──
+
+// Extract first emoji from a text string
+function extractEmoji(text: string | null): string {
+  if (!text) return "—";
+  const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u;
+  const match = text.match(emojiRegex);
+  return match ? match[0] : "—";
+}
+
+function AudioSceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Keyboard navigation: up/down arrows to move between scenes
+  const handleKeyNav = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      if ((e.target as HTMLElement).tagName === "TEXTAREA") return;
+
+      e.preventDefault();
+      const currentIdx = scenes.findIndex((s) => s.id === expandedId);
+      let nextIdx: number;
+
+      if (e.key === "ArrowDown") {
+        nextIdx = currentIdx < scenes.length - 1 ? currentIdx + 1 : 0;
+      } else {
+        nextIdx = currentIdx > 0 ? currentIdx - 1 : scenes.length - 1;
+      }
+      setExpandedId(scenes[nextIdx].id);
+    },
+    [expandedId, scenes]
+  );
+
+  // Scroll expanded scene — summary row pinned to top of visible area
+  const expandedRowRef = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    if (expandedId && expandedRowRef.current) {
+      expandedRowRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [expandedId]);
+
+  // Totals for header
+  const totalDuration = scenes.reduce((sum, s) => sum + (s.voice_length || 0), 0);
+  const revisadoCount = scenes.filter((s) => s.audio_revisado_ok).length;
+  const withAudio = scenes.filter((s) => s.voice_s3).length;
+
+  return (
+    <div
+      className="glass-card rounded-xl overflow-hidden"
+      onKeyDown={handleKeyNav}
+      tabIndex={0}
+    >
+      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Headphones className="w-4 h-4 text-emerald-400" />
+          Audio por Escena
+          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full font-medium text-muted-foreground">
+            {scenes.length}
+          </span>
+        </h3>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-muted-foreground/80">
+            {withAudio}/{scenes.length} audio · {revisadoCount} revisado · {formatSeconds(totalDuration)}
+          </span>
+          <span className="text-[10px] text-muted-foreground/40">↑↓ navegar</span>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/30">
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">#</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Tipo</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold min-w-[120px]">Script</th>
+              <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">
+                <Volume2 className="w-3 h-3 mx-auto" />
+              </th>
+              <th className="text-right px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12">Dur.</th>
+              <th className="text-left px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Status</th>
+              <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">OK</th>
+              <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8" title="Analisis Voz 1">V1</th>
+              <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8" title="Analisis Voz 2">V2</th>
+              <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8" title="Analisis Voz 3">V3</th>
+              <th className="w-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {scenes.map((scene) => {
+              const isExpanded = expandedId === scene.id;
+              return (
+                <AudioSceneSummaryRow
+                  key={scene.id}
+                  scene={scene}
+                  isExpanded={isExpanded}
+                  onToggle={() => setExpandedId(isExpanded ? null : scene.id)}
+                  expandedRef={isExpanded ? expandedRowRef : undefined}
+                />
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
+  scene: SceneDetail;
+  isExpanded: boolean;
+  onToggle: () => void;
+  expandedRef?: React.RefObject<HTMLTableRowElement | null>;
+}) {
+  const [scriptElValue, setScriptElValue] = useState(scene.script_elevenlabs || "");
+  const { save: saveScriptEl, saving, saved } = useSceneAutoSave(scene.id, "Script Elevenlabs");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [activeVozTab, setActiveVozTab] = useState<1 | 2 | 3>(1);
+
+  // Sync local state when scene data changes from server
+  useEffect(() => {
+    setScriptElValue(scene.script_elevenlabs || "");
+  }, [scene.script_elevenlabs]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (isExpanded && textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+    }
+  }, [isExpanded, scriptElValue]);
+
+  const handleScriptElChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setScriptElValue(val);
+    saveScriptEl(val);
+  };
+
+  // Handle keyboard in textarea
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      saveScriptEl(scriptElValue);
+      e.currentTarget.blur();
+      if (expandedRef?.current) {
+        expandedRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      const table = e.currentTarget.closest("[tabindex]");
+      if (table instanceof HTMLElement) table.focus();
+      return;
+    }
+    if ((e.key === "ArrowUp" || e.key === "ArrowDown") && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      saveScriptEl(scriptElValue);
+      e.currentTarget.blur();
+      const parent = e.currentTarget.closest("[tabindex]");
+      if (parent) {
+        parent.dispatchEvent(new KeyboardEvent("keydown", { key: e.key, bubbles: true }));
+      }
+    }
+  };
+
+  const colors = sceneClassColors(scene.clasificación_escena);
+  const scriptText = scene.script_elevenlabs || scene.script;
+  const scriptPreview = scriptText
+    ? scriptText.length > 100 ? scriptText.slice(0, 100) + "..." : scriptText
+    : "—";
+
+  const vozTexts = [scene.analisis_voz_1, scene.analisis_voz_2, scene.analisis_voz_3];
+  const activeVozText = vozTexts[activeVozTab - 1];
+  const hasAnyVoz = vozTexts.some(Boolean);
+
+  return (
+    <>
+      {/* Summary row */}
+      <tr
+        ref={isExpanded ? expandedRef : undefined}
+        onClick={onToggle}
+        className={cn(
+          "border-b border-border/50 cursor-pointer transition-colors",
+          isExpanded ? "bg-emerald-500/5" : "hover:bg-muted/30"
+        )}
+      >
+        <td className="px-2 py-2.5">
+          <span className={cn("inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold", colors.numBg, colors.numText)}>
+            {scene.n_escena}
+          </span>
+        </td>
+        <td className="px-2 py-2.5">
+          <SceneTypeBadge type={scene.clasificación_escena} />
+        </td>
+        <td className="px-2 py-2.5">
+          <p className="text-xs text-foreground/80 line-clamp-1 leading-relaxed">{scriptPreview}</p>
+        </td>
+        <td className="px-1 py-2.5 text-center">
+          {scene.voice_s3 ? (
+            <Volume2 className="w-3.5 h-3.5 text-emerald-400 mx-auto" />
+          ) : (
+            <span className="text-muted-foreground/30 text-xs">—</span>
+          )}
+        </td>
+        <td className="px-1 py-2.5 text-right text-xs text-muted-foreground">
+          {scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
+        </td>
+        <td className="px-1 py-2.5">
+          {scene.status_audio ? (
+            <span className="text-[10px] text-muted-foreground truncate block max-w-[60px]">{scene.status_audio}</span>
+          ) : (
+            <span className="text-muted-foreground/30 text-xs">—</span>
+          )}
+        </td>
+        <td className="px-1 py-2.5 text-center">
+          {scene.audio_revisado_ok ? (
+            <span className="text-emerald-400 text-xs font-bold">✓</span>
+          ) : (
+            <span className="text-muted-foreground/30 text-xs">✗</span>
+          )}
+        </td>
+        <td className="px-1 py-2.5 text-center text-sm" title={scene.analisis_voz_1 || undefined}>
+          {extractEmoji(scene.analisis_voz_1)}
+        </td>
+        <td className="px-1 py-2.5 text-center text-sm" title={scene.analisis_voz_2 || undefined}>
+          {extractEmoji(scene.analisis_voz_2)}
+        </td>
+        <td className="px-1 py-2.5 text-center text-sm" title={scene.analisis_voz_3 || undefined}>
+          {extractEmoji(scene.analisis_voz_3)}
+        </td>
+        <td className="px-0.5 py-2.5">
+          <ChevronDown className={cn(
+            "w-3 h-3 text-muted-foreground transition-transform",
+            isExpanded && "rotate-180"
+          )} />
+        </td>
+      </tr>
+
+      {/* Expanded detail */}
+      {isExpanded && (
+        <tr className="bg-emerald-500/5">
+          <td colSpan={11} className="px-4 py-4">
+            <div className="space-y-3 max-w-4xl">
+              {/* Two-column layout: Script + Audio player */}
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+                {/* Left: Editable Script ElevenLabs */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script ElevenLabs</span>
+                    <span className="text-[10px] text-muted-foreground/50">
+                      {saving ? (
+                        <span className="flex items-center gap-1 text-amber-400">
+                          <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
+                        </span>
+                      ) : saved ? (
+                        <span className="flex items-center gap-1 text-emerald-400">
+                          <CheckCircle2 className="w-3 h-3" /> Guardado
+                        </span>
+                      ) : (
+                        <span>Esc para salir · ↑↓ navegar</span>
+                      )}
+                    </span>
+                  </div>
+                  <textarea
+                    ref={textareaRef}
+                    value={scriptElValue}
+                    onChange={handleScriptElChange}
+                    onKeyDown={handleTextareaKeyDown}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none transition-colors text-xs"
+                    rows={4}
+                  />
+                </div>
+
+                {/* Right: Audio player + metadata */}
+                <div className="space-y-3">
+                  {scene.voice_s3 && (
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Audio</span>
+                      <audio
+                        controls
+                        src={scene.voice_s3}
+                        className="w-full mt-1 h-8"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    {scene.voice_length != null && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Duración</span>
+                        <p className="text-sm mt-0.5">{scene.voice_length.toFixed(1)}s</p>
+                      </div>
+                    )}
+                    {scene.status_audio && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status</span>
+                        <p className="text-sm mt-0.5">{scene.status_audio}</p>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Revisado</span>
+                      <p className="text-sm mt-0.5">{scene.audio_revisado_ok ? "✅ Sí" : "❌ No"}</p>
+                    </div>
+                    {scene.clasificación_escena && (
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Tipo</span>
+                        <p className="mt-0.5"><SceneTypeBadge type={scene.clasificación_escena} /></p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Analisis Voz — Tabs V1/V2/V3 */}
+              {hasAnyVoz && (
+                <div>
+                  <div className="flex items-center gap-1 mb-2">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-2">Análisis Voz</span>
+                    {[1, 2, 3].map((n) => {
+                      const text = vozTexts[n - 1];
+                      const emoji = extractEmoji(text);
+                      return (
+                        <button
+                          key={n}
+                          onClick={(e) => { e.stopPropagation(); setActiveVozTab(n as 1 | 2 | 3); }}
+                          className={cn(
+                            "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors",
+                            activeVozTab === n
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : text
+                                ? "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                : "text-muted-foreground/30 cursor-default"
+                          )}
+                          disabled={!text}
+                        >
+                          V{n} {emoji !== "—" && <span className="text-sm">{emoji}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {activeVozText && (
+                    <p className="text-xs whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3">
+                      {activeVozText}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -1632,16 +1949,21 @@ function StatusIndicator({ active }: { active: boolean }) {
   );
 }
 
+// Color map for scene classification
+function sceneClassColors(type: string | null): { bg: string; text: string; border: string; numBg: string; numText: string } {
+  const t = (type || "").toLowerCase();
+  if (t.includes("hook")) return { bg: "bg-cyan-500/15", text: "text-cyan-400", border: "border-cyan-500/30", numBg: "bg-cyan-500/20", numText: "text-cyan-400" };
+  if (t.includes("intro")) return { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", numBg: "bg-emerald-500/20", numText: "text-emerald-400" };
+  if (t.includes("desarrollo")) return { bg: "bg-slate-500/15", text: "text-slate-400", border: "border-slate-500/30", numBg: "bg-slate-500/20", numText: "text-slate-400" };
+  if (t.includes("cta")) return { bg: "bg-orange-500/15", text: "text-orange-400", border: "border-orange-500/30", numBg: "bg-orange-500/20", numText: "text-orange-400" };
+  return { bg: "bg-muted/50", text: "text-muted-foreground", border: "border-border/50", numBg: "bg-muted", numText: "text-muted-foreground" };
+}
+
 function SceneTypeBadge({ type }: { type: string | null }) {
   if (!type) return null;
-  const isFocus = type.toLowerCase().includes("focus") || type.toLowerCase().includes("intro");
+  const colors = sceneClassColors(type);
   return (
-    <span className={cn(
-      "text-[10px] px-1.5 py-0.5 rounded font-medium",
-      isFocus
-        ? "bg-blue-500/20 text-blue-400"
-        : "bg-muted text-muted-foreground"
-    )}>
+    <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", colors.bg, colors.text)}>
       {type}
     </span>
   );

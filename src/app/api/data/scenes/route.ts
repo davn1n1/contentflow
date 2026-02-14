@@ -10,6 +10,7 @@ const SCENE_FIELDS = [
   "Status Audio", "Status Camera", "Status Script",
   "Audio Revisado OK", "Copy Revisado OK",
   "Informe_Resumen_Emoticonos", "solo_observaciones",
+  "Script Elevenlabs", "Analisis Voz 1", "Analisis Voz 2", "Analisis Voz 3",
 ];
 
 interface SceneFields {
@@ -37,6 +38,10 @@ interface SceneFields {
   "Copy Revisado OK"?: boolean;
   "Informe_Resumen_Emoticonos"?: string;
   "solo_observaciones"?: string;
+  "Script Elevenlabs"?: string;
+  "Analisis Voz 1"?: string;
+  "Analisis Voz 2"?: string;
+  "Analisis Voz 3"?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -69,7 +74,7 @@ export async function GET(request: NextRequest) {
         end: r.fields.End || null,
         duration: r.fields.Duration || null,
         script: r.fields.Script || null,
-        script_elevenlabs: null,
+        script_elevenlabs: r.fields["Script Elevenlabs"] || null,
         role: r.fields.Role || null,
         importance: r.fields.Importance || null,
         camera: null,
@@ -91,6 +96,9 @@ export async function GET(request: NextRequest) {
         copy_revisado_ok: r.fields["Copy Revisado OK"] || false,
         informe_resumen_emoticonos: r.fields["Informe_Resumen_Emoticonos"] || null,
         solo_observaciones: r.fields["solo_observaciones"] || null,
+        analisis_voz_1: r.fields["Analisis Voz 1"] || null,
+        analisis_voz_2: r.fields["Analisis Voz 2"] || null,
+        analisis_voz_3: r.fields["Analisis Voz 3"] || null,
         camera_table_id: null,
         audio_id: null,
       }))

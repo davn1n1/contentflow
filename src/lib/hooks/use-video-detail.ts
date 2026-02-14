@@ -66,6 +66,9 @@ export interface SceneDetail {
   copy_revisado_ok: boolean;
   informe_resumen_emoticonos: string | null;
   solo_observaciones: string | null;
+  analisis_voz_1: string | null;
+  analisis_voz_2: string | null;
+  analisis_voz_3: string | null;
 }
 
 export interface LinkedIdea {

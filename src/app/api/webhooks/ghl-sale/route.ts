@@ -6,9 +6,8 @@ import {
   TABLES,
 } from "@/lib/airtable/client";
 import { inviteSupabaseUser } from "@/lib/auth/create-supabase-user";
+import { authenticateWebhook } from "@/lib/auth/webhook-auth";
 import { createClient } from "@supabase/supabase-js";
-
-const GHL_API_KEY = process.env.GHL_API_KEY || process.env.GHL_WEBHOOK_SECRET || "";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,24 +24,6 @@ async function logWebhookDebug(body: unknown, response: unknown) {
   } catch {
     // non-critical, don't fail the webhook
   }
-}
-
-/**
- * Validates the request using multiple auth methods (in priority order):
- * 1. Authorization: Bearer <token>  (GHL native auth dropdown)
- * 2. X-Api-Key: <token>             (unified header style)
- * 3. X-Webhook-Secret: <token>      (legacy)
- */
-function authenticateWebhook(request: Request): boolean {
-  const authHeader = request.headers.get("Authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return authHeader.slice(7) === GHL_API_KEY;
-  }
-  const apiKey = request.headers.get("X-Api-Key");
-  if (apiKey) return apiKey === GHL_API_KEY;
-  const secret = request.headers.get("X-Webhook-Secret");
-  if (secret) return secret === GHL_API_KEY;
-  return false;
 }
 
 // Products that require app user creation
