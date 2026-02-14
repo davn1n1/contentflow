@@ -1264,7 +1264,14 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
         )}
       >
         <td className="px-3 py-2.5">
-          <span className={cn("inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold", colors.numBg, colors.numText)}>
+          <span
+            className={cn(
+              "inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold transition-all duration-300",
+              colors.numBg, colors.numText,
+              isExpanded && "ring-2 ring-offset-1 ring-offset-background scale-110 shadow-lg animate-pulse-once",
+              isExpanded && colors.ringColor
+            )}
+          >
             {scene.n_escena}
           </span>
         </td>
@@ -1341,7 +1348,9 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                     {scene.topic && (
                       <div>
                         <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Topic</span>
-                        <p className="text-sm mt-0.5">{scene.topic}</p>
+                        <div className="mt-1">
+                          <TopicTags topic={scene.topic} />
+                        </div>
                       </div>
                     )}
                     {scene.role && (
@@ -1710,7 +1719,14 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
         )}
       >
         <td className="px-2 py-2.5">
-          <span className={cn("inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold", colors.numBg, colors.numText)}>
+          <span
+            className={cn(
+              "inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold transition-all duration-300",
+              colors.numBg, colors.numText,
+              isExpanded && "ring-2 ring-offset-1 ring-offset-background scale-110 shadow-lg animate-pulse-once",
+              isExpanded && colors.ringColor
+            )}
+          >
             {scene.n_escena}
           </span>
         </td>
@@ -2106,7 +2122,9 @@ export function TabEscenas({ video }: { video: VideoWithScenes }) {
                   <SceneStatusBadge status={scene.status} />
                 </div>
                 {scene.topic && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{scene.topic}</p>
+                  <div className="mt-0.5">
+                    <TopicTags topic={scene.topic} />
+                  </div>
                 )}
               </div>
             </div>
@@ -2201,13 +2219,13 @@ function StatusIndicator({ active }: { active: boolean }) {
 }
 
 // Color map for scene classification
-function sceneClassColors(type: string | null): { bg: string; text: string; border: string; numBg: string; numText: string } {
+function sceneClassColors(type: string | null): { bg: string; text: string; border: string; numBg: string; numText: string; ringColor: string } {
   const t = (type || "").toLowerCase();
-  if (t.includes("hook")) return { bg: "bg-cyan-500/15", text: "text-cyan-400", border: "border-cyan-500/30", numBg: "bg-cyan-500/20", numText: "text-cyan-400" };
-  if (t.includes("intro")) return { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", numBg: "bg-emerald-500/20", numText: "text-emerald-400" };
-  if (t.includes("desarrollo")) return { bg: "bg-slate-500/15", text: "text-slate-400", border: "border-slate-500/30", numBg: "bg-slate-500/20", numText: "text-slate-400" };
-  if (t.includes("cta")) return { bg: "bg-orange-500/15", text: "text-orange-400", border: "border-orange-500/30", numBg: "bg-orange-500/20", numText: "text-orange-400" };
-  return { bg: "bg-muted/50", text: "text-muted-foreground", border: "border-border/50", numBg: "bg-muted", numText: "text-muted-foreground" };
+  if (t.includes("hook")) return { bg: "bg-cyan-500/15", text: "text-cyan-400", border: "border-cyan-500/30", numBg: "bg-cyan-500/20", numText: "text-cyan-400", ringColor: "ring-cyan-400/60" };
+  if (t.includes("intro")) return { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", numBg: "bg-emerald-500/20", numText: "text-emerald-400", ringColor: "ring-emerald-400/60" };
+  if (t.includes("desarrollo")) return { bg: "bg-slate-500/15", text: "text-slate-400", border: "border-slate-500/30", numBg: "bg-slate-500/20", numText: "text-slate-400", ringColor: "ring-slate-400/60" };
+  if (t.includes("cta")) return { bg: "bg-orange-500/15", text: "text-orange-400", border: "border-orange-500/30", numBg: "bg-orange-500/20", numText: "text-orange-400", ringColor: "ring-orange-400/60" };
+  return { bg: "bg-muted/50", text: "text-muted-foreground", border: "border-border/50", numBg: "bg-muted", numText: "text-muted-foreground", ringColor: "ring-muted-foreground/60" };
 }
 
 function SceneTypeBadge({ type }: { type: string | null }) {
@@ -2254,6 +2272,44 @@ function SceneStatusBadge({ status }: { status: string | null }) {
     )}>
       {status}
     </span>
+  );
+}
+
+// Topic tag colors — deterministic by hash for consistent colors per topic
+const TOPIC_PALETTES = [
+  { bg: "bg-violet-500/15", text: "text-violet-400", border: "border-violet-500/30" },
+  { bg: "bg-pink-500/15", text: "text-pink-400", border: "border-pink-500/30" },
+  { bg: "bg-sky-500/15", text: "text-sky-400", border: "border-sky-500/30" },
+  { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/30" },
+  { bg: "bg-teal-500/15", text: "text-teal-400", border: "border-teal-500/30" },
+  { bg: "bg-rose-500/15", text: "text-rose-400", border: "border-rose-500/30" },
+  { bg: "bg-indigo-500/15", text: "text-indigo-400", border: "border-indigo-500/30" },
+  { bg: "bg-lime-500/15", text: "text-lime-400", border: "border-lime-500/30" },
+];
+
+function topicColor(topic: string) {
+  let hash = 0;
+  for (let i = 0; i < topic.length; i++) hash = ((hash << 5) - hash + topic.charCodeAt(i)) | 0;
+  return TOPIC_PALETTES[Math.abs(hash) % TOPIC_PALETTES.length];
+}
+
+function TopicTags({ topic }: { topic: string }) {
+  // Split by comma, semicolon, or pipe
+  const topics = topic.split(/[,;|]/).map((t) => t.trim()).filter(Boolean);
+  return (
+    <div className="flex flex-wrap gap-1">
+      {topics.map((t) => {
+        const c = topicColor(t.toLowerCase());
+        return (
+          <span
+            key={t}
+            className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium border", c.bg, c.text, c.border)}
+          >
+            {t}
+          </span>
+        );
+      })}
+    </div>
   );
 }
 

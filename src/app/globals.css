@@ -107,6 +107,16 @@ body {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+/* Scene number glow effect — single pulse when expanded */
+@keyframes scene-glow {
+  0% { box-shadow: 0 0 0 0 currentColor; opacity: 0.7; }
+  50% { box-shadow: 0 0 12px 4px currentColor; opacity: 1; }
+  100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+}
+.animate-pulse-once {
+  animation: scene-glow 0.6s ease-out;
+}
+
 /* Chat widget animations */
 @keyframes chat-slide-up {
   from { opacity: 0; transform: translateY(16px) scale(0.97); }
