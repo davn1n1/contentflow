@@ -1395,7 +1395,6 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   const { save: saveFeedback, saving: savingFeedback, saved: savedFeedback } = useSceneAutoSave(scene.id, "Feedback Audio Elevenlabs");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const feedbackRef = useRef<HTMLTextAreaElement>(null);
-  const [activeVozTab, setActiveVozTab] = useState<1 | 2 | 3>(1);
   const [audioRevisado, setAudioRevisado] = useState(scene.audio_revisado_ok);
   const { save: saveRevisado } = useSceneAutoSave(scene.id, "Audio Revisado OK");
 
@@ -1474,7 +1473,6 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
     : "—";
 
   const vozTexts = [scene.analisis_voz_1, scene.analisis_voz_2, scene.analisis_voz_3];
-  const activeVozText = vozTexts[activeVozTab - 1];
   const hasAnyVoz = vozTexts.some(Boolean);
 
   return (
@@ -1542,52 +1540,9 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
           <td colSpan={11} className="px-4 py-4">
             <div className="space-y-4 max-w-4xl">
 
-              {/* ── Row 1: Análisis Voz + Audio player + Revisado OK ── */}
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
-                {/* Left: Análisis Voz V1/V2/V3 */}
-                <div>
-                  {hasAnyVoz && (
-                    <>
-                      <div className="flex items-center gap-1 mb-2">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-2">Análisis Voz</span>
-                        {[1, 2, 3].map((n) => {
-                          const text = vozTexts[n - 1];
-                          const emoji = extractEmoji(text);
-                          return (
-                            <button
-                              key={n}
-                              onClick={(e) => { e.stopPropagation(); setActiveVozTab(n as 1 | 2 | 3); }}
-                              className={cn(
-                                "flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors",
-                                activeVozTab === n
-                                  ? "bg-emerald-500/20 text-emerald-400"
-                                  : text
-                                    ? "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                                    : "text-muted-foreground/30 cursor-default"
-                              )}
-                              disabled={!text}
-                            >
-                              V{n} {emoji !== "—" && <span className="text-sm">{emoji}</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {activeVozText && (
-                        <p className="text-xs whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 max-h-32 overflow-y-auto">
-                          {activeVozText}
-                        </p>
-                      )}
-                    </>
-                  )}
-                  {!hasAnyVoz && (
-                    <div className="bg-muted/20 rounded-lg p-3 text-center">
-                      <p className="text-xs text-muted-foreground/50">Sin análisis de voz</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right: Audio player + Duration + Revisado OK toggle */}
-                <div className="space-y-2">
+              {/* ── Row 1: Audio player + Revisado OK ── */}
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
                   {scene.voice_s3 ? (
                     <audio
                       controls
@@ -1601,25 +1556,40 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                       <p className="text-[10px] text-muted-foreground/40 mt-0.5">Sin audio</p>
                     </div>
                   )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground">
-                      {scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
-                    </span>
-                    <button
-                      onClick={toggleRevisado}
-                      className={cn(
-                        "flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors",
-                        audioRevisado
-                          ? "bg-emerald-500/20 text-emerald-400"
-                          : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                      )}
-                    >
-                      {audioRevisado ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                      {audioRevisado ? "Revisado OK" : "No revisado"}
-                    </button>
-                  </div>
                 </div>
+                <span className="text-xs text-muted-foreground tabular-nums pt-2.5">
+                  {scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
+                </span>
+                <button
+                  onClick={toggleRevisado}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm cursor-pointer",
+                    audioRevisado
+                      ? "bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white shadow-emerald-500/20"
+                      : "bg-muted/60 hover:bg-red-500/20 border-border hover:border-red-500/50 text-muted-foreground hover:text-red-400"
+                  )}
+                >
+                  {audioRevisado ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                  {audioRevisado ? "Revisado OK" : "No revisado"}
+                </button>
               </div>
+
+              {/* ── Análisis Voz V1 / V2 / V3 — textos completos ── */}
+              {hasAnyVoz ? (
+                <div className="space-y-2">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Análisis Voz</span>
+                  {vozTexts.map((text, i) => text && (
+                    <div key={i} className="bg-muted/30 rounded-lg p-3">
+                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-1 block">V{i + 1}</span>
+                      <p className="text-xs whitespace-pre-wrap leading-relaxed text-foreground/80">{text}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-muted/20 rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground/50">Sin análisis de voz</p>
+                </div>
+              )}
 
               {/* ── Row 2: Script ElevenLabs (editable) ── */}
               <div>

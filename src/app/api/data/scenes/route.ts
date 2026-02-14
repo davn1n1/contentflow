@@ -11,6 +11,7 @@ const SCENE_FIELDS = [
   "Audio Revisado OK", "Copy Revisado OK",
   "Informe_Resumen_Emoticonos", "solo_observaciones",
   "Script Elevenlabs", "Analisis Voz 1", "Analisis Voz 2", "Analisis Voz 3",
+  "Feedback Audio Elevenlabs", "ElevenLabs Text v3 Enhanced",
 ];
 
 interface SceneFields {
@@ -42,6 +43,8 @@ interface SceneFields {
   "Analisis Voz 1"?: string;
   "Analisis Voz 2"?: string;
   "Analisis Voz 3"?: string;
+  "Feedback Audio Elevenlabs"?: string;
+  "ElevenLabs Text v3 Enhanced"?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -91,7 +94,6 @@ export async function GET(request: NextRequest) {
         status_audio: r.fields["Status Audio"] || null,
         status_camera: r.fields["Status Camera"] || null,
         status_script: r.fields["Status Script"] || null,
-        elevenlabs_text_v3_enhanced: null,
         audio_revisado_ok: r.fields["Audio Revisado OK"] || false,
         copy_revisado_ok: r.fields["Copy Revisado OK"] || false,
         informe_resumen_emoticonos: r.fields["Informe_Resumen_Emoticonos"] || null,
@@ -99,6 +101,8 @@ export async function GET(request: NextRequest) {
         analisis_voz_1: r.fields["Analisis Voz 1"] || null,
         analisis_voz_2: r.fields["Analisis Voz 2"] || null,
         analisis_voz_3: r.fields["Analisis Voz 3"] || null,
+        feedback_audio: r.fields["Feedback Audio Elevenlabs"] || null,
+        elevenlabs_text_v3_enhanced: r.fields["ElevenLabs Text v3 Enhanced"] || null,
         camera_table_id: null,
         audio_id: null,
       }))
