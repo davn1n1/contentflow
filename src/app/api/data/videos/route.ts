@@ -32,6 +32,8 @@ const VIDEO_FIELDS = [
   "Extensión Palabras",
   "Estimated Duration mm:ss",
   "Draft Publicacion",
+  "Status YouTube",
+  "URL Youtube",
 ];
 
 interface VideoFields {
@@ -82,6 +84,8 @@ interface VideoFields {
   "Extensión Palabras"?: number;
   "Estimated Duration mm:ss"?: string;
   "Draft Publicacion"?: string[];
+  "Status YouTube"?: string;
+  "URL Youtube"?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -187,7 +191,6 @@ function mapVideo(r: { id: string; createdTime: string; fields: VideoFields }) {
     status_audio: r.fields["Status Audio"] || false,
     status_avatares: r.fields["Status Avatares"] || false,
     status_rendering_video: r.fields["Status Render Video"] || false,
-    url_youtube: null,
     formato: r.fields.Format || r.fields["Horizontal/Vertical"] || null,
     duracion_total_escenas: null,
     post_content: r.fields["Post Content"] || null,
@@ -226,5 +229,7 @@ function mapVideo(r: { id: string; createdTime: string; fields: VideoFields }) {
     extension_palabras: r.fields["Extensión Palabras"] ?? null,
     estimated_duration: r.fields["Estimated Duration mm:ss"] || null,
     draft_publicacion_ids: r.fields["Draft Publicacion"] || [],
+    status_youtube: r.fields["Status YouTube"] || null,
+    url_youtube: r.fields["URL Youtube"] || null,
   };
 }

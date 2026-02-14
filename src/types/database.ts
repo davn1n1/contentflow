@@ -49,6 +49,7 @@ export interface Video {
   status_timeline_hooks: boolean;
   status_rendering_video: string | null;
   status_youtube_publishing: string | null;
+  status_youtube: string | null;
   status_agentesia: string | null;
   status_render_video: string | null;
   // Safety toggles
@@ -83,6 +84,7 @@ export interface Video {
   status_agentes: string | null;
   formato: string | null;
   draft_publicacion_ids: string[];
+  sponsor_ids: string[];
 }
 
 export interface Scene {
