@@ -1,12 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+type AllVideosViewMode = "table" | "grid" | "calendar";
+
 interface UIState {
   sidebarCollapsed: boolean;
   collapsedSections: Record<string, boolean>;
+  allVideosViewMode: AllVideosViewMode;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSection: (key: string, allCollapsibleKeys?: string[]) => void;
+  setAllVideosViewMode: (mode: AllVideosViewMode) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -14,6 +18,7 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       sidebarCollapsed: false,
       collapsedSections: {},
+      allVideosViewMode: "grid",
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       toggleSection: (key, allCollapsibleKeys) =>
@@ -34,20 +39,24 @@ export const useUIStore = create<UIState>()(
             },
           };
         }),
+      setAllVideosViewMode: (mode) => set({ allVideosViewMode: mode }),
     }),
     {
       name: "cf365-ui",
-      version: 1,
-      migrate: (persisted) => {
+      version: 2,
+      migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown>;
-        return {
+        const base = {
           sidebarCollapsed: (state?.sidebarCollapsed as boolean) ?? false,
           collapsedSections: (state?.collapsedSections as Record<string, boolean>) ?? {},
+          allVideosViewMode: (state?.allVideosViewMode as AllVideosViewMode) ?? "grid",
         };
+        return base;
       },
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
         collapsedSections: state.collapsedSections,
+        allVideosViewMode: state.allVideosViewMode,
       }),
     }
   )

@@ -3,9 +3,10 @@
 import { useState, useMemo, useDeferredValue } from "react";
 import { useParams } from "next/navigation";
 import { useAccountStore } from "@/lib/stores/account-store";
+import { useUIStore } from "@/lib/stores/ui-store";
 import { useVideos } from "@/lib/hooks/use-videos";
 import { useQuery } from "@tanstack/react-query";
-import { AllVideoFilters, type ViewMode } from "@/components/videos/all-video-filters";
+import { AllVideoFilters } from "@/components/videos/all-video-filters";
 import { VideoTable } from "@/components/videos/video-table";
 import { VideoCard } from "@/components/videos/video-card";
 import { VideoCalendar } from "@/components/videos/video-calendar";
@@ -20,13 +21,13 @@ export default function AllVideosPage() {
   const params = useParams();
   const clientSlug = params["client-slug"] as string;
   const { currentAccount } = useAccountStore();
+  const { allVideosViewMode, setAllVideosViewMode } = useUIStore();
 
   // Filter state
   const [search, setSearch] = useState("");
   const [estado, setEstado] = useState("");
   const [statusYoutube, setStatusYoutube] = useState("");
   const [sponsor, setSponsor] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   const deferredSearch = useDeferredValue(search);
 
@@ -151,8 +152,8 @@ export default function AllVideosPage() {
         onStatusYoutubeChange={setStatusYoutube}
         sponsor={sponsor}
         onSponsorChange={setSponsor}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
+        viewMode={allVideosViewMode}
+        onViewModeChange={setAllVideosViewMode}
         estadoOptions={estadoOptions}
         statusYoutubeOptions={statusYoutubeOptions}
         sponsorOptions={sponsorOptions}
@@ -167,9 +168,9 @@ export default function AllVideosPage() {
             <div key={i} className="glass-card rounded-xl h-16 animate-pulse" />
           ))}
         </div>
-      ) : viewMode === "table" ? (
+      ) : allVideosViewMode === "table" ? (
         <VideoTable videos={filteredVideos} clientSlug={clientSlug} />
-      ) : viewMode === "calendar" ? (
+      ) : allVideosViewMode === "calendar" ? (
         <VideoCalendar videos={filteredVideos} clientSlug={clientSlug} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
