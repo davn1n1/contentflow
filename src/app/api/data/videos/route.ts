@@ -8,7 +8,7 @@ const VIDEO_FIELDS = [
   "Status Render Video", "Status Escenas", "Status Renders",
   "🏢Account", "Escenas", "AE Render", "Format",
   "Post Content", "ElevenLabs Text",
-  "Titulo Youtube A", "Titulo Youtube B",
+  "Titulo Youtube A", "Titulo Youtube B", "Titulo Youtube C",
   "Tags IA", "VoiceDNA", "Feedback",
   "Voice Length", "Created Time", "Platform",
   "Horizontal/Vertical", "Seguro", "Seguro Creación Audio", "Seguro Creación Copy",
@@ -49,6 +49,7 @@ interface VideoFields {
   "ElevenLabs Text"?: string;
   "Titulo Youtube A"?: string;
   "Titulo Youtube B"?: string;
+  "Titulo Youtube C"?: string;
   "Tags IA"?: string;
   VoiceDNA?: string[];
   Feedback?: string;
@@ -191,7 +192,7 @@ function mapVideo(r: { id: string; createdTime: string; fields: VideoFields }) {
     elevenlabs_text: r.fields["ElevenLabs Text"] || null,
     titulo_a: r.fields["Titulo Youtube A"] || null,
     titulo_b: r.fields["Titulo Youtube B"] || null,
-    titulo_c: null,
+    titulo_c: r.fields["Titulo Youtube C"] || null,
     descripcion: null,
     tags: r.fields["Tags IA"] || null,
     voice_dna_ids: r.fields.VoiceDNA || [],
