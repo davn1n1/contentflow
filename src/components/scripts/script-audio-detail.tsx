@@ -1710,7 +1710,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
                     return (
                       <div className={cn("rounded border p-2", c.border, c.bg)} title="Lo ha creado el Agente Informe, revisando el copy y consultando decenas de fuentes externas.">
                         <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Observaciones</p>
-                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
+                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed", c.text)}>
                           {scene.solo_observaciones}
                         </div>
                       </div>
@@ -1721,7 +1721,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
                     return (
                       <div className={cn("rounded border p-2", c.border, c.bg)} title="Cuanto difiere de la fuente original.">
                         <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Comparativa</p>
-                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
+                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed", c.text)}>
                           {scene.comparativa_transcript_original}
                         </div>
                       </div>
@@ -1732,7 +1732,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
                     return (
                       <div className={cn("rounded border p-2", c.border, c.bg)}>
                         <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Guardaraíles</p>
-                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
+                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed", c.text)}>
                           {scene.informe_guardarailes}
                         </div>
                       </div>
@@ -1747,7 +1747,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
                       return (
                         <div className={cn("rounded border p-2", c.border, c.bg)} title="El texto combinado con el informe.">
                           <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Copy c/ Obs</p>
-                          <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
+                          <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed", c.text)}>
                             {scene.montaje_copy_con_observaciones}
                           </div>
                         </div>
@@ -1758,7 +1758,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
                       return (
                         <div className={cn("rounded border p-2", c.border, c.bg)}>
                           <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Conclusión</p>
-                          <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
+                          <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed", c.text)}>
                             {scene.conclusion_general_datos_difieren_mucho}
                           </div>
                         </div>
@@ -1769,7 +1769,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
                       return (
                         <div className={cn("rounded border p-2", c.border, c.bg)}>
                           <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Conflictivas</p>
-                          <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
+                          <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed", c.text)}>
                             {scene.palabras_conflictivas}
                           </div>
                         </div>
