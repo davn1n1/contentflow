@@ -10,8 +10,8 @@ import {
   Save, AlertCircle, Users, UserCog,
   Cpu, Zap, Shield, Play,
 } from "lucide-react";
-import type { VideoWithScenes, LinkedIdea, SceneDetail } from "@/lib/hooks/use-video-detail";
-import { ChevronDown } from "lucide-react";
+import type { VideoWithScenes, LinkedIdea, LinkedIdeaFull, SceneDetail } from "@/lib/hooks/use-video-detail";
+import { ChevronDown, Twitter, Newspaper, ImageIcon } from "lucide-react";
 import { LinkedRecordPicker } from "./linked-record-picker";
 
 interface ScriptAudioDetailProps {
@@ -203,6 +203,11 @@ function TabScript({ video }: { video: VideoWithScenes }) {
       {/* ── Scene Summary Table ── */}
       {video.scenes.length > 0 && (
         <SceneSummaryTable scenes={video.scenes} />
+      )}
+
+      {/* ── Ideas Inspiración (Videos X + Noticias) ── */}
+      {video.linkedIdeas && video.linkedIdeas.length > 0 && (
+        <IdeasSection ideas={video.linkedIdeas} />
       )}
 
       {/* Status */}
@@ -1161,6 +1166,195 @@ function SceneSummaryRow({ scene, isExpanded, onToggle }: {
         </tr>
       )}
     </>
+  );
+}
+
+// ─── Ideas Section (Videos X + Noticias) ─────────────────
+
+const IDEAS_TABS = [
+  { key: "noticias", label: "Noticias", icon: Newspaper, filter: "URL" },
+  { key: "videos_x", label: "Videos X", icon: Twitter, filter: "Post X" },
+] as const;
+
+type IdeaTabKey = (typeof IDEAS_TABS)[number]["key"];
+
+function IdeasSection({ ideas }: { ideas: LinkedIdeaFull[] }) {
+  const [activeTab, setActiveTab] = useState<IdeaTabKey>("noticias");
+
+  const currentFilter = IDEAS_TABS.find(t => t.key === activeTab)?.filter;
+  const filtered = ideas.filter(i => i.tipo_idea === currentFilter);
+  const done = filtered.filter(i => i.status_start_calculado === "Done");
+  const notDone = filtered.filter(i => i.status_start_calculado !== "Done");
+
+  return (
+    <div className="glass-card rounded-xl overflow-hidden">
+      {/* Header with tabs */}
+      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Lightbulb className="w-4 h-4 text-amber-400" />
+          Ideas Inspiración
+          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full font-medium text-muted-foreground">
+            {ideas.length}
+          </span>
+        </h3>
+        <div className="flex gap-1">
+          {IDEAS_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const count = ideas.filter(i => i.tipo_idea === tab.filter).length;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                  activeTab === tab.key
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {tab.label}
+                {count > 0 && (
+                  <span className="text-[10px] bg-muted px-1 py-0.5 rounded-full">{count}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Done section */}
+      {done.length > 0 && (
+        <div className="p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">
+              Para Publicar ({done.length})
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {done.map(idea => (
+              <IdeaCard key={idea.id} idea={idea} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Not Done section */}
+      {notDone.length > 0 && (
+        <div className={cn("p-5", done.length > 0 && "border-t border-border/50")}>
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-[10px] uppercase tracking-wider text-amber-400 font-semibold">
+              Pendiente de Revisión ({notDone.length})
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {notDone.map(idea => (
+              <IdeaCard key={idea.id} idea={idea} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {filtered.length === 0 && (
+        <div className="p-8 text-center text-muted-foreground">
+          <Newspaper className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No hay ideas de tipo {currentFilter} para este video</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IdeaCard({ idea }: { idea: LinkedIdeaFull }) {
+  return (
+    <div className="rounded-xl border border-border bg-card/50 overflow-hidden hover:ring-1 hover:ring-primary/20 transition-all">
+      {/* Thumbnail */}
+      {idea.thumb_url ? (
+        <div className="aspect-video bg-muted overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={idea.thumb_url}
+            alt={idea.idea_title || ""}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      ) : (
+        <div className="aspect-video bg-muted flex items-center justify-center">
+          <ImageIcon className="w-8 h-8 text-muted-foreground/30" />
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="p-3 space-y-2">
+        <p className="text-sm font-semibold leading-tight line-clamp-2">
+          {idea.idea_title || "Sin título"}
+        </p>
+
+        {idea.domain && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Domain</span>
+            <span className="text-xs text-foreground/80">{idea.domain}</span>
+          </div>
+        )}
+
+        {idea.fuentes_inspiracion_ids.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Fuentes</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-medium">
+              Web Research IA
+            </span>
+          </div>
+        )}
+
+        {idea.publica_video && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Publica Video</span>
+            <span className="text-xs text-foreground/80">{idea.publica_video}</span>
+          </div>
+        )}
+
+        {idea.summary && (
+          <div>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Summary</span>
+            <p className="text-xs text-foreground/70 line-clamp-3 leading-relaxed mt-0.5">
+              {idea.summary}
+            </p>
+          </div>
+        )}
+
+        {/* Bottom row */}
+        <div className="flex items-center justify-between pt-1">
+          <div className="flex items-center gap-2">
+            {idea.contenido_coincide_copy && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-medium flex items-center gap-0.5">
+                <CheckCircle2 className="w-3 h-3" /> Coincide Copy
+              </span>
+            )}
+          </div>
+          {idea.n_escena && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+              Escena {idea.n_escena}
+            </span>
+          )}
+        </div>
+
+        {/* Link */}
+        {idea.url_fuente && (
+          <a
+            href={idea.url_fuente}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Ver fuente
+          </a>
+        )}
+      </div>
+    </div>
   );
 }
 

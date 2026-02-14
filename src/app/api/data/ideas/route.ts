@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { airtableFetch, TABLES } from "@/lib/airtable/client";
+import { airtableFetch, airtableFetchByIds, TABLES } from "@/lib/airtable/client";
 import { authenticateApiRequest } from "@/lib/auth/api-guard";
 
 const IDEA_FIELDS = [
@@ -14,6 +14,9 @@ const IDEA_FIELDS = [
   "Logo (from Fuentes Inspiracion)",
   "Fuentes Inspiracion",
   "YT_ Estructure", "Priority Level",
+  "Status Start Calculado", "Contenido Coincide con Copy",
+  "N. Escena (from Escenas)", "Publica Video",
+  "Clasificación Escena (from Escenas)",
 ];
 
 interface IdeaFields {
@@ -45,6 +48,11 @@ interface IdeaFields {
   "Fuentes Inspiracion"?: string[];
   "YT_ Estructure"?: string;
   "Priority Level"?: string;
+  "Status Start Calculado"?: string;
+  "Contenido Coincide con Copy"?: string;
+  "N. Escena (from Escenas)"?: string[];
+  "Publica Video"?: string;
+  "Clasificación Escena (from Escenas)"?: string[];
 }
 
 export async function GET(request: NextRequest) {
@@ -60,6 +68,18 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     const favorita = searchParams.get("favorita");
     const limit = parseInt(searchParams.get("limit") || "100");
+
+    // Fetch multiple ideas by IDs
+    const ids = searchParams.get("ids");
+    if (ids) {
+      const recordIds = ids.split(",").filter(Boolean);
+      const records = await airtableFetchByIds<IdeaFields>(
+        TABLES.IDEAS,
+        recordIds,
+        IDEA_FIELDS
+      );
+      return NextResponse.json(records.map(mapIdea));
+    }
 
     // Fetch single idea by ID
     if (ideaId) {
@@ -152,5 +172,10 @@ function mapIdea(r: { id: string; createdTime: string; fields: IdeaFields }) {
     fuentes_inspiracion_ids: r.fields["Fuentes Inspiracion"] || [],
     yt_estructure: r.fields["YT_ Estructure"] || null,
     priority_level: r.fields["Priority Level"] || null,
+    status_start_calculado: r.fields["Status Start Calculado"] || null,
+    contenido_coincide_copy: (r.fields["Contenido Coincide con Copy"] || "").trim() === "✅",
+    n_escena: r.fields["N. Escena (from Escenas)"]?.[0] || null,
+    publica_video: r.fields["Publica Video"] || null,
+    clasificacion_escena: r.fields["Clasificación Escena (from Escenas)"]?.[0] || null,
   };
 }

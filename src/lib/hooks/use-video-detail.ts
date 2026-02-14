@@ -78,6 +78,17 @@ export interface LinkedIdea {
   url_fuente: string | null;
 }
 
+export interface LinkedIdeaFull extends LinkedIdea {
+  tipo_idea: string | null;
+  status: string | null;
+  status_start_calculado: string | null;
+  contenido_coincide_copy: boolean;
+  n_escena: string | null;
+  publica_video: string | null;
+  clasificacion_escena: string | null;
+  fuentes_inspiracion_ids: string[];
+}
+
 export interface LinkedAvatarSet {
   id: string;
   name: string | null;
@@ -104,6 +115,7 @@ export interface LinkedRecord {
 export interface VideoWithScenes extends VideoDetail {
   scenes: SceneDetail[];
   linkedIdea: LinkedIdea | null;
+  linkedIdeas: LinkedIdeaFull[];
   linkedAvatarSet: LinkedAvatarSet | null;
   linkedPersona: LinkedPersona | null;
   linkedIntros: LinkedRecord[];
@@ -206,7 +218,7 @@ export function useVideoDetail(videoId: string | null) {
 
       // Fetch all linked records in parallel
       const [
-        scenes, linkedIdea, linkedAvatarSet, linkedPersona,
+        scenes, linkedIdea, linkedIdeas, linkedAvatarSet, linkedPersona,
         linkedIntros, linkedCtas, linkedIntroBrolls, linkedCtaBrolls,
       ] = await Promise.all([
         // Scenes
@@ -217,13 +229,21 @@ export function useVideoDetail(videoId: string | null) {
           }
           return [] as SceneDetail[];
         })(),
-        // Linked idea
+        // Linked idea (first one, for backward compat)
         (async () => {
           if (video.ideas_ids?.length > 0) {
             const res = await fetch(`/api/data/ideas?id=${video.ideas_ids[0]}`);
             if (res.ok) return res.json() as Promise<LinkedIdea>;
           }
           return null;
+        })(),
+        // All linked ideas (for Ideas section)
+        (async () => {
+          if (video.ideas_ids?.length > 0) {
+            const res = await fetch(`/api/data/ideas?ids=${video.ideas_ids.join(",")}`);
+            if (res.ok) return res.json() as Promise<LinkedIdeaFull[]>;
+          }
+          return [] as LinkedIdeaFull[];
         })(),
         // Avatar Set
         (async () => {
@@ -268,7 +288,7 @@ export function useVideoDetail(videoId: string | null) {
       ]);
 
       return {
-        ...video, scenes, linkedIdea, linkedAvatarSet, linkedPersona,
+        ...video, scenes, linkedIdea, linkedIdeas, linkedAvatarSet, linkedPersona,
         linkedIntros, linkedCtas, linkedIntroBrolls, linkedCtaBrolls,
       };
     },
