@@ -83,7 +83,7 @@ export default function AllVideosPage() {
   const statusYoutubeOptions = useMemo(() => {
     const values = new Set<string>();
     for (const v of videos) {
-      const val = (v as Record<string, unknown>).status_youtube as string | null;
+      const val = v.status_youtube;
       if (val) values.add(val);
     }
     return [
@@ -113,7 +113,7 @@ export default function AllVideosPage() {
     return videos.filter((v) => {
       if (estado && v.estado !== estado) return false;
       if (statusYoutube) {
-        const val = (v as Record<string, unknown>).status_youtube as string | null;
+        const val = v.status_youtube;
         if (val !== statusYoutube) return false;
       }
       if (sponsor && (!v.sponsor_ids || !v.sponsor_ids.includes(sponsor))) return false;
