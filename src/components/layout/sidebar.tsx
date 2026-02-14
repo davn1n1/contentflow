@@ -51,6 +51,7 @@ import {
   SlidersHorizontal,
   Eye,
   MonitorPlay,
+  Rocket,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────
@@ -85,7 +86,6 @@ const SECTION_COLORS: Record<string, string> = {
   "produccion-yt": "#FF0000",    // YouTube red
   "app-data": "#06b6d4",
   "gestion-mc": "#f59e0b",      // Amber/gold
-  test: "#64748b",
 };
 
 // ─── Navigation Structure ────────────────────────────────
@@ -142,6 +142,8 @@ const sections: NavSection[] = [
         ],
       },
       { name: "Clips Opus", href: "/clips", icon: Clapperboard },
+      { name: "Remotion Pro", href: "/remotion", icon: Film, global: true },
+      { name: "Remotion Lite", href: "/remotion-lite", icon: Rocket, global: true },
     ],
   },
   {
@@ -178,14 +180,6 @@ const sections: NavSection[] = [
       { name: "Empresarial", href: "/gestion/empresarial", icon: Building2 },
       { name: "Ofertas", href: "/gestion/ofertas", icon: BadgeDollarSign },
       { name: "Transacciones", href: "/gestion/transacciones", icon: TrendingUp },
-    ],
-  },
-  {
-    title: "Test",
-    key: "test",
-    collapsible: true,
-    items: [
-      { name: "Remotion Preview", href: "/remotion", icon: Film, global: true },
     ],
   },
 ];
