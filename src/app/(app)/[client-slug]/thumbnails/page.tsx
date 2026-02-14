@@ -16,7 +16,7 @@ import type { DraftPublicacion } from "@/types/database";
 import { cn } from "@/lib/utils";
 import {
   ImageIcon, Star, RefreshCw, Award, Type, MessageSquare,
-  Save, Loader2, Megaphone, Pin, Check,
+  Save, Loader2, Megaphone, Pin, Check, ChevronDown, X,
 } from "lucide-react";
 
 const TABS = [
@@ -50,11 +50,14 @@ export default function ThumbnailsPage() {
   const { data: drafts = [], isLoading } = useDraftPublicacion(videoDetail?.draft_publicacion_ids);
   const { mutate: updateVideo, isPending: isUpdatingVideo } = useUpdateVideo();
 
-  // App data for selectors (enabled: true to ensure they load even if accountId is briefly undefined)
-  const { data: allSponsors = [] } = useAppData({ table: "sponsors", accountId, enabled: !!videoId });
-  const { data: allComentarios = [] } = useAppData({ table: "comentario-pineado", accountId, enabled: !!videoId });
+  // App data for selectors — don't pass accountId (these tables may not have Account field, causing empty results)
+  const { data: allSponsors = [] } = useAppData({ table: "sponsors", enabled: !!videoId });
+  const { data: allComentarios = [] } = useAppData({ table: "comentario-pineado", enabled: !!videoId });
 
   const [selectedDraft, setSelectedDraft] = useState<DraftPublicacion | null>(null);
+  const [expandedComentarioId, setExpandedComentarioId] = useState<string | null>(null);
+  const [expandedSponsorId, setExpandedSponsorId] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ url: string; label: string } | null>(null);
 
   // Editable video fields
   const [tituloA, setTituloA] = useState("");
@@ -276,8 +279,16 @@ export default function ThumbnailsPage() {
                   const url = letter === "A" ? videoDetail?.portada_a
                     : letter === "B" ? videoDetail?.portada_b
                     : videoDetail?.portada_c;
+                  const titulo = letter === "A" ? videoDetail?.titulo_a
+                    : letter === "B" ? videoDetail?.titulo_b
+                    : videoDetail?.titulo_c;
                   return (
-                    <div key={letter} className="glass-card rounded-xl overflow-hidden">
+                    <button
+                      key={letter}
+                      onClick={() => url && setPreviewImage({ url, label: `Portada Youtube ${letter}` })}
+                      className={cn("glass-card rounded-xl overflow-hidden text-left transition-all", url && "hover:ring-2 hover:ring-primary/30 cursor-pointer")}
+                      disabled={!url}
+                    >
                       <div className="relative aspect-video bg-muted">
                         {url ? (
                           <img src={url} alt={`Portada ${letter}`} className="w-full h-full object-cover" />
@@ -291,12 +302,12 @@ export default function ThumbnailsPage() {
                         </span>
                       </div>
                       <div className="p-3">
-                        <p className="text-sm font-medium text-foreground">Portada Youtube {letter}</p>
+                        <p className="text-sm font-medium text-foreground">{titulo || `Portada Youtube ${letter}`}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {url ? "Imagen cargada" : "Sin imagen"}
+                          {url ? "Click para ver en grande" : "Sin imagen"}
                         </p>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -387,7 +398,15 @@ export default function ThumbnailsPage() {
                   return (
                     <button
                       key={c.id}
-                      onClick={() => handleToggleComentario(c.id)}
+                      onClick={() => {
+                        if (isSelected) {
+                          // Already selected → toggle detail card
+                          setExpandedComentarioId(expandedComentarioId === c.id ? null : c.id);
+                        } else {
+                          // Not selected → select it
+                          handleToggleComentario(c.id);
+                        }
+                      }}
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer",
                         isSelected
@@ -397,7 +416,7 @@ export default function ThumbnailsPage() {
                     >
                       <Pin className="w-3 h-3" />
                       {name}
-                      {isSelected && <Check className="w-3 h-3" />}
+                      {isSelected && <ChevronDown className={cn("w-3 h-3 transition-transform", expandedComentarioId === c.id && "rotate-180")} />}
                     </button>
                   );
                 })}
@@ -405,49 +424,56 @@ export default function ThumbnailsPage() {
                   <p className="text-xs text-muted-foreground/70">No hay comentarios pineados disponibles</p>
                 )}
               </div>
-              {/* Detail cards for selected comentarios */}
-              {videoDetail?.comentario_pineado_ids && videoDetail.comentario_pineado_ids.length > 0 && (
-                <div className="space-y-3 pt-2">
-                  {videoDetail.comentario_pineado_ids.map((cId) => {
-                    const fullData = allComentarios.find((c) => c.id === cId);
-                    const linked = videoDetail.linkedComentarioPineado?.find((c) => c.id === cId);
-                    const name = fullData ? ((fullData.Name as string) || (fullData.Nombre as string)) : linked?.name;
-                    return (
-                      <div key={cId} className="glass-card rounded-xl p-4 border border-amber-400/20">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Pin className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                            <h4 className="text-sm font-semibold text-foreground">{name || cId}</h4>
-                          </div>
-                          <button
-                            onClick={() => handleToggleComentario(cId)}
-                            className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-400/20 hover:border-red-400/40 transition-all"
-                          >
-                            Quitar
-                          </button>
-                        </div>
-                        {fullData && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {Object.entries(fullData)
-                              .filter(([key]) => !["id", "createdTime"].includes(key))
-                              .map(([key, val]) => {
-                                if (val === null || val === undefined || val === "") return null;
-                                const displayVal = Array.isArray(val) ? val.join(", ") : String(val);
-                                if (displayVal.length > 500) return null;
-                                return (
-                                  <div key={key} className="text-xs">
-                                    <span className="text-muted-foreground">{key}: </span>
-                                    <span className="text-foreground">{displayVal}</span>
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        )}
+              {/* Detail card — only visible when expanded */}
+              {expandedComentarioId && (() => {
+                const fullData = allComentarios.find((c) => c.id === expandedComentarioId);
+                const linked = videoDetail?.linkedComentarioPineado?.find((c) => c.id === expandedComentarioId);
+                const name = fullData ? ((fullData.Name as string) || (fullData.Nombre as string)) : linked?.name;
+                return (
+                  <div className="glass-card rounded-xl p-4 border border-amber-400/20 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Pin className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                        <h4 className="text-sm font-semibold text-foreground">{name || expandedComentarioId}</h4>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            handleToggleComentario(expandedComentarioId);
+                            setExpandedComentarioId(null);
+                          }}
+                          className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-400/20 hover:border-red-400/40 transition-all"
+                        >
+                          Quitar
+                        </button>
+                        <button
+                          onClick={() => setExpandedComentarioId(null)}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    {fullData && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {Object.entries(fullData)
+                          .filter(([key]) => !["id", "createdTime"].includes(key))
+                          .map(([key, val]) => {
+                            if (val === null || val === undefined || val === "") return null;
+                            const displayVal = Array.isArray(val) ? val.join(", ") : String(val);
+                            if (displayVal.length > 500) return null;
+                            return (
+                              <div key={key} className="text-xs">
+                                <span className="text-muted-foreground">{key}: </span>
+                                <span className="text-foreground">{displayVal}</span>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </section>
 
             {/* Sponsors */}
@@ -467,7 +493,15 @@ export default function ThumbnailsPage() {
                   return (
                     <button
                       key={s.id}
-                      onClick={() => handleToggleSponsor(s.id)}
+                      onClick={() => {
+                        if (isSelected) {
+                          // Already selected → toggle detail card
+                          setExpandedSponsorId(expandedSponsorId === s.id ? null : s.id);
+                        } else {
+                          // Not selected → select it
+                          handleToggleSponsor(s.id);
+                        }
+                      }}
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer",
                         isSelected
@@ -477,7 +511,7 @@ export default function ThumbnailsPage() {
                     >
                       <Megaphone className="w-3 h-3" />
                       {name}
-                      {isSelected && <Check className="w-3 h-3" />}
+                      {isSelected && <ChevronDown className={cn("w-3 h-3 transition-transform", expandedSponsorId === s.id && "rotate-180")} />}
                     </button>
                   );
                 })}
@@ -485,54 +519,61 @@ export default function ThumbnailsPage() {
                   <p className="text-xs text-muted-foreground/70">No hay sponsors disponibles</p>
                 )}
               </div>
-              {/* Detail cards for selected sponsors */}
-              {videoDetail?.sponsor_ids && videoDetail.sponsor_ids.length > 0 && (
-                <div className="space-y-3 pt-2">
-                  {videoDetail.sponsor_ids.map((sId) => {
-                    const fullData = allSponsors.find((s) => s.id === sId);
-                    const linked = videoDetail.linkedSponsors?.find((s) => s.id === sId);
-                    const name = fullData ? ((fullData.Name as string) || (fullData.Nombre as string)) : linked?.name;
-                    const imageUrl = linked?.image_url || null;
-                    return (
-                      <div key={sId} className="glass-card rounded-xl p-4 border border-blue-400/20">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            {imageUrl ? (
-                              <img src={imageUrl} alt={name || ""} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                            ) : (
-                              <Megaphone className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                            )}
-                            <h4 className="text-sm font-semibold text-foreground">{name || sId}</h4>
-                          </div>
-                          <button
-                            onClick={() => handleToggleSponsor(sId)}
-                            className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-400/20 hover:border-red-400/40 transition-all"
-                          >
-                            Quitar
-                          </button>
-                        </div>
-                        {fullData && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {Object.entries(fullData)
-                              .filter(([key]) => !["id", "createdTime"].includes(key))
-                              .map(([key, val]) => {
-                                if (val === null || val === undefined || val === "") return null;
-                                const displayVal = Array.isArray(val) ? val.join(", ") : String(val);
-                                if (displayVal.length > 500) return null;
-                                return (
-                                  <div key={key} className="text-xs">
-                                    <span className="text-muted-foreground">{key}: </span>
-                                    <span className="text-foreground">{displayVal}</span>
-                                  </div>
-                                );
-                              })}
-                          </div>
+              {/* Detail card — only visible when expanded */}
+              {expandedSponsorId && (() => {
+                const fullData = allSponsors.find((s) => s.id === expandedSponsorId);
+                const linked = videoDetail?.linkedSponsors?.find((s) => s.id === expandedSponsorId);
+                const name = fullData ? ((fullData.Name as string) || (fullData.Nombre as string)) : linked?.name;
+                const imageUrl = linked?.image_url || null;
+                return (
+                  <div className="glass-card rounded-xl p-4 border border-blue-400/20 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        {imageUrl ? (
+                          <img src={imageUrl} alt={name || ""} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <Megaphone className="w-4 h-4 text-blue-400 flex-shrink-0" />
                         )}
+                        <h4 className="text-sm font-semibold text-foreground">{name || expandedSponsorId}</h4>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            handleToggleSponsor(expandedSponsorId);
+                            setExpandedSponsorId(null);
+                          }}
+                          className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-400/20 hover:border-red-400/40 transition-all"
+                        >
+                          Quitar
+                        </button>
+                        <button
+                          onClick={() => setExpandedSponsorId(null)}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    {fullData && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {Object.entries(fullData)
+                          .filter(([key]) => !["id", "createdTime"].includes(key))
+                          .map(([key, val]) => {
+                            if (val === null || val === undefined || val === "") return null;
+                            const displayVal = Array.isArray(val) ? val.join(", ") : String(val);
+                            if (displayVal.length > 500) return null;
+                            return (
+                              <div key={key} className="text-xs">
+                                <span className="text-muted-foreground">{key}: </span>
+                                <span className="text-foreground">{displayVal}</span>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </section>
           </div>
         )}
@@ -547,6 +588,29 @@ export default function ThumbnailsPage() {
         }}
         onVariationsTriggered={startPolling}
       />
+
+      {/* Image Lightbox */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8 animate-in fade-in duration-200"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-10 right-0 text-white/70 hover:text-white flex items-center gap-1.5 text-sm"
+            >
+              <X className="w-4 h-4" /> Cerrar
+            </button>
+            <img
+              src={previewImage.url}
+              alt={previewImage.label}
+              className="w-full rounded-xl shadow-2xl"
+            />
+            <p className="text-center text-white/80 text-sm mt-3 font-medium">{previewImage.label}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
