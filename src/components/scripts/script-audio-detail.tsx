@@ -2652,8 +2652,9 @@ function topicColor(topic: string) {
 }
 
 function TopicTags({ topic }: { topic: string }) {
-  // Split by comma, semicolon, or pipe
-  const topics = topic.split(/[,;|]/).map((t) => t.trim()).filter(Boolean);
+  // Clean brackets, quotes, then split by comma, semicolon, pipe, or newline
+  const cleaned = topic.replace(/[\[\]"']/g, "");
+  const topics = cleaned.split(/[,;|\n]/).map((t) => t.trim()).filter(Boolean);
   return (
     <div className="flex flex-wrap gap-1">
       {topics.map((t) => {
