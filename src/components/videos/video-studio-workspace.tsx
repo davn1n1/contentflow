@@ -6,28 +6,17 @@ import { useVideoContextStore } from "@/lib/stores/video-context-store";
 import { useVideoDetail } from "@/lib/hooks/use-video-detail";
 import { useVideoRealtime } from "@/lib/hooks/use-pipeline";
 import { PipelineHeader } from "@/components/shared/pipeline-header";
-import { PipelineButtons } from "@/components/pipeline/pipeline-buttons";
 import { CopyTabPanel } from "./studio-tabs/copy-tab-panel";
 import { AudioTabPanel } from "./studio-tabs/audio-tab-panel";
 import { MontajeTabPanel } from "./studio-tabs/montaje-tab-panel";
 import { RenderTabPanel } from "./studio-tabs/render-tab-panel";
 import { MiniaturaTabPanel } from "./studio-tabs/miniatura-tab-panel";
 import { TabSkeleton } from "./studio-tabs/tab-skeleton";
-import { cn } from "@/lib/utils";
-import {
-  FileText, Headphones, Film, Clapperboard, ImageIcon, Loader2, Video,
-} from "lucide-react";
+import { Video } from "lucide-react";
 
-// ─── Tab Definitions ───────────────────────────────────────
-const STUDIO_TABS = [
-  { key: "copy", label: "Copy", icon: FileText, phaseKey: "copy" },
-  { key: "audio", label: "Audio", icon: Headphones, phaseKey: "audio" },
-  { key: "montaje", label: "Montaje Video", icon: Film, phaseKey: "video" },
-  { key: "miniaturas", label: "Miniaturas", icon: ImageIcon, phaseKey: undefined },
-  { key: "render", label: "Render", icon: Clapperboard, phaseKey: "render" },
-] as const;
-
-type StudioTab = (typeof STUDIO_TABS)[number]["key"];
+// ─── Tab Keys ────────────────────────────────────────────────
+const VALID_TABS = ["copy", "audio", "montaje", "miniaturas", "render"] as const;
+type StudioTab = (typeof VALID_TABS)[number];
 
 // ─── Main Component ────────────────────────────────────────
 export function VideoStudioWorkspace() {
@@ -63,15 +52,12 @@ export function VideoStudioWorkspace() {
   }, [activeTab, setActiveStudioTab]);
 
   // Tab switching updates URL without page reload
-  const setTab = (tab: StudioTab) => {
+  const setTab = (tab: string) => {
     const sp = new URLSearchParams(searchParams);
     sp.set("tab", tab);
     sp.delete("subtab"); // Clear sub-tab when switching main tabs
     router.replace(`/${clientSlug}/videos/${videoId}?${sp}`, { scroll: false });
   };
-
-  // Derive current pipeline phase for PipelineHeader highlight
-  const currentPhase = STUDIO_TABS.find((t) => t.key === activeTab)?.phaseKey;
 
   // ─── Loading State ───────────────────────────────────────
   if (isLoading) {
@@ -105,38 +91,8 @@ export function VideoStudioWorkspace() {
   // ─── Main Render ─────────────────────────────────────────
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      {/* Pipeline Header — Video identity + phase progress */}
-      <PipelineHeader currentPhase={currentPhase} video={videoDetail} />
-
-      {/* Pipeline Action Buttons */}
-      <div className="px-6 py-3 border-b border-border/50">
-        <PipelineButtons video={videoDetail} recordId={videoDetail.id} />
-      </div>
-
-      {/* Tab Bar */}
-      <div className="px-6 border-b border-border">
-        <div className="flex gap-1">
-          {STUDIO_TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setTab(tab.key)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
-                  isActive
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* Pipeline Header — Video identity + 5 clickable phase cards with status */}
+      <PipelineHeader activeTab={activeTab} video={videoDetail} onTabChange={setTab} />
 
       {/* Tab Content — Only active tab is mounted */}
       <div className="flex-1 overflow-hidden">

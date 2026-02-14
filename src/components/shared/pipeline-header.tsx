@@ -3,60 +3,82 @@
 import { cn } from "@/lib/utils";
 import { useVideoContextStore } from "@/lib/stores/video-context-store";
 import { useVideoDetail } from "@/lib/hooks/use-video-detail";
+import type { VideoWithScenes } from "@/lib/hooks/use-video-detail";
 import {
-  FileText, Headphones, Video, Tv,
+  FileText, Headphones, Film, ImageIcon, Clapperboard,
   CheckCircle2, ChevronRight, Clock, Hash, AlignLeft,
 } from "lucide-react";
 
+// ─── 5-Phase Pipeline Definition ─────────────────────────────
 const PHASES = [
   {
     key: "copy",
+    tabKey: "copy",
     number: 1,
-    label: "Create Copy",
+    label: "Copy",
     subtitle: "AI Script Generation",
     icon: FileText,
-    statusField: "status_copy" as const,
+    getStatus: (v: VideoWithScenes) => !!v.status_copy,
   },
   {
     key: "audio",
+    tabKey: "audio",
     number: 2,
-    label: "Create Audio",
+    label: "Audio",
     subtitle: "ElevenLabs + HeyGen",
     icon: Headphones,
-    statusField: "status_audio" as const,
+    getStatus: (v: VideoWithScenes) => !!v.status_audio,
   },
   {
-    key: "video",
+    key: "montaje",
+    tabKey: "montaje",
     number: 3,
-    label: "Create Video",
-    subtitle: "Avatar Generation",
-    icon: Video,
-    statusField: "status_avatares" as const,
+    label: "Montaje Video",
+    subtitle: "Avatares + Escenas",
+    icon: Film,
+    getStatus: (v: VideoWithScenes) => !!v.status_avatares,
+  },
+  {
+    key: "miniaturas",
+    tabKey: "miniaturas",
+    number: 4,
+    label: "Miniaturas",
+    subtitle: "Thumbnails A/B/C",
+    icon: ImageIcon,
+    getStatus: (v: VideoWithScenes) => !!v.portada_a,
   },
   {
     key: "render",
-    number: 4,
+    tabKey: "render",
+    number: 5,
     label: "Render Final",
     subtitle: "Shotstack + YouTube",
-    icon: Tv,
-    statusField: "status_rendering_video" as const,
+    icon: Clapperboard,
+    getStatus: (v: VideoWithScenes) => !!v.status_rendering_video,
   },
-];
+] as const;
 
+// ─── Component Props ─────────────────────────────────────────
 interface PipelineHeaderProps {
+  /** Active tab key (for Video Studio) or currentPhase (for standalone pages) */
+  activeTab?: string;
   currentPhase?: string;
-  video?: import("@/lib/hooks/use-video-detail").VideoWithScenes | null;
+  /** Pass video directly to avoid duplicate fetch */
+  video?: VideoWithScenes | null;
+  /** Tab click handler — when provided, phase cards become clickable */
+  onTabChange?: (tab: string) => void;
 }
 
-export function PipelineHeader({ currentPhase, video: videoProp }: PipelineHeaderProps) {
+export function PipelineHeader({ activeTab, currentPhase, video: videoProp, onTabChange }: PipelineHeaderProps) {
   const { activeVideoId, activeVideoName, activeVideoTitle } = useVideoContextStore();
   const { data: fetchedVideo } = useVideoDetail(videoProp ? null : activeVideoId);
   const video = videoProp || fetchedVideo;
 
-  if (!activeVideoId) return null;
+  if (!video && !activeVideoId) return null;
 
   const title = video?.titulo || activeVideoTitle || `Video #${activeVideoName || ""}`;
   const name = video?.name || activeVideoName;
+  const resolvedTab = activeTab || currentPhase || "copy";
 
   return (
     <div className="border-b border-border bg-gradient-to-r from-background via-background to-card">
@@ -71,7 +93,7 @@ export function PipelineHeader({ currentPhase, video: videoProp }: PipelineHeade
               {title}
             </h1>
             <p className="text-xs text-muted-foreground font-mono mt-0.5">
-              {activeVideoId}
+              {video?.id || activeVideoId}
             </p>
           </div>
 
@@ -107,59 +129,64 @@ export function PipelineHeader({ currentPhase, video: videoProp }: PipelineHeade
         </div>
       </div>
 
-      {/* Pipeline Phases - Large Cards */}
-      <div className="px-6 pb-5">
-        <div className="flex items-center gap-2">
+      {/* Pipeline Phases — 5 clickable phase cards with status */}
+      {video && (
+      <div className="px-6 pb-4">
+        <div className="flex items-center gap-1.5">
           {PHASES.map((phase, i) => {
             const Icon = phase.icon;
-            const isActive = currentPhase === phase.key;
-            const isCompleted = video ? !!video[phase.statusField] : false;
-            const currentIndex = PHASES.findIndex(p => p.key === currentPhase);
-            const isPast = currentIndex > i;
+            const isActive = resolvedTab === phase.tabKey;
+            const isCompleted = phase.getStatus(video);
+            const isClickable = !!onTabChange;
 
             return (
               <div key={phase.key} className="flex items-center flex-1 min-w-0">
                 {/* Arrow between phases */}
                 {i > 0 && (
                   <ChevronRight className={cn(
-                    "w-5 h-5 shrink-0 mx-1",
-                    (isCompleted || isPast) ? "text-emerald-500/60" : "text-border"
+                    "w-4 h-4 shrink-0 mx-0.5",
+                    isCompleted ? "text-emerald-500/60" : "text-border"
                   )} />
                 )}
 
-                {/* Phase Card */}
-                <div
+                {/* Phase Card — clickable when onTabChange provided */}
+                <button
+                  onClick={isClickable ? () => onTabChange(phase.tabKey) : undefined}
                   className={cn(
-                    "relative flex items-center gap-3 px-4 py-3 rounded-xl border transition-all flex-1 min-w-0",
-                    isActive && "bg-primary/5 border-primary/30 ring-1 ring-primary/20",
+                    "relative flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all flex-1 min-w-0 text-left",
+                    isClickable && "hover:brightness-110 cursor-pointer",
+                    !isClickable && "cursor-default",
+                    isActive && !isCompleted && "bg-primary/8 border-primary/30 ring-1 ring-primary/20",
+                    isActive && isCompleted && "bg-emerald-500/8 border-emerald-500/30 ring-1 ring-emerald-500/20",
                     !isActive && isCompleted && "bg-emerald-500/5 border-emerald-500/20",
                     !isActive && !isCompleted && "bg-card/50 border-border/50",
+                    !isActive && !isCompleted && isClickable && "hover:border-border",
                   )}
                 >
                   {/* Number Badge */}
                   <div className={cn(
-                    "absolute -top-2 -left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold",
-                    isActive && "bg-primary text-primary-foreground",
-                    !isActive && isCompleted && "bg-emerald-500 text-white",
-                    !isActive && !isCompleted && "bg-muted text-muted-foreground",
+                    "absolute -top-1.5 -left-1 w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-bold",
+                    isActive && !isCompleted && "bg-primary text-primary-foreground",
+                    isCompleted && "bg-emerald-500 text-white",
+                    !isActive && !isCompleted && "bg-muted text-muted-foreground border border-border",
                   )}>
                     {phase.number}
                   </div>
 
-                  {/* Icon Box */}
+                  {/* Icon */}
                   <div className={cn(
-                    "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                    isActive && "bg-primary/10",
-                    !isActive && isCompleted && "bg-emerald-500/10",
+                    "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                    isActive && !isCompleted && "bg-primary/10",
+                    isCompleted && "bg-emerald-500/10",
                     !isActive && !isCompleted && "bg-muted/50",
                   )}>
-                    {isCompleted && !isActive ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    {isCompleted ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                     ) : (
                       <Icon className={cn(
-                        "w-5 h-5",
+                        "w-4 h-4",
                         isActive && "text-primary",
-                        !isActive && !isCompleted && "text-muted-foreground/50",
+                        !isActive && "text-muted-foreground/50",
                       )} />
                     )}
                   </div>
@@ -167,28 +194,29 @@ export function PipelineHeader({ currentPhase, video: videoProp }: PipelineHeade
                   {/* Text */}
                   <div className="min-w-0">
                     <p className={cn(
-                      "text-sm font-semibold truncate",
-                      isActive && "text-foreground",
-                      !isActive && isCompleted && "text-emerald-400",
+                      "text-xs font-semibold truncate",
+                      isActive && !isCompleted && "text-foreground",
+                      isCompleted && "text-emerald-400",
                       !isActive && !isCompleted && "text-muted-foreground",
                     )}>
                       {phase.label}
                     </p>
                     <p className={cn(
-                      "text-[11px] truncate",
-                      isActive && "text-muted-foreground",
-                      !isActive && isCompleted && "text-emerald-400/60",
-                      !isActive && !isCompleted && "text-muted-foreground/50",
+                      "text-[10px] truncate",
+                      isActive && !isCompleted && "text-muted-foreground",
+                      isCompleted && "text-emerald-400/60",
+                      !isActive && !isCompleted && "text-muted-foreground/40",
                     )}>
                       {phase.subtitle}
                     </p>
                   </div>
-                </div>
+                </button>
               </div>
             );
           })}
         </div>
       </div>
+      )}
     </div>
   );
 }

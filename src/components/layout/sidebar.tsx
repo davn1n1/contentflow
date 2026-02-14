@@ -129,6 +129,7 @@ const sections: NavSection[] = [
     items: [
       { name: "Research", href: "/research", icon: Bot },
       { name: "Ideas Inspiración", href: "/ideas", icon: Lightbulb },
+      { name: "Listado Videos", href: "/all-videos", icon: ListVideo },
       {
         name: "Video Studio",
         href: "/videos",
@@ -142,7 +143,6 @@ const sections: NavSection[] = [
         ],
       },
       { name: "Clips Opus", href: "/clips", icon: Clapperboard },
-      { name: "Listado Todos", href: "/all-videos", icon: ListVideo },
     ],
   },
   {
