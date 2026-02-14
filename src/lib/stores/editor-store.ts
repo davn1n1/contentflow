@@ -8,6 +8,13 @@ import {
 
 // ─── Types ───────────────────────────────────────────────
 
+export interface TimelineMarker {
+  id: string;
+  frame: number;
+  label: string;
+  color: string;
+}
+
 interface EditorState {
   // Undoable state (tracked by Zundo)
   timeline: RemotionTimeline | null;
@@ -16,6 +23,8 @@ interface EditorState {
   selectedClipIds: string[];
   isDirty: boolean;
   clipboard: RemotionClip[];
+  markers: TimelineMarker[];
+  rippleEdit: boolean;
 }
 
 interface EditorActions {
@@ -42,6 +51,14 @@ interface EditorActions {
   copyClips: () => void;
   pasteClips: (atFrame: number) => void;
 
+  // Markers
+  addMarker: (frame: number, label?: string) => void;
+  removeMarker: (id: string) => void;
+  updateMarkerLabel: (id: string, label: string) => void;
+
+  // Ripple edit
+  toggleRippleEdit: () => void;
+
   // Dirty tracking
   markClean: () => void;
 }
@@ -66,6 +83,42 @@ function mapClips(
   };
 }
 
+/**
+ * Ripple edit: after resizing a clip, shift all subsequent clips in the same track
+ * so they start immediately after the resized clip ends. Preserves gaps between clips.
+ */
+function rippleAfterClip(
+  timeline: RemotionTimeline,
+  clipId: string
+): RemotionTimeline {
+  return {
+    ...timeline,
+    tracks: timeline.tracks.map((track) => {
+      const idx = track.clips.findIndex((c) => c.id === clipId);
+      if (idx === -1) return track;
+      const resized = track.clips[idx];
+      const resizedEnd = resized.from + resized.durationInFrames;
+
+      // Shift clips that come after the resized clip
+      const newClips = track.clips.map((c, i) => {
+        if (i <= idx) return c;
+        // Calculate the expected start: immediately after the previous clip
+        const prev = i === idx + 1 ? resized : track.clips[i - 1];
+        const prevEnd = prev.from + prev.durationInFrames;
+        if (i === idx + 1) {
+          // First clip after resized: place at resized end
+          return { ...c, from: resizedEnd };
+        }
+        // Subsequent clips: maintain relative spacing from previous
+        const originalGap = c.from - (track.clips[i - 1].from + track.clips[i - 1].durationInFrames);
+        return { ...c, from: prevEnd + Math.max(0, originalGap) };
+      });
+
+      return { ...track, clips: newClips };
+    }),
+  };
+}
+
 // ─── Store ───────────────────────────────────────────────
 
 export const useEditorStore = create<EditorStore>()(
@@ -76,6 +129,8 @@ export const useEditorStore = create<EditorStore>()(
       selectedClipIds: [],
       isDirty: false,
       clipboard: [],
+      markers: [],
+      rippleEdit: false,
 
       // Initialization
       initTimeline: (timeline) =>
@@ -173,13 +228,19 @@ export const useEditorStore = create<EditorStore>()(
           if (!state.timeline) return state;
           const minFrames = 10;
           const duration = Math.max(minFrames, newDurationInFrames);
+
+          let updated = mapClips(state.timeline, clipId, (clip) => ({
+            ...clip,
+            durationInFrames: duration,
+          }));
+
+          // Ripple edit: shift subsequent clips in the same track
+          if (state.rippleEdit) {
+            updated = rippleAfterClip(updated, clipId);
+          }
+
           return {
-            timeline: recalculateDuration(
-              mapClips(state.timeline, clipId, (clip) => ({
-                ...clip,
-                durationInFrames: duration,
-              }))
-            ),
+            timeline: recalculateDuration(updated),
             isDirty: true,
           };
         }),
@@ -188,22 +249,28 @@ export const useEditorStore = create<EditorStore>()(
         set((state) => {
           if (!state.timeline) return state;
           const minFrames = 10;
+
+          let updated = mapClips(state.timeline, clipId, (clip) => {
+            const clampedFrom = Math.max(0, newFrom);
+            const end = clip.from + clip.durationInFrames;
+            const newDuration = end - clampedFrom;
+            if (newDuration < minFrames) return clip;
+            const frameDelta = clampedFrom - clip.from;
+            return {
+              ...clip,
+              from: clampedFrom,
+              durationInFrames: newDuration,
+              startFrom: (clip.startFrom ?? 0) + frameDelta,
+            };
+          });
+
+          // Ripple edit: shift subsequent clips in the same track
+          if (state.rippleEdit) {
+            updated = rippleAfterClip(updated, clipId);
+          }
+
           return {
-            timeline: recalculateDuration(
-              mapClips(state.timeline, clipId, (clip) => {
-                const clampedFrom = Math.max(0, newFrom);
-                const end = clip.from + clip.durationInFrames;
-                const newDuration = end - clampedFrom;
-                if (newDuration < minFrames) return clip;
-                const frameDelta = clampedFrom - clip.from;
-                return {
-                  ...clip,
-                  from: clampedFrom,
-                  durationInFrames: newDuration,
-                  startFrom: (clip.startFrom ?? 0) + frameDelta,
-                };
-              })
-            ),
+            timeline: recalculateDuration(updated),
             isDirty: true,
           };
         }),
@@ -258,6 +325,41 @@ export const useEditorStore = create<EditorStore>()(
             isDirty: true,
           };
         }),
+
+      // Markers
+      addMarker: (frame, label) => {
+        const MARKER_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#ef4444", "#8b5cf6", "#ec4899"];
+        set((state) => {
+          const idx = state.markers.length % MARKER_COLORS.length;
+          return {
+            markers: [
+              ...state.markers,
+              {
+                id: `m-${Date.now()}`,
+                frame,
+                label: label || `M${state.markers.length + 1}`,
+                color: MARKER_COLORS[idx],
+              },
+            ],
+          };
+        });
+      },
+
+      removeMarker: (id) =>
+        set((state) => ({
+          markers: state.markers.filter((m) => m.id !== id),
+        })),
+
+      updateMarkerLabel: (id, label) =>
+        set((state) => ({
+          markers: state.markers.map((m) =>
+            m.id === id ? { ...m, label } : m
+          ),
+        })),
+
+      // Ripple edit
+      toggleRippleEdit: () =>
+        set((state) => ({ rippleEdit: !state.rippleEdit })),
 
       markClean: () => set({ isDirty: false }),
     }),

@@ -30,6 +30,9 @@ import {
   Minus,
   Plus,
   Timer,
+  Bookmark,
+  Magnet,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -51,6 +54,7 @@ import { RenderModeContext } from "@/lib/remotion/RenderModeContext";
 import { InspectorPanel } from "@/components/editor/inspector/InspectorPanel";
 import { AudioWaveform, VideoThumbnail } from "@/components/editor/ClipVisuals";
 import { useTimelineShortcuts } from "@/lib/hooks/useTimelineShortcuts";
+import { useAudioScrub } from "@/lib/hooks/useAudioScrub";
 import type {
   RemotionTimeline,
   RemotionTimelineRecord,
@@ -1157,6 +1161,9 @@ function VisualTimeline({
   const isDraggingRef = useRef(false);
   const isSortingRef = useRef(false);
 
+  // Audio scrubbing
+  const { scrubAtFrame, startScrub, stopScrub } = useAudioScrub(timeline);
+
   // Drag sensor: require 8px movement before starting drag (prevents accidental drags on playhead scrub)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -1205,7 +1212,7 @@ function VisualTimeline({
   }, [playerRef, totalFrames, timeline.fps, zoom]);
 
   // Seek player from mouse position relative to the track bar
-  function seekFromMouseEvent(e: MouseEvent | React.MouseEvent) {
+  function seekFromMouseEvent(e: MouseEvent | React.MouseEvent, withScrub = false) {
     const bar = trackBarRef.current;
     if (!bar || !playerRef.current) return;
     const barRect = bar.getBoundingClientRect();
@@ -1216,6 +1223,10 @@ function VisualTimeline({
     const playhead = playheadRef.current;
     if (playhead) {
       playhead.style.left = `${bar.offsetLeft + pct * bar.offsetWidth}px`;
+    }
+    // Audio scrubbing during drag
+    if (withScrub) {
+      scrubAtFrame(frame);
     }
   }
 
@@ -1231,17 +1242,19 @@ function VisualTimeline({
     useEditorStore.getState().deselectAll();
 
     isDraggingRef.current = true;
-    seekFromMouseEvent(e);
+    startScrub();
+    seekFromMouseEvent(e, true);
     playerRef.current?.pause();
 
     const handleMove = (ev: MouseEvent) => {
       if (isDraggingRef.current) {
         ev.preventDefault();
-        seekFromMouseEvent(ev);
+        seekFromMouseEvent(ev, true);
       }
     };
     const handleUp = () => {
       isDraggingRef.current = false;
+      stopScrub();
       document.removeEventListener("mousemove", handleMove);
       document.removeEventListener("mouseup", handleUp);
     };
@@ -1258,6 +1271,8 @@ function VisualTimeline({
         <div className="flex items-center gap-2">
           {/* Undo/Redo buttons */}
           <UndoRedoButtons />
+          {/* Ripple edit toggle */}
+          <RippleToggle />
           {isEdited && (
             <>
               <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
@@ -1376,6 +1391,9 @@ function VisualTimeline({
           />
         ))}
 
+        {/* Markers */}
+        <MarkerLines totalFrames={totalFrames} fps={timeline.fps} />
+
         {/* Playhead */}
         <div
           ref={playheadRef}
@@ -1480,6 +1498,116 @@ function UndoRedoButtons() {
         <Redo2 className="h-3.5 w-3.5" />
       </button>
     </div>
+  );
+}
+
+// ─── Ripple Edit Toggle ─────────────────────────────────
+
+function RippleToggle() {
+  const rippleEdit = useEditorStore((s) => s.rippleEdit);
+  const toggleRippleEdit = useEditorStore((s) => s.toggleRippleEdit);
+
+  return (
+    <button
+      onClick={toggleRippleEdit}
+      className={cn(
+        "flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border transition-colors",
+        rippleEdit
+          ? "text-amber-400 bg-amber-500/15 border-amber-500/30 hover:bg-amber-500/25"
+          : "text-muted-foreground bg-transparent border-border/30 hover:text-foreground hover:bg-muted/30"
+      )}
+      title="Ripple Edit: clips posteriores se mueven al recortar (R)"
+    >
+      <Magnet className="h-3 w-3" />
+      Ripple {rippleEdit ? "ON" : "OFF"}
+    </button>
+  );
+}
+
+// ─── Marker Lines ───────────────────────────────────────
+
+function MarkerLines({ totalFrames, fps }: { totalFrames: number; fps: number }) {
+  const markers = useEditorStore((s) => s.markers);
+  const removeMarker = useEditorStore((s) => s.removeMarker);
+  const updateMarkerLabel = useEditorStore((s) => s.updateMarkerLabel);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  if (markers.length === 0) return null;
+
+  return (
+    <>
+      {markers.map((marker) => {
+        const pct = (marker.frame / totalFrames) * 100;
+        const timeSec = marker.frame / fps;
+        const min = Math.floor(timeSec / 60);
+        const sec = Math.floor(timeSec % 60);
+
+        return (
+          <div
+            key={marker.id}
+            className="absolute top-0 bottom-0 z-15 pointer-events-none"
+            style={{ left: `${pct}%` }}
+          >
+            {/* Vertical line */}
+            <div
+              className="absolute top-0 bottom-0 w-px opacity-60"
+              style={{ backgroundColor: marker.color }}
+            />
+            {/* Marker flag at top */}
+            <div
+              className="absolute -top-1 left-0 pointer-events-auto cursor-pointer group"
+              title={`${marker.label} — ${min}:${sec.toString().padStart(2, "0")} (doble clic para editar)`}
+            >
+              <div
+                className="flex items-center gap-0.5 pl-1 pr-0.5 py-0.5 rounded-r-sm text-[8px] font-semibold text-white shadow-sm whitespace-nowrap"
+                style={{ backgroundColor: marker.color }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setEditingId(marker.id);
+                  setEditValue(marker.label);
+                }}
+              >
+                <Bookmark className="h-2.5 w-2.5" />
+                {editingId === marker.id ? (
+                  <input
+                    autoFocus
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={() => {
+                      if (editValue.trim()) updateMarkerLabel(marker.id, editValue.trim());
+                      setEditingId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (editValue.trim()) updateMarkerLabel(marker.id, editValue.trim());
+                        setEditingId(null);
+                      }
+                      if (e.key === "Escape") setEditingId(null);
+                      e.stopPropagation();
+                    }}
+                    className="w-16 bg-black/30 text-white text-[8px] px-0.5 rounded outline-none"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span>{marker.label}</span>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeMarker(marker.id);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5"
+                  title="Eliminar marker"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </>
   );
 }
 

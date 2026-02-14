@@ -13,6 +13,7 @@ export function useTimelineShortcuts(
     onZoomIn?: () => void;
     onZoomOut?: () => void;
     onZoomReset?: () => void;
+    onAddMarker?: (frame: number) => void;
   }
 ) {
   const store = useEditorStore;
@@ -176,6 +177,28 @@ export function useTimelineShortcuts(
     (e) => {
       e.preventDefault();
       options?.onZoomReset?.();
+    },
+    { enableOnFormTags }
+  );
+
+  // Add marker at playhead: M
+  useHotkeys(
+    "m",
+    (e) => {
+      const frame = playerRef.current?.getCurrentFrame();
+      if (frame == null) return;
+      e.preventDefault();
+      store.getState().addMarker(frame);
+    },
+    { enableOnFormTags }
+  );
+
+  // Toggle ripple edit: R
+  useHotkeys(
+    "r",
+    (e) => {
+      e.preventDefault();
+      store.getState().toggleRippleEdit();
     },
     { enableOnFormTags }
   );
