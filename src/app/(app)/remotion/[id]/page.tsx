@@ -1775,13 +1775,14 @@ function ClipRow({
 // ─── Browser Render Section (Experimental Fallback) ──────
 
 function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
-  const [state, setState] = useState<"idle" | "checking" | "rendering" | "done" | "error" | "unsupported">("idle");
+  const [state, setState] = useState<"idle" | "checking" | "preparing" | "rendering" | "done" | "error" | "unsupported">("idle");
   const [progress, setProgress] = useState(0);
+  const [prepareLabel, setPrepareLabel] = useState("");
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [blobSize, setBlobSize] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const elapsedTime = useElapsedTimer(state === "rendering");
+  const elapsedTime = useElapsedTimer(state === "preparing" || state === "rendering");
 
   // Check browser support on mount
   useEffect(() => {
@@ -1804,8 +1805,9 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
   }, [timeline.width, timeline.height]);
 
   async function startBrowserRender() {
-    setState("rendering");
+    setState("preparing");
     setProgress(0);
+    setPrepareLabel("");
     setErrorMsg(null);
     setBlobUrl(null);
 
@@ -1815,8 +1817,50 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
     try {
       const { renderMediaOnWeb } = await import("@remotion/web-renderer");
 
-      // Route all media through our server-side proxy to avoid CORS issues.
-      // Strip proxySrc (CDN) and rewrite src to use /api/remotion/media-proxy.
+      // ── Phase 1: Pre-download all media as blob URLs to avoid CORS + timeouts ──
+      // Collect unique source URLs
+      const urlSet = new Set<string>();
+      for (const track of timeline.tracks) {
+        for (const clip of track.clips) {
+          urlSet.add(clip.src);
+        }
+      }
+      const allUrls = [...urlSet];
+      const blobUrlMap = new Map<string, string>();
+      let downloaded = 0;
+
+      setPrepareLabel(`Descargando ${allUrls.length} archivos...`);
+
+      // Download in parallel (max 4 concurrent to avoid overwhelming the proxy)
+      const concurrency = 4;
+      const queue = [...allUrls];
+      async function downloadNext() {
+        while (queue.length > 0) {
+          if (controller.signal.aborted) return;
+          const url = queue.shift()!;
+          try {
+            const proxyUrl = `/api/remotion/media-proxy?url=${encodeURIComponent(url)}`;
+            const resp = await fetch(proxyUrl, { signal: controller.signal });
+            if (resp.ok) {
+              const blob = await resp.blob();
+              blobUrlMap.set(url, URL.createObjectURL(blob));
+            }
+          } catch {
+            // Failed download — will use proxy URL as fallback during render
+          }
+          downloaded++;
+          setProgress(Math.round((downloaded / allUrls.length) * 100));
+          setPrepareLabel(`Descargando ${downloaded}/${allUrls.length} archivos...`);
+        }
+      }
+      await Promise.all(Array.from({ length: concurrency }, () => downloadNext()));
+
+      if (controller.signal.aborted) {
+        setState("idle");
+        return;
+      }
+
+      // ── Phase 2: Build timeline with blob URLs ──
       const browserTimeline = {
         ...timeline,
         tracks: timeline.tracks.map((track) => ({
@@ -1825,11 +1869,15 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
             const { proxySrc: _p, ...rest } = clip;
             return {
               ...rest,
-              src: `/api/remotion/media-proxy?url=${encodeURIComponent(clip.src)}`,
+              src: blobUrlMap.get(clip.src) || `/api/remotion/media-proxy?url=${encodeURIComponent(clip.src)}`,
             };
           }),
         })),
       };
+
+      // ── Phase 3: Render ──
+      setState("rendering");
+      setProgress(0);
 
       // Wrap DynamicVideo with web-render context so VideoClip uses @remotion/media
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1864,6 +1912,11 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
       setBlobUrl(url);
       setBlobSize(blob.size);
       setState("done");
+
+      // Clean up downloaded blob URLs (render output blob persists)
+      for (const bUrl of blobUrlMap.values()) {
+        URL.revokeObjectURL(bUrl);
+      }
     } catch (err) {
       if (controller.signal.aborted) {
         setState("idle");
@@ -1918,6 +1971,33 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
             Re-render
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (state === "preparing") {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+        <Loader2 className="h-5 w-5 text-amber-400 flex-shrink-0 animate-spin" />
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-sm text-amber-400">Preparando media...</p>
+            <span className="text-xs text-amber-400/70 font-mono">{progress}%</span>
+          </div>
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-amber-500 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">{prepareLabel}</p>
+        </div>
+        <button
+          onClick={cancelRender}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors flex-shrink-0"
+        >
+          Cancelar
+        </button>
       </div>
     );
   }
