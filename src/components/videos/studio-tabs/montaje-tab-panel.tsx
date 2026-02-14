@@ -565,7 +565,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
                       <Tag className="w-3 h-3 text-muted-foreground/60" />
                       {(() => {
                         const cleaned = scene.topic!.replace(/[\[\]"]/g, "");
-                        return cleaned.split(",").map((t) => t.trim());
+                        return cleaned.split(/[,\n]+/).map((t) => t.trim());
                       })().filter(Boolean).map((tag, idx) => {
                         const tc = topicTagColor(idx);
                         return (
