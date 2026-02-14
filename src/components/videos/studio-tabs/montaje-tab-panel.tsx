@@ -1390,9 +1390,6 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
         color="amber"
       />
 
-      {/* Feedback Copy + Modificar Script */}
-      <FeedbackCopySection videoId={video.id} initialFeedback={video.feedback_copy} />
-
       {/* Montaje Scene Table */}
       {video.scenes.length > 0 && (
         <MontajeSceneTable scenes={video.scenes} />

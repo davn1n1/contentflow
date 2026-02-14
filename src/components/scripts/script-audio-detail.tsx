@@ -9,7 +9,7 @@ import {
   Volume2, Calendar, ExternalLink, Lightbulb,
   Save, AlertCircle, Users, UserCog,
   Cpu, Zap, Shield, Play, Info,
-  ChevronDown, Twitter, Newspaper, ImageIcon, AlertTriangle,
+  ChevronDown, Twitter, Newspaper, ImageIcon, AlertTriangle, Edit3,
 } from "lucide-react";
 import type { VideoWithScenes, LinkedIdea, LinkedIdeaFull, SceneDetail } from "@/lib/hooks/use-video-detail";
 import { WaveformAudioPlayer } from "@/components/shared/waveform-audio-player";
@@ -189,8 +189,8 @@ export function TabScript({ video }: { video: VideoWithScenes }) {
         </InfoSection>
       )}
 
-      {/* ── ACTION: Crear Copy ── */}
-      <div className="pt-2">
+      {/* ── ACTIONS: Crear Copy + Modificar Script ── */}
+      <div className="pt-2 flex flex-wrap gap-3">
         <ActionButton
           videoId={video.id}
           action="GenerateCopy"
@@ -198,6 +198,14 @@ export function TabScript({ video }: { video: VideoWithScenes }) {
           confirmLabel="Confirmar ejecución"
           icon={<Play className="w-5 h-5" />}
           color="blue"
+        />
+        <ActionButton
+          videoId={video.id}
+          action="ModificarScript"
+          label="Modificar Script"
+          confirmLabel="Confirmar modificación del script"
+          icon={<Edit3 className="w-5 h-5" />}
+          color="green"
         />
       </div>
 
