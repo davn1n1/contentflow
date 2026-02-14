@@ -39,3 +39,23 @@ export function formatCurrency(amount: number, currency = "EUR"): string {
     maximumFractionDigits: 2,
   }).format(amount);
 }
+
+// ─── Credit-based functions ──────────────────────────────────────────────────
+
+import type { CreditItem, Plan } from "./constants";
+
+export function calculateCreditTotal(items: CreditItem[]): number {
+  return items.reduce((sum, item) => sum + item.credit_cost * item.quantity, 0);
+}
+
+export function formatCredits(credits: number): string {
+  return new Intl.NumberFormat("es-ES").format(credits);
+}
+
+export function recommendPlan(
+  totalCredits: number,
+  plans: Plan[]
+): Plan {
+  const sorted = [...plans].sort((a, b) => a.credits - b.credits);
+  return sorted.find((p) => p.credits >= totalCredits) || sorted[sorted.length - 1];
+}

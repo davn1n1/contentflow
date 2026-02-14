@@ -4,7 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { authenticateWebhook } from "@/lib/auth/webhook-auth";
 import { transcribeRecording } from "@/lib/proposals/transcribe";
 import { analyzeCallTranscript } from "@/lib/proposals/analyze-call";
-import { calculateProposal, type ServiceSelection } from "@/lib/proposals/calculator";
+import { calculateProposal, calculateCreditTotal, type ServiceSelection } from "@/lib/proposals/calculator";
+import { SERVICE_GROUPS, type CreditItem } from "@/lib/proposals/constants";
 
 export const maxDuration = 120; // transcription + analysis can take time
 
@@ -82,8 +83,9 @@ export async function POST(request: Request) {
     }
 
     // Analyze transcript with AI
-    let analysis = {};
-    let prefillServices: ServiceSelection[] = [];
+    let analysis: Record<string, unknown> = {};
+    let prefillCredits: CreditItem[] = [];
+    let recommendedPlan = "growth";
 
     if (transcriptText) {
       try {
@@ -92,40 +94,43 @@ export async function POST(request: Request) {
           contactName,
           companyName
         );
-        analysis = result;
+        analysis = result as unknown as Record<string, unknown>;
+        recommendedPlan = result.recommended_plan || "growth";
 
-        // Map mentioned_services to calculator pre-fill
+        // Map mentioned_services to credit-based pre-fill
         if (result.mentioned_services?.length > 0) {
-          const { data: catalog } = await supabaseAdmin
-            .from("proposal_services")
-            .select("*")
-            .eq("active", true)
-            .order("display_order");
+          const allServices = SERVICE_GROUPS.flatMap((g) => g.services);
 
-          if (catalog) {
-            prefillServices = result.mentioned_services
-              .map((ms) => {
-                const svc = catalog.find((c) => c.slug === ms.service);
-                if (!svc) return null;
-                return {
-                  service_id: svc.id,
-                  slug: svc.slug,
-                  name: svc.name,
-                  unit_price: Number(svc.unit_price),
-                  unit_label: svc.unit_label,
-                  quantity: ms.quantity,
-                };
-              })
-              .filter(Boolean) as ServiceSelection[];
-          }
+          prefillCredits = result.mentioned_services
+            .map((ms) => {
+              const svc = allServices.find((s) => s.slug === ms.service);
+              if (!svc) return null;
+              return {
+                service_id: svc.id,
+                slug: svc.slug,
+                name: svc.name,
+                credit_cost: svc.creditCost,
+                quantity: ms.quantity,
+              };
+            })
+            .filter(Boolean) as CreditItem[];
         }
       } catch (err) {
         console.error("Analysis failed:", err);
       }
     }
 
-    // Calculate pricing
-    const pricing = calculateProposal(prefillServices);
+    // Calculate pricing (credit-based + EUR legacy)
+    const totalCredits = calculateCreditTotal(prefillCredits);
+    const legacyServices: ServiceSelection[] = prefillCredits.map((c) => ({
+      service_id: c.service_id,
+      slug: c.slug,
+      name: c.name,
+      unit_price: c.credit_cost,
+      unit_label: "créditos",
+      quantity: c.quantity,
+    }));
+    const pricing = calculateProposal(legacyServices);
 
     // Insert proposal
     const { data: proposal, error } = await supabaseAdmin
@@ -142,9 +147,11 @@ export async function POST(request: Request) {
         call_duration_seconds: durationSeconds,
         transcript_text: transcriptText || null,
         analysis,
-        services: prefillServices,
+        services: prefillCredits,
         subtotal: pricing.subtotal,
         total: pricing.total,
+        total_credits: totalCredits,
+        selected_plan: recommendedPlan,
         status: "sent",
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       })
@@ -163,7 +170,9 @@ export async function POST(request: Request) {
       url: proposalUrl,
       has_transcript: !!transcriptText,
       has_analysis: Object.keys(analysis).length > 0,
-      services_count: prefillServices.length,
+      services_count: prefillCredits.length,
+      total_credits: totalCredits,
+      recommended_plan: recommendedPlan,
     });
   } catch (error) {
     console.error("GHL proposal webhook error:", error);

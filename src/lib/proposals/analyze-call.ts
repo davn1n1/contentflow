@@ -8,14 +8,13 @@ const openrouter = createOpenAI({
 });
 
 const SERVICE_SLUGS = [
-  "reels",
-  "shorts",
-  "longform",
-  "stories",
-  "carruseles",
-  "avatar-custom",
-  "voice-clone",
-  "strategy-call",
+  "video-short",
+  "render-short",
+  "video-long",
+  "render-long",
+  "hook-veo3",
+  "persona-shorts",
+  "persona-youtube",
 ] as const;
 
 export const CallAnalysisSchema = z.object({
@@ -50,6 +49,9 @@ export const CallAnalysisSchema = z.object({
   next_step: z
     .string()
     .describe("Siguiente paso acordado o recomendado"),
+  recommended_plan: z
+    .enum(["pro", "growth", "scale"])
+    .describe("Plan recomendado según el volumen y necesidades del prospecto"),
   mentioned_services: z
     .array(
       z.object({
@@ -65,7 +67,7 @@ export const CallAnalysisSchema = z.object({
 
 export type CallAnalysis = z.infer<typeof CallAnalysisSchema>;
 
-const SYSTEM_PROMPT = `Eres un analista de ventas experto en ContentFlow365, una empresa que ofrece producción automatizada de videos para redes sociales y YouTube.
+const SYSTEM_PROMPT = `Eres un analista de ventas experto en ContentFlow365, una empresa que ofrece producción automatizada de videos para redes sociales y YouTube usando inteligencia artificial.
 
 Analiza esta transcripción de llamada de ventas y extrae insights estructurados. Enfócate en:
 - Puntos de dolor del prospecto relacionados con creación de contenido
@@ -73,23 +75,29 @@ Analiza esta transcripción de llamada de ventas y extrae insights estructurados
 - Servicios específicos que mencionaron o mostraron interés
 - Nivel de urgencia e interés de compra
 
-Servicios disponibles de ContentFlow365:
-- reels: Videos cortos verticales para Instagram/TikTok (15-60s)
-- shorts: Videos cortos para YouTube Shorts
-- longform: Videos largos para YouTube (5-15 min)
-- stories: Historias para Instagram/Facebook
-- carruseles: Posts de múltiples imágenes para Instagram
-- avatar-custom: Creación de avatar IA personalizado desde la cara del cliente
-- voice-clone: Clonación de voz IA con las grabaciones del cliente
-- strategy-call: Sesión 1:1 de estrategia de contenido (60 min)
+Servicios disponibles (sistema de créditos):
+- video-short (156 créditos): Video corto para Reels, TikTok o Ads (15-60s) — Instagram, Facebook, TikTok, YT Shorts, LinkedIn, Twitter, Threads
+- render-short (95 créditos): Renderizado y postproducción de video corto
+- video-long (542 créditos): Video largo para YouTube (5-15 min)
+- render-long (157 créditos): Renderizado y postproducción de video largo
+- hook-veo3 (48 créditos): Hook de tendencia generado con IA
+- persona-shorts (1.660 créditos): Avatar IA personalizado para videos cortos
+- persona-youtube (2.925 créditos): Avatar IA personalizado para videos largos
 
-Si el prospecto menciona cantidades ("4 videos por semana", "2 videos largos al mes"), estima la cantidad MENSUAL para ese servicio. Si no menciona cantidades, estima basándote en el contexto.
+Planes disponibles:
+- pro: €990/mes, 10.000 créditos — Para creadores que empiezan con IA
+- growth: €1.990/mes, 21.000 créditos — Para marcas que quieren escalar contenido
+- scale: €2.990/mes, 35.000 créditos — Para empresas con alta producción
+
+Si el prospecto menciona cantidades ("4 videos por semana", "2 videos largos al mes"), estima la cantidad MENSUAL. Si no menciona cantidades, estima basándote en el contexto.
+
+Recomienda el plan que mejor se ajuste al volumen de contenido que necesita el prospecto. Recuerda que cada video necesita tanto el servicio de "video" como el de "render".
 
 Responde siempre en español.`;
 
 /**
  * Analyze a call transcript using Claude via OpenRouter.
- * Returns structured insights including recommended services.
+ * Returns structured insights including recommended services and plan.
  */
 export async function analyzeCallTranscript(
   transcript: string,

@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { Check, Loader2, Send } from "lucide-react";
-import type { CalculatorItem } from "./service-calculator";
+import type { CreditItem, Plan } from "@/lib/proposals/constants";
 
 interface AcceptButtonProps {
   shortId: string;
-  items: CalculatorItem[];
+  items: CreditItem[];
   paymentTerms: string;
+  selectedPlan: Plan;
   disabled?: boolean;
 }
 
@@ -15,6 +16,7 @@ export function AcceptButton({
   shortId,
   items,
   paymentTerms,
+  selectedPlan,
   disabled,
 }: AcceptButtonProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
@@ -37,6 +39,7 @@ export function AcceptButton({
         body: JSON.stringify({
           selected_items: items,
           payment_terms: paymentTerms,
+          selected_plan: selectedPlan.id,
         }),
       });
 

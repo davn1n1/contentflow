@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { calculateProposal, type ServiceSelection } from "@/lib/proposals/calculator";
+import {
+  calculateProposal,
+  calculateCreditTotal,
+  type ServiceSelection,
+} from "@/lib/proposals/calculator";
+import type { CreditItem } from "@/lib/proposals/constants";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -97,18 +102,36 @@ export async function PUT(
     );
   }
 
+  const planId: string | undefined = body.plan_id;
+
+  // Credit-based calculation
+  const creditItems = items as unknown as CreditItem[];
+  const totalCredits = creditItems.length > 0 && creditItems[0]?.credit_cost
+    ? calculateCreditTotal(creditItems)
+    : 0;
+
+  // EUR-based calculation (backwards compatibility)
   const pricing = calculateProposal(items, discountPercent);
+
+  const updateData: Record<string, unknown> = {
+    services: items,
+    subtotal: pricing.subtotal,
+    discount_percent: discountPercent,
+    total: pricing.total,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (totalCredits > 0) {
+    updateData.total_credits = totalCredits;
+  }
+  if (planId) {
+    updateData.selected_plan = planId;
+  }
 
   await supabaseAdmin
     .from("proposals")
-    .update({
-      services: items,
-      subtotal: pricing.subtotal,
-      discount_percent: discountPercent,
-      total: pricing.total,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq("id", proposal.id);
 
-  return NextResponse.json(pricing);
+  return NextResponse.json({ ...pricing, total_credits: totalCredits });
 }

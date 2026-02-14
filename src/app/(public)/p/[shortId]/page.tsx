@@ -2,11 +2,27 @@ import { notFound } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { ProposalPageClient } from "./proposal-client";
+import { PLANS, SERVICE_GROUPS, FAQ_CATEGORIES } from "@/lib/proposals/constants";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+function determineRecommendedPlan(
+  analysis: Record<string, unknown> | null
+): string {
+  if (!analysis) return "growth";
+  const mentioned = analysis.mentioned_services;
+  const count = Array.isArray(mentioned) ? mentioned.length : 0;
+  const recommended = analysis.recommended_plan;
+  if (typeof recommended === "string" && ["pro", "growth", "scale"].includes(recommended)) {
+    return recommended;
+  }
+  if (count >= 4) return "scale";
+  if (count >= 2) return "growth";
+  return "pro";
+}
 
 export default async function ProposalPage({
   params,
@@ -50,21 +66,21 @@ export default async function ProposalPage({
     .update(updates)
     .eq("id", proposal.id);
 
-  // Fetch active services catalog
-  const { data: services } = await supabaseAdmin
-    .from("proposal_services")
-    .select("*")
-    .eq("active", true)
-    .order("display_order");
-
   const isExpired =
     proposal.expires_at && new Date(proposal.expires_at) < new Date();
   const isAccepted = proposal.status === "accepted";
 
+  const recommendedPlanId = determineRecommendedPlan(
+    proposal.analysis as Record<string, unknown> | null
+  );
+
   return (
     <ProposalPageClient
       proposal={{ ...proposal, ...updates }}
-      services={services || []}
+      plans={PLANS}
+      serviceGroups={SERVICE_GROUPS}
+      faqs={FAQ_CATEGORIES}
+      recommendedPlanId={recommendedPlanId}
       isExpired={!!isExpired}
       isAccepted={isAccepted}
     />

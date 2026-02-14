@@ -1,22 +1,15 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { ProposalHeader } from "@/components/proposals/proposal-header";
-import { CallAnalysis } from "@/components/proposals/call-analysis";
-import { ServiceCalculator, type CalculatorItem } from "@/components/proposals/service-calculator";
-import { PricingSummary } from "@/components/proposals/pricing-summary";
-import { AcceptButton } from "@/components/proposals/accept-button";
 import { Clock, CheckCircle2 } from "lucide-react";
-
-interface Service {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  unit_price: number;
-  unit_label: string;
-  category: string;
-}
+import { ProposalHeader } from "@/components/proposals/proposal-header";
+import { ProposalLoading } from "@/components/proposals/proposal-loading";
+import { ProposalTabs, type TabKey } from "@/components/proposals/proposal-tabs";
+import { TabMeetingBrief, type Analysis } from "@/components/proposals/tab-meeting-brief";
+import { TabHowItWorks } from "@/components/proposals/tab-how-it-works";
+import { TabProposal } from "@/components/proposals/tab-proposal";
+import { TabFAQs } from "@/components/proposals/tab-faqs";
+import type { Plan, ServiceGroup, CreditItem, FAQCategory } from "@/lib/proposals/constants";
 
 interface Proposal {
   id: string;
@@ -28,58 +21,74 @@ interface Proposal {
   expires_at?: string;
   status: string;
   analysis?: Record<string, unknown>;
-  services?: CalculatorItem[];
-  subtotal?: number;
-  discount_percent?: number;
-  total?: number;
+  services?: CreditItem[];
+  selected_plan?: string;
   payment_terms?: string;
 }
 
 interface ProposalPageClientProps {
   proposal: Proposal;
-  services: Service[];
+  plans: Plan[];
+  serviceGroups: ServiceGroup[];
+  faqs: FAQCategory[];
+  recommendedPlanId: string;
   isExpired: boolean;
   isAccepted: boolean;
 }
 
 export function ProposalPageClient({
   proposal,
-  services,
+  plans,
+  serviceGroups,
+  faqs,
+  recommendedPlanId,
   isExpired,
   isAccepted,
 }: ProposalPageClientProps) {
-  const [items, setItems] = useState<CalculatorItem[]>(
-    (proposal.services as CalculatorItem[]) || []
+  const [showLoading, setShowLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabKey>("propuesta");
+
+  const defaultPlan =
+    plans.find((p) => p.id === (proposal.selected_plan || recommendedPlanId)) ||
+    plans.find((p) => p.id === "growth") ||
+    plans[0];
+
+  const [selectedPlan, setSelectedPlan] = useState<Plan>(defaultPlan);
+  const [creditItems, setCreditItems] = useState<CreditItem[]>(
+    (proposal.services as CreditItem[]) || []
   );
   const [paymentTerms, setPaymentTerms] = useState(
     proposal.payment_terms || "1 pago"
   );
 
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.unit_price * item.quantity,
-    0
-  );
-  const discountPercent = proposal.discount_percent || 0;
-  const discount = (subtotal * discountPercent) / 100;
-  const total = subtotal - discount;
+  const locked = isExpired || isAccepted;
 
-  const handleItemsChange = useCallback(
-    (newItems: CalculatorItem[]) => {
-      setItems(newItems);
-      // Persist to server in background
+  const handleCreditItemsChange = useCallback(
+    (newItems: CreditItem[]) => {
+      setCreditItems(newItems);
       fetch(`/api/proposals/${proposal.short_id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: newItems,
-          discount_percent: discountPercent,
+          plan_id: selectedPlan.id,
         }),
       }).catch(() => {});
     },
-    [proposal.short_id, discountPercent]
+    [proposal.short_id, selectedPlan.id]
   );
 
-  const locked = isExpired || isAccepted;
+  if (showLoading) {
+    return (
+      <ProposalLoading
+        prospectName={proposal.prospect_name}
+        shortId={proposal.short_id}
+        onComplete={() => setShowLoading(false)}
+      />
+    );
+  }
+
+  const analysis = proposal.analysis as Analysis | undefined;
 
   return (
     <div>
@@ -88,7 +97,9 @@ export function ProposalPageClient({
         <div className="mb-6 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 flex items-center gap-3">
           <Clock className="w-5 h-5 text-red-400 shrink-0" />
           <div>
-            <p className="text-red-400 font-medium">Esta propuesta ha expirado</p>
+            <p className="text-red-400 font-medium">
+              Esta propuesta ha expirado
+            </p>
             <p className="text-sm text-zinc-400">
               Contacta con nosotros para generar una nueva propuesta actualizada.
             </p>
@@ -103,7 +114,8 @@ export function ProposalPageClient({
           <div>
             <p className="text-emerald-400 font-medium">Propuesta aceptada</p>
             <p className="text-sm text-zinc-400">
-              Ya has aceptado esta propuesta. Nos pondremos en contacto contigo pronto.
+              Ya has aceptado esta propuesta. Nos pondremos en contacto contigo
+              pronto.
             </p>
           </div>
         </div>
@@ -116,46 +128,41 @@ export function ProposalPageClient({
         expiresAt={proposal.expires_at}
       />
 
-      {proposal.analysis && Object.keys(proposal.analysis).length > 0 && (
-        <CallAnalysis
-          analysis={
-            proposal.analysis as {
-              summary?: string;
-              pain_points?: string[];
-              desires?: string[];
-              objections?: string[];
-              kpi_goals?: string[];
-              interest_score?: number;
-              sentiment_score?: string;
-              urgency_score?: number;
-              next_step?: string;
-            }
-          }
-        />
+      <ProposalTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {activeTab === "brief" && analysis && Object.keys(analysis).length > 0 && (
+        <TabMeetingBrief analysis={analysis} />
       )}
+      {activeTab === "brief" &&
+        (!analysis || Object.keys(analysis).length === 0) && (
+          <div className="text-center py-12 text-zinc-500">
+            <p>No hay análisis de reunión disponible para esta propuesta.</p>
+          </div>
+        )}
 
-      <ServiceCalculator
-        services={services}
-        items={items}
-        onItemsChange={locked ? () => {} : handleItemsChange}
-      />
+      {activeTab === "como-funciona" && <TabHowItWorks />}
 
-      <PricingSummary
-        subtotal={subtotal}
-        discountPercent={discountPercent}
-        total={total}
-        paymentTerms={paymentTerms}
-        onPaymentTermsChange={locked ? () => {} : setPaymentTerms}
-      />
-
-      {!isExpired && !isAccepted && (
-        <AcceptButton
+      {activeTab === "propuesta" && (
+        <TabProposal
           shortId={proposal.short_id}
-          items={items}
+          prospectName={proposal.prospect_name}
+          companyName={proposal.company_name}
+          analysis={analysis}
+          plans={plans}
+          serviceGroups={serviceGroups}
+          selectedPlan={selectedPlan}
+          onPlanSelect={locked ? () => {} : setSelectedPlan}
+          recommendedPlanId={recommendedPlanId}
+          creditItems={creditItems}
+          onCreditItemsChange={locked ? () => {} : handleCreditItemsChange}
           paymentTerms={paymentTerms}
-          disabled={items.length === 0 || items.every((i) => i.quantity === 0)}
+          onPaymentTermsChange={locked ? () => {} : setPaymentTerms}
+          expiresAt={proposal.expires_at}
+          isLocked={locked}
         />
       )}
+
+      {activeTab === "faqs" && <TabFAQs categories={faqs} />}
     </div>
   );
 }

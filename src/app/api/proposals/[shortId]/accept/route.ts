@@ -58,6 +58,9 @@ export async function POST(
   if (body.payment_terms) {
     updates.payment_terms = body.payment_terms;
   }
+  if (body.selected_plan) {
+    updates.selected_plan = body.selected_plan;
+  }
 
   await supabaseAdmin
     .from("proposals")
