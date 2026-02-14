@@ -15,6 +15,7 @@ const SCENE_FIELDS = [
   // Montaje / Slide fields
   "Slide Activa", "StatusSlide", "SlideEngine",
   "Feedback Slide", "Prompt Slide",
+  "Calificacion Imagen Final",
 ];
 
 interface SceneFields {
@@ -54,6 +55,7 @@ interface SceneFields {
   "SlideEngine"?: string;
   "Feedback Slide"?: string;
   "Prompt Slide"?: string;
+  "Calificacion Imagen Final"?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -119,6 +121,7 @@ export async function GET(request: NextRequest) {
         slide_engine: r.fields["SlideEngine"] || null,
         feedback_slide: r.fields["Feedback Slide"] || null,
         prompt_slide: r.fields["Prompt Slide"] || null,
+        calificacion_imagen_final: r.fields["Calificacion Imagen Final"] || null,
         camera_table_id: null,
         audio_id: null,
       }))

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Play, Settings2, ChevronDown, Palette, Music, ImageIcon, Image as ImageLucide,
-  ChevronRight, Loader2, CheckCircle2, XCircle, Wand2,
+  ChevronRight, Loader2, CheckCircle2, XCircle, Wand2, Maximize2, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,6 +22,16 @@ function statusSlideStyle(status: string | null) {
   if (s === "modificada") return { text: "text-blue-400", bg: "bg-blue-400/10" };
   if (s === "error") return { text: "text-red-400", bg: "bg-red-400/10" };
   return { text: "text-gray-400", bg: "bg-gray-400/10" }; // Idle
+}
+
+// ─── Calificacion Imagen Final colors ─────────────────────
+function scoreStyle(score: string | null) {
+  const n = parseInt(score || "", 10);
+  if (isNaN(n)) return null;
+  if (n >= 7) return { text: "text-emerald-400", bg: "bg-emerald-400/15", border: "border-emerald-500/30" };
+  if (n >= 5) return { text: "text-yellow-400", bg: "bg-yellow-400/15", border: "border-yellow-500/30" };
+  if (n === 4) return { text: "text-orange-400", bg: "bg-orange-400/15", border: "border-orange-500/30" };
+  return { text: "text-red-400", bg: "bg-red-400/15", border: "border-red-500/30" };
 }
 
 // ─── Scene Classification colors (same as Audio/Script) ───
@@ -68,13 +78,48 @@ function useSceneAutoSave(sceneId: string, field: string, delay = 800) {
   return { save, saving, saved };
 }
 
+// ─── Fullscreen Image Modal ──────────────────────────────
+function FullscreenImageModal({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm cursor-zoom-out"
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+      >
+        <X className="w-6 h-6" />
+      </button>
+      <img
+        src={src}
+        alt={alt}
+        className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
 // ─── Modifica Slide Button (per-scene) ────────────────────
-function ModificaSlideButton({ sceneId, currentSlide }: { sceneId: string; currentSlide: string | null }) {
+type ModificaState = "idle" | "confirming" | "sending" | "generating" | "ready" | "error";
+
+function ModificaSlideButton({ sceneId, currentSlide, onStateChange }: { sceneId: string; currentSlide: string | null; onStateChange?: (state: ModificaState) => void }) {
   const queryClient = useQueryClient();
-  type BtnState = "idle" | "confirming" | "sending" | "generating" | "ready" | "error";
-  const [state, setState] = useState<BtnState>("idle");
-  const stateRef = useRef<BtnState>(state);
+  const [state, setState] = useState<ModificaState>("idle");
+  const stateRef = useRef<ModificaState>(state);
   stateRef.current = state;
+
+  // Notify parent of state changes
+  useEffect(() => { onStateChange?.(state); }, [state, onStateChange]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -226,6 +271,9 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
   const [engineValue, setEngineValue] = useState(scene.slide_engine || "");
   const { save: saveEngine } = useSceneAutoSave(scene.id, "SlideEngine");
   const feedbackRef = useRef<HTMLTextAreaElement>(null);
+  const [fullscreenSrc, setFullscreenSrc] = useState<string | null>(null);
+  const [modificaState, setModificaState] = useState<ModificaState>("idle");
+  const isGenerating = modificaState === "generating" || modificaState === "sending";
 
   useEffect(() => { setFeedbackValue(scene.feedback_slide || ""); }, [scene.feedback_slide]);
   useEffect(() => { setEngineValue(scene.slide_engine || ""); }, [scene.slide_engine]);
@@ -240,6 +288,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
   const colors = sceneClassColors(scene.clasificación_escena);
   const engineColor = getEngineColor(scene.slide_engine || "");
   const slideStatus = statusSlideStyle(scene.status_slide);
+  const score = scoreStyle(scene.calificacion_imagen_final);
 
   return (
     <>
@@ -281,11 +330,15 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
         </td>
         {/* StatusSlide */}
         <td className="px-1 py-2">
-          {scene.status_slide && (
+          {isGenerating ? (
+            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium animate-pulse", "bg-amber-400/10 text-amber-400")}>
+              Modificando
+            </span>
+          ) : scene.status_slide ? (
             <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", slideStatus.bg, slideStatus.text)}>
               {scene.status_slide}
             </span>
-          )}
+          ) : null}
         </td>
         {/* SlideEngine */}
         <td className="px-1 py-2">
@@ -295,9 +348,24 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
             </span>
           )}
         </td>
+        {/* Calificacion Imagen Final */}
+        <td className="px-1 py-2 text-center">
+          {score && (
+            <span className={cn(
+              "inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold border",
+              score.bg, score.text, score.border,
+            )}>
+              {scene.calificacion_imagen_final}
+            </span>
+          )}
+        </td>
         {/* Slide thumbnail */}
         <td className="px-1 py-2">
-          {scene.slide ? (
+          {isGenerating ? (
+            <div className="w-12 h-8 rounded bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
+              <Loader2 className="w-3 h-3 text-violet-400 animate-spin" />
+            </div>
+          ) : scene.slide ? (
             <div className="w-12 h-8 rounded overflow-hidden bg-muted border border-border/30">
               <img src={scene.slide} alt={`Slide ${scene.n_escena}`} className="w-full h-full object-cover" />
             </div>
@@ -316,7 +384,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
       {/* Expanded Content */}
       {isExpanded && (
         <tr className="border-b border-border/40 bg-muted/10">
-          <td colSpan={9} className="px-4 py-4">
+          <td colSpan={10} className="px-4 py-4">
             <div className="space-y-4">
               {/* Script (readonly) */}
               {(scene.script || scene.script_elevenlabs) && (
@@ -329,21 +397,52 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
               )}
 
               {/* Slide image large + controls */}
-              <div className="flex gap-4">
-                {/* Slide image */}
+              <div className="flex gap-6">
+                {/* Slide image — large */}
                 <div className="flex-shrink-0">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Slide</p>
-                  {scene.slide_full || scene.slide ? (
-                    <div className="w-64 h-36 rounded-lg overflow-hidden bg-muted border border-border/30">
-                      <img
-                        src={scene.slide_full || scene.slide || ""}
-                        alt={`Slide ${scene.n_escena}`}
-                        className="w-full h-full object-contain bg-black/20"
-                      />
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Slide</p>
+                    {score && (
+                      <span className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded-md font-bold border",
+                        score.bg, score.text, score.border,
+                      )}>
+                        Score: {scene.calificacion_imagen_final}/10
+                      </span>
+                    )}
+                  </div>
+                  {isGenerating ? (
+                    <div className="w-[480px] h-[270px] rounded-xl bg-muted/20 border border-violet-500/30 flex flex-col items-center justify-center gap-3 animate-pulse">
+                      <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+                      <p className="text-xs text-violet-300 font-medium">Generando nueva slide…</p>
+                      <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", "bg-amber-400/10 text-amber-400")}>
+                        Modificando
+                      </span>
+                    </div>
+                  ) : (scene.slide_full || scene.slide) ? (
+                    <div className="relative group">
+                      <div className="w-[480px] h-[270px] rounded-xl overflow-hidden bg-muted border border-border/30">
+                        <img
+                          src={scene.slide_full || scene.slide || ""}
+                          alt={`Slide ${scene.n_escena}`}
+                          className="w-full h-full object-contain bg-black/20"
+                        />
+                      </div>
+                      {/* Fullscreen button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFullscreenSrc(scene.slide_full || scene.slide || "");
+                        }}
+                        className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 hover:bg-black/70 text-white/80 hover:text-white opacity-0 group-hover:opacity-100 transition-all"
+                        title="Ver a pantalla completa"
+                      >
+                        <Maximize2 className="w-4 h-4" />
+                      </button>
                     </div>
                   ) : (
-                    <div className="w-64 h-36 rounded-lg bg-muted/30 border border-border/20 flex items-center justify-center">
-                      <ImageLucide className="w-8 h-8 text-muted-foreground/15" />
+                    <div className="w-[480px] h-[270px] rounded-xl bg-muted/30 border border-border/20 flex items-center justify-center">
+                      <ImageLucide className="w-10 h-10 text-muted-foreground/15" />
                     </div>
                   )}
                 </div>
@@ -398,7 +497,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
 
                   {/* Actions row */}
                   <div className="flex items-center gap-3">
-                    <ModificaSlideButton sceneId={scene.id} currentSlide={scene.slide} />
+                    <ModificaSlideButton sceneId={scene.id} currentSlide={scene.slide} onStateChange={setModificaState} />
                     {scene.status_slide && (
                       <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", statusSlideStyle(scene.status_slide).bg, statusSlideStyle(scene.status_slide).text)}>
                         {scene.status_slide}
@@ -411,6 +510,15 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
           </td>
         </tr>
       )}
+
+      {/* Fullscreen modal */}
+      {fullscreenSrc && (
+        <FullscreenImageModal
+          src={fullscreenSrc}
+          alt={`Slide ${scene.n_escena}`}
+          onClose={() => setFullscreenSrc(null)}
+        />
+      )}
     </>
   );
 }
@@ -420,17 +528,44 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const expandedRowRef = useRef<HTMLTableRowElement>(null);
 
+  // Scroll expanded scene — summary row pinned to top
   useEffect(() => {
     if (expandedId && expandedRowRef.current) {
       expandedRowRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [expandedId]);
 
+  // Keyboard navigation: ArrowUp / ArrowDown
+  const handleKeyNav = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      // Don't capture when typing in a textarea/input
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT") return;
+
+      e.preventDefault();
+      const currentIdx = scenes.findIndex((s) => s.id === expandedId);
+      let nextIdx: number;
+
+      if (e.key === "ArrowDown") {
+        nextIdx = currentIdx < scenes.length - 1 ? currentIdx + 1 : 0;
+      } else {
+        nextIdx = currentIdx > 0 ? currentIdx - 1 : scenes.length - 1;
+      }
+      setExpandedId(scenes[nextIdx].id);
+    },
+    [expandedId, scenes]
+  );
+
   const withSlides = scenes.filter((s) => s.slide).length;
   const activaCount = scenes.filter((s) => s.slide_activa).length;
 
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
+    <div
+      className="glass-card rounded-xl overflow-hidden"
+      onKeyDown={handleKeyNav}
+      tabIndex={0}
+    >
       <div className="px-5 py-3 border-b border-border flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <ImageLucide className="w-4 h-4 text-violet-400" />
@@ -439,9 +574,12 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
             {scenes.length}
           </span>
         </h3>
-        <span className="text-[10px] text-muted-foreground/80">
-          {withSlides}/{scenes.length} slides · {activaCount} activas
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-muted-foreground/80">
+            {withSlides}/{scenes.length} slides · {activaCount} activas
+          </span>
+          <span className="text-[10px] text-muted-foreground/40">↑↓ navegar</span>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -455,6 +593,7 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
               <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8" title="Slide Activa">Act</th>
               <th className="text-left px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-20">Status</th>
               <th className="text-left px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-24">Engine</th>
+              <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-10" title="Calificación Imagen">Score</th>
               <th className="text-left px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Slide</th>
               <th className="w-4"></th>
             </tr>
@@ -499,7 +638,7 @@ function LinkedRecordCard({ label, icon, record, emptyText }: {
           )}
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground truncate">{record.name || "Sin nombre"}</p>
-            <p className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">{record.id.slice(0, 12)}…</p>
+            <p className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">{String(record.id).slice(0, 12)}…</p>
           </div>
         </div>
       ) : (

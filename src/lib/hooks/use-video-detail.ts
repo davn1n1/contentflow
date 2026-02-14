@@ -88,6 +88,7 @@ export interface SceneDetail {
   slide_engine: string | null;
   feedback_slide: string | null;
   prompt_slide: string | null;
+  calificacion_imagen_final: string | null;
 }
 
 export interface LinkedIdea {
