@@ -95,7 +95,7 @@ export async function POST(request: Request) {
 
     const account = await airtableCreate(TABLES.ACCOUNT, {
       Name: companyName,
-      Status: "Onboarding",
+      Status: "En preparación",
       NameApp: slug,
       ...(plan && { Product: plan }),
       ...(industria && { Industria: Array.isArray(industria) ? industria : [industria] }),
