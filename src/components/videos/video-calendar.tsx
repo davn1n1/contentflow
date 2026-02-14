@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import type { Video } from "@/types/database";
-import { ChevronLeft, ChevronRight, Film } from "lucide-react";
+import { ChevronLeft, ChevronRight, Film, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface VideoCalendarProps {
@@ -47,69 +47,129 @@ function addDays(d: Date, n: number) {
   return date;
 }
 
+// Hover detail card that appears on mouse hover
+function VideoHoverCard({ video, clientSlug, children }: { video: Video; clientSlug: string; children: React.ReactNode }) {
+  return (
+    <div className="relative group/hover">
+      {children}
+      {/* Hover popover */}
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 hidden group-hover/hover:block">
+        <div className="w-64 rounded-xl border border-border bg-popover shadow-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+          {/* Portada */}
+          {video.portada_a ? (
+            <div className="relative aspect-video bg-muted">
+              <img
+                src={video.portada_a}
+                alt={video.titulo || `#${video.name}`}
+                className="w-full h-full object-cover"
+              />
+              <span className="absolute top-2 left-2 text-[10px] font-mono font-bold text-white bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                #{video.name}
+              </span>
+            </div>
+          ) : (
+            <div className="relative aspect-video bg-muted flex items-center justify-center">
+              <Film className="w-8 h-8 text-muted-foreground/30" />
+              <span className="absolute top-2 left-2 text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                #{video.name}
+              </span>
+            </div>
+          )}
+          {/* Info + Button */}
+          <div className="p-3 space-y-2">
+            <p className="text-sm font-medium text-foreground line-clamp-2 leading-snug">
+              {video.titulo || "Sin título"}
+            </p>
+            {video.estado && (
+              <span className={cn(
+                "inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                video.estado === "Published" ? "bg-success/10 text-success" :
+                video.estado === "In Progress" ? "bg-info/10 text-info" :
+                video.estado === "Generating" ? "bg-warning/10 text-warning" :
+                "bg-muted text-muted-foreground"
+              )}>
+                {video.estado}
+              </span>
+            )}
+            <Link
+              href={`/${clientSlug}/videos/${video.id}`}
+              className="flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+            >
+              <ExternalLink className="w-3 h-3" />
+              Ver Video
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Video card used in week and day views
 function VideoItem({ video, clientSlug }: { video: Video; clientSlug: string }) {
   return (
-    <Link
-      href={`/${clientSlug}/videos/${video.id}`}
-      className="block rounded-lg border border-border hover:border-primary/40 transition-all group overflow-hidden bg-background"
-    >
-      {/* Thumbnail */}
-      {video.portada_a ? (
-        <div className="relative aspect-video bg-muted">
-          <img
-            src={video.portada_a}
-            alt={video.titulo || `#${video.name}`}
-            className="w-full h-full object-cover"
-          />
-          <span className="absolute bottom-1 left-1 text-[10px] font-mono font-bold text-white bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
-            #{video.name}
-          </span>
+    <VideoHoverCard video={video} clientSlug={clientSlug}>
+      <Link
+        href={`/${clientSlug}/videos/${video.id}`}
+        className="block rounded-lg border border-border hover:border-primary/40 transition-all group overflow-hidden bg-background"
+      >
+        {/* Thumbnail */}
+        {video.portada_a ? (
+          <div className="relative aspect-video bg-muted">
+            <img
+              src={video.portada_a}
+              alt={video.titulo || `#${video.name}`}
+              className="w-full h-full object-cover"
+            />
+            <span className="absolute bottom-1 left-1 text-[10px] font-mono font-bold text-white bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
+              #{video.name}
+            </span>
+          </div>
+        ) : (
+          <div className="relative aspect-video bg-muted flex items-center justify-center">
+            <Film className="w-5 h-5 text-muted-foreground/40" />
+            <span className="absolute bottom-1 left-1 text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+              #{video.name}
+            </span>
+          </div>
+        )}
+        {/* Title */}
+        <div className="px-2 py-1.5">
+          <p className="text-[11px] font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-tight">
+            {video.titulo || "Sin título"}
+          </p>
         </div>
-      ) : (
-        <div className="relative aspect-video bg-muted flex items-center justify-center">
-          <Film className="w-5 h-5 text-muted-foreground/40" />
-          <span className="absolute bottom-1 left-1 text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-            #{video.name}
-          </span>
-        </div>
-      )}
-      {/* Title */}
-      <div className="px-2 py-1.5">
-        <p className="text-[11px] font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-tight">
-          {video.titulo || "Sin título"}
-        </p>
-      </div>
-    </Link>
+      </Link>
+    </VideoHoverCard>
   );
 }
 
 // Compact video pill for month view
 function VideoPill({ video, clientSlug }: { video: Video; clientSlug: string }) {
   return (
-    <Link
-      href={`/${clientSlug}/videos/${video.id}`}
-      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors hover:bg-primary/10 group"
-      title={video.titulo || `#${video.name}`}
-    >
-      {video.portada_a ? (
-        <img src={video.portada_a} alt="" className="w-4 h-3 object-cover rounded-sm flex-shrink-0" />
-      ) : (
-        <Film className="w-3 h-3 flex-shrink-0 text-muted-foreground group-hover:text-primary" />
-      )}
-      <span className="truncate text-foreground group-hover:text-primary">
-        #{video.name}
-      </span>
-      {video.estado && (
-        <span className={cn(
-          "w-1.5 h-1.5 rounded-full flex-shrink-0",
-          video.estado === "Published" ? "bg-success" :
-          video.estado === "In Progress" ? "bg-info animate-pulse" :
-          video.estado === "Generating" ? "bg-warning animate-pulse" :
-          "bg-muted-foreground"
-        )} />
-      )}
-    </Link>
+    <VideoHoverCard video={video} clientSlug={clientSlug}>
+      <div
+        className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors hover:bg-primary/10 group cursor-pointer"
+      >
+        {video.portada_a ? (
+          <img src={video.portada_a} alt="" className="w-4 h-3 object-cover rounded-sm flex-shrink-0" />
+        ) : (
+          <Film className="w-3 h-3 flex-shrink-0 text-muted-foreground group-hover:text-primary" />
+        )}
+        <span className="truncate text-foreground group-hover:text-primary">
+          #{video.name}
+        </span>
+        {video.estado && (
+          <span className={cn(
+            "w-1.5 h-1.5 rounded-full flex-shrink-0",
+            video.estado === "Published" ? "bg-success" :
+            video.estado === "In Progress" ? "bg-info animate-pulse" :
+            video.estado === "Generating" ? "bg-warning animate-pulse" :
+            "bg-muted-foreground"
+          )} />
+        )}
+      </div>
+    </VideoHoverCard>
   );
 }
 
@@ -167,7 +227,7 @@ export function VideoCalendar({ videos, clientSlug }: VideoCalendarProps) {
   }
 
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
+    <div className="glass-card rounded-xl overflow-visible">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
