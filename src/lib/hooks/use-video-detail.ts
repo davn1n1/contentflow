@@ -43,7 +43,7 @@ interface VideoDetail {
   status_copy_analysis: string | null;
 }
 
-interface SceneDetail {
+export interface SceneDetail {
   id: string;
   n_escena: number;
   clasificación_escena: string | null;
@@ -62,6 +62,8 @@ interface SceneDetail {
   status_script: string | null;
   audio_revisado_ok: boolean;
   copy_revisado_ok: boolean;
+  informe_resumen_emoticonos: string | null;
+  solo_observaciones: string | null;
 }
 
 export interface LinkedIdea {

@@ -9,6 +9,7 @@ const SCENE_FIELDS = [
   "URL Camera S3", "Voice S3", "Voice Length",
   "Status Audio", "Status Camera", "Status Script",
   "Audio Revisado OK", "Copy Revisado OK",
+  "Informe_Resumen_Emoticonos", "solo_observaciones",
 ];
 
 interface SceneFields {
@@ -35,6 +36,8 @@ interface SceneFields {
   "Status Script"?: string;
   "Audio Revisado OK"?: boolean;
   "Copy Revisado OK"?: boolean;
+  "Informe_Resumen_Emoticonos"?: string;
+  "solo_observaciones"?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -87,6 +90,8 @@ export async function GET(request: NextRequest) {
         elevenlabs_text_v3_enhanced: null,
         audio_revisado_ok: r.fields["Audio Revisado OK"] || false,
         copy_revisado_ok: r.fields["Copy Revisado OK"] || false,
+        informe_resumen_emoticonos: r.fields["Informe_Resumen_Emoticonos"] || null,
+        solo_observaciones: r.fields["solo_observaciones"] || null,
         camera_table_id: null,
         audio_id: null,
       }))

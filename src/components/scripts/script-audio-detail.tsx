@@ -10,7 +10,8 @@ import {
   Save, AlertCircle, Users, UserCog,
   Cpu, Zap, Shield, Play,
 } from "lucide-react";
-import type { VideoWithScenes, LinkedIdea } from "@/lib/hooks/use-video-detail";
+import type { VideoWithScenes, LinkedIdea, SceneDetail } from "@/lib/hooks/use-video-detail";
+import { ChevronDown } from "lucide-react";
 import { LinkedRecordPicker } from "./linked-record-picker";
 
 interface ScriptAudioDetailProps {
@@ -198,6 +199,11 @@ function TabScript({ video }: { video: VideoWithScenes }) {
           color="blue"
         />
       </div>
+
+      {/* ── Scene Summary Table ── */}
+      {video.scenes.length > 0 && (
+        <SceneSummaryTable scenes={video.scenes} />
+      )}
 
       {/* Status */}
       {video.status_copy_analysis && (
@@ -949,6 +955,212 @@ function TabAudio({ video }: { video: VideoWithScenes }) {
         </InfoSection>
       )}
     </div>
+  );
+}
+
+// ─── Scene Summary Table (below Crear Copy button) ───────
+
+function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  return (
+    <div className="glass-card rounded-xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Clapperboard className="w-4 h-4 text-primary" />
+          Escenas
+          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full font-medium text-muted-foreground">
+            {scenes.length}
+          </span>
+        </h3>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/30">
+              <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">#</th>
+              <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-28">Clasificación</th>
+              <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script</th>
+              <th className="text-center px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Copy OK</th>
+              <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-48">Informe Resumen</th>
+              <th className="text-left px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-48">Observaciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {scenes.map((scene) => {
+              const isExpanded = expandedId === scene.id;
+              return (
+                <SceneSummaryRow
+                  key={scene.id}
+                  scene={scene}
+                  isExpanded={isExpanded}
+                  onToggle={() => setExpandedId(isExpanded ? null : scene.id)}
+                />
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function SceneSummaryRow({ scene, isExpanded, onToggle }: {
+  scene: SceneDetail;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const scriptPreview = scene.script
+    ? scene.script.length > 120 ? scene.script.slice(0, 120) + "..." : scene.script
+    : "—";
+
+  return (
+    <>
+      {/* Summary row */}
+      <tr
+        onClick={onToggle}
+        className={cn(
+          "border-b border-border/50 cursor-pointer transition-colors",
+          isExpanded ? "bg-primary/5" : "hover:bg-muted/30"
+        )}
+      >
+        <td className="px-4 py-3">
+          <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-primary/10 text-primary text-xs font-bold">
+            {scene.n_escena}
+          </span>
+        </td>
+        <td className="px-4 py-3">
+          <SceneTypeBadge type={scene.clasificación_escena} />
+        </td>
+        <td className="px-4 py-3">
+          <p className="text-xs text-foreground/80 line-clamp-2 leading-relaxed">{scriptPreview}</p>
+        </td>
+        <td className="px-4 py-3 text-center">
+          {scene.copy_revisado_ok ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 mx-auto" />
+          ) : (
+            <XCircle className="w-5 h-5 text-muted-foreground/30 mx-auto" />
+          )}
+        </td>
+        <td className="px-4 py-3">
+          <p className="text-xs text-foreground/80 line-clamp-2 leading-relaxed">
+            {scene.informe_resumen_emoticonos || "—"}
+          </p>
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-1">
+            <p className="text-xs text-foreground/80 line-clamp-2 leading-relaxed flex-1">
+              {scene.solo_observaciones || "—"}
+            </p>
+            <ChevronDown className={cn(
+              "w-3.5 h-3.5 text-muted-foreground flex-shrink-0 transition-transform",
+              isExpanded && "rotate-180"
+            )} />
+          </div>
+        </td>
+      </tr>
+
+      {/* Expanded detail */}
+      {isExpanded && (
+        <tr className="bg-primary/5">
+          <td colSpan={6} className="px-4 py-4">
+            <div className="space-y-3 max-w-4xl">
+              {/* Full script */}
+              {scene.script && (
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script completo</span>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed mt-1 bg-muted/30 rounded-lg p-3">
+                    {scene.script}
+                  </p>
+                </div>
+              )}
+
+              {/* Metadata grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {scene.topic && (
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Topic</span>
+                    <p className="text-sm mt-0.5">{scene.topic}</p>
+                  </div>
+                )}
+                {scene.role && (
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Role</span>
+                    <p className="text-sm mt-0.5">{scene.role}</p>
+                  </div>
+                )}
+                {scene.importance && (
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Importancia</span>
+                    <p className="text-sm mt-0.5">{scene.importance}</p>
+                  </div>
+                )}
+                {scene.voice_length != null && (
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Duración voz</span>
+                    <p className="text-sm mt-0.5">{scene.voice_length.toFixed(1)}s</p>
+                  </div>
+                )}
+                {scene.status && (
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status</span>
+                    <p className="text-sm mt-0.5">{scene.status}</p>
+                  </div>
+                )}
+                {scene.status_script && (
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status Script</span>
+                    <p className="text-sm mt-0.5">{scene.status_script}</p>
+                  </div>
+                )}
+                {scene.status_audio && (
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Status Audio</span>
+                    <p className="text-sm mt-0.5">{scene.status_audio}</p>
+                  </div>
+                )}
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Audio OK</span>
+                  <p className="text-sm mt-0.5">{scene.audio_revisado_ok ? "✅" : "❌"}</p>
+                </div>
+              </div>
+
+              {/* Full informe if longer than preview */}
+              {scene.informe_resumen_emoticonos && scene.informe_resumen_emoticonos.length > 80 && (
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Informe Resumen Completo</span>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed mt-1 bg-muted/30 rounded-lg p-3">
+                    {scene.informe_resumen_emoticonos}
+                  </p>
+                </div>
+              )}
+
+              {/* Full observaciones if longer */}
+              {scene.solo_observaciones && scene.solo_observaciones.length > 80 && (
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Observaciones Completas</span>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed mt-1 bg-amber-500/10 rounded-lg p-3 text-amber-200">
+                    {scene.solo_observaciones}
+                  </p>
+                </div>
+              )}
+
+              {/* Script ElevenLabs */}
+              {scene.script_elevenlabs && (
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script ElevenLabs</span>
+                  <p className="text-xs font-mono whitespace-pre-wrap leading-relaxed mt-1 bg-muted/30 rounded-lg p-3 text-muted-foreground">
+                    {scene.script_elevenlabs}
+                  </p>
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
