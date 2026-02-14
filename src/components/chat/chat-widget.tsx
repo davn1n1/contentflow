@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { MessageCircle, X, Minus } from "lucide-react";
@@ -14,6 +15,7 @@ export function ChatWidget() {
   const { isOpen, toggleChat, setOpen, conversationId, setConversationId, addRecentConversation } =
     useChatStore();
   const { currentAccount } = useAccountStore();
+  const pathname = usePathname();
   const [inputValue, setInputValue] = useState("");
 
   const transport = useMemo(
@@ -24,9 +26,10 @@ export function ChatWidget() {
           conversationId,
           accountId: currentAccount?.airtable_id || currentAccount?.id,
           accountName: currentAccount?.name,
+          pathname,
         },
       }),
-    [conversationId, currentAccount]
+    [conversationId, currentAccount, pathname]
   );
 
   const {

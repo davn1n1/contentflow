@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
   try {
     // 3. Parse request body
     const body = await request.json();
-    const { messages, conversationId, accountId, accountName } = body;
+    const { messages, conversationId, accountId, accountName, pathname } = body;
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: "Messages array required" }, { status: 400 });
@@ -128,7 +128,8 @@ export async function POST(request: NextRequest) {
       },
       enriched,
       memories,
-      windowed.summary
+      windowed.summary,
+      pathname || undefined
     );
 
     // 10. Create tools scoped to user's accounts (by name) + pre-computed embedding

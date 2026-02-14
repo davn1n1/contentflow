@@ -1,6 +1,55 @@
 import type { EnrichedContext } from "./context-builder";
 import type { ConversationMemory } from "@/lib/rag/memory";
 
+/** Map route patterns to human-readable page descriptions */
+const PAGE_DESCRIPTIONS: Record<string, string> = {
+  "/dashboard": "el Dashboard principal (seleccion de cuenta)",
+  "/research": "la pagina de Research (ideas de contenido)",
+  "/ideas": "la pagina de Ideas (inspiracion)",
+  "/scripts": "la pagina de Scripts (guiones y copy)",
+  "/videos": "la lista de Videos",
+  "/scenes": "el detalle de Escenas de un video",
+  "/renders": "la pagina de Renders",
+  "/remotion": "el editor Remotion (preview de video)",
+  "/settings": "la pagina de Configuracion de cuenta",
+  "/team": "la pagina de Equipo",
+  "/campanas": "la pagina de Campanas",
+  "/help": "el Centro de Ayuda",
+  "/app-data/avatares": "la configuracion de Avatares",
+  "/app-data/avatares-set": "la configuracion de Sets de Avatares",
+  "/app-data/persona": "la configuracion de Persona",
+  "/app-data/guardarails": "la configuracion de Guardrails",
+  "/app-data/ctas": "la configuracion de CTAs (llamadas a la accion)",
+  "/app-data/broll": "la gestion de B-Roll personalizado",
+  "/app-data/voices": "la configuracion de Voces",
+  "/app-data/voicedna-sources": "las fuentes de VoiceDNA",
+  "/app-data/audiencia": "la configuracion de Audiencia",
+  "/app-data/sponsors": "la gestion de Sponsors",
+  "/app-data/brands": "la gestion de Marcas",
+  "/app-data/identidad-visual": "la Identidad Visual",
+  "/app-data/default-settings": "la Configuracion por defecto",
+  "/app-data/fuentes": "las Fuentes de inspiracion",
+  "/app-data/spy": "Spy (analisis de Ads y Reels)",
+  "/app-data/social-profiles": "los Perfiles Sociales",
+  "/onboarding": "el proceso de Onboarding",
+};
+
+function describeCurrentPage(pathname: string): string {
+  // Try exact match first (without dynamic segments)
+  for (const [pattern, description] of Object.entries(PAGE_DESCRIPTIONS)) {
+    if (pathname.endsWith(pattern) || pathname.includes(pattern + "/")) {
+      return description;
+    }
+  }
+
+  // Dynamic route patterns
+  if (/\/videos\/[^/]+$/.test(pathname)) return "el detalle de un Video especifico";
+  if (/\/scenes\/[^/]+$/.test(pathname)) return "las Escenas de un video especifico";
+  if (/\/remotion\/[^/]+$/.test(pathname)) return "el preview Remotion de un video especifico";
+
+  return `la pagina ${pathname}`;
+}
+
 export function buildSystemPrompt(
   user: { email: string },
   context: {
@@ -10,7 +59,8 @@ export function buildSystemPrompt(
   },
   enriched?: EnrichedContext | null,
   memories?: ConversationMemory[],
-  olderMessagesSummary?: string | null
+  olderMessagesSummary?: string | null,
+  pathname?: string
 ): string {
   let prompt = `Eres el asistente de soporte de ContentFlow365, una plataforma SaaS de produccion automatizada de video para YouTube y redes sociales.
 
@@ -68,6 +118,14 @@ Los videos pasan por estos estados en cada fase:
 - Email: ${user.email}
 - Cuenta activa: ${context.accountName || "ninguna seleccionada"} (${context.accountId || "ninguno"})
 - Cuentas accesibles: ${context.accountIds.length} cuenta(s)`;
+
+  // Dynamic section: current page awareness
+  if (pathname) {
+    const pageDesc = describeCurrentPage(pathname);
+    prompt += `\n\n## Pagina Actual del Usuario
+El usuario esta viendo **${pageDesc}** (ruta: \`${pathname}\`).
+Cuando pregunte "como hago esto", "que es esto", "ayuda" u otra pregunta generica sin contexto especifico, asume que se refiere a la pagina en la que esta. Busca articulos de ayuda relacionados con esta seccion.`;
+  }
 
   // Dynamic section: enriched account context
   if (enriched) {
