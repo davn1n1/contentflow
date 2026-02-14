@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 interface MarkdownRendererProps {
   content: string;
 }
@@ -175,30 +173,18 @@ function renderInline(text: string): React.ReactNode {
         break;
       case "link": {
         const url = first.match[2];
-        const isInternal = url.startsWith("/");
-        if (isInternal) {
-          parts.push(
-            <Link
-              key={keyIdx++}
-              href={url}
-              className="text-primary hover:underline"
-            >
-              {first.match[1]}
-            </Link>
-          );
-        } else {
-          parts.push(
-            <a
-              key={keyIdx++}
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              {first.match[1]}
-            </a>
-          );
-        }
+        // All links from chat open in new tab to preserve user's current page
+        parts.push(
+          <a
+            key={keyIdx++}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            {first.match[1]}
+          </a>
+        );
         remaining = remaining.slice(idx + first.match[0].length);
         break;
       }
