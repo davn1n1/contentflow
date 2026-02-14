@@ -666,6 +666,7 @@ export default function RemotionPreviewPage() {
         saving={saving}
         selectedClipIds={selectedClipIds}
         zoom={zoom}
+        setZoom={setZoom}
         onZoomIn={zoomIn}
         onZoomOut={zoomOut}
         onZoomReset={zoomReset}
@@ -1055,6 +1056,7 @@ function VisualTimeline({
   saving,
   selectedClipIds,
   zoom,
+  setZoom,
   onZoomIn,
   onZoomOut,
   onZoomReset,
@@ -1068,6 +1070,7 @@ function VisualTimeline({
   saving: boolean;
   selectedClipIds: string[];
   zoom: number;
+  setZoom: (z: number) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
@@ -1206,30 +1209,26 @@ function VisualTimeline({
               </button>
             </>
           )}
-          {/* Zoom control */}
-          <div className="flex items-center gap-1 ml-2 border-l border-border/30 pl-2">
-            <button
-              onClick={onZoomOut}
-              disabled={zoom <= 1}
-              className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-30"
-              title="Alejar (Ctrl+-)"
-            >
-              <Minus className="h-3 w-3" />
-            </button>
+          {/* Zoom slider */}
+          <div className="flex items-center gap-1.5 ml-2 border-l border-border/30 pl-2">
+            <Minus className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            <input
+              type="range"
+              min={1}
+              max={10}
+              step={0.5}
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              className="w-20 h-1 accent-primary cursor-pointer"
+              title={`Zoom ${zoom}x`}
+            />
+            <Plus className="h-3 w-3 text-muted-foreground flex-shrink-0" />
             <button
               onClick={onZoomReset}
-              className="text-[10px] text-muted-foreground hover:text-foreground tabular-nums min-w-[2.5rem] text-center"
+              className="text-[10px] text-muted-foreground hover:text-foreground tabular-nums min-w-[2rem] text-center"
               title="Reset zoom (Ctrl+0)"
             >
               {zoom === 1 ? "Fit" : `${zoom}x`}
-            </button>
-            <button
-              onClick={onZoomIn}
-              disabled={zoom >= 10}
-              className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-30"
-              title="Acercar (Ctrl++)"
-            >
-              <Plus className="h-3 w-3" />
             </button>
           </div>
         </div>
