@@ -274,61 +274,54 @@ export default function ThumbnailsPage() {
 
         {/* TAB: Portadas */}
         {activeTab === "portadas" && (
-          <div className="space-y-8">
-            {/* Portada Youtube A/B/C from video */}
-            <section>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-                Portadas Youtube (Video)
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="space-y-6">
+            {/* Portada Youtube A/B/C reference strip */}
+            {(videoDetail?.portada_a || videoDetail?.portada_b || videoDetail?.portada_c) && (
+              <div className="flex items-center gap-3 overflow-x-auto pb-2">
                 {(["A", "B", "C"] as const).map((letter) => {
                   const url = letter === "A" ? videoDetail?.portada_a
                     : letter === "B" ? videoDetail?.portada_b
                     : videoDetail?.portada_c;
-                  const titulo = letter === "A" ? videoDetail?.titulo_a
-                    : letter === "B" ? videoDetail?.titulo_b
-                    : videoDetail?.titulo_c;
+                  if (!url) return null;
                   return (
-                    <div key={letter} className="glass-card rounded-xl overflow-hidden">
-                      <div className="relative aspect-video bg-muted">
-                        {url ? (
-                          <img src={url} alt={`Portada ${letter}`} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="w-10 h-10 text-muted-foreground/20" />
-                          </div>
-                        )}
-                        <span className="absolute top-2 left-2 w-8 h-8 rounded-full bg-primary text-white text-sm font-bold flex items-center justify-center shadow-lg">
-                          {letter}
-                        </span>
-                      </div>
-                      <div className="p-3">
-                        <p className="text-sm font-medium text-foreground">{titulo || `Portada Youtube ${letter}`}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {url ? "Imagen cargada" : "Sin imagen"}
-                        </p>
-                      </div>
+                    <div key={letter} className="relative flex-shrink-0 w-32 aspect-video rounded-lg overflow-hidden border border-border/50">
+                      <img src={url} alt={`Portada ${letter}`} className="w-full h-full object-cover" />
+                      <span className="absolute top-1 left-1 w-5 h-5 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
+                        {letter}
+                      </span>
                     </div>
                   );
                 })}
+                <span className="text-[10px] text-muted-foreground/50 flex-shrink-0">Portadas del video</span>
               </div>
-            </section>
+            )}
 
-            {/* Portada drafts — click opens same ThumbnailDetail as Miniaturas/Favoritas */}
-            <section>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-                Miniaturas marcadas como Portada ({portadaDrafts.length})
-              </h3>
-              {portadaDrafts.length === 0 ? (
-                <p className="text-sm text-muted-foreground/70">Ninguna miniatura marcada como portada</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {portadaDrafts.map((draft) => (
-                    <ThumbnailCard key={draft.id} draft={draft} onClick={() => setSelectedDraft(draft)} />
-                  ))}
-                </div>
-              )}
-            </section>
+            {/* All drafts grid — same as Miniaturas, full ThumbnailDetail on click */}
+            {isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="glass-card rounded-xl overflow-hidden animate-pulse">
+                    <div className="aspect-video bg-muted" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-4 w-3/4 bg-muted rounded" />
+                      <div className="h-3 w-1/2 bg-muted rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : allDrafts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20">
+                <Award className="w-12 h-12 text-muted-foreground/20 mb-4" />
+                <h3 className="text-sm font-semibold text-muted-foreground">No hay miniaturas para este video</h3>
+                <p className="text-xs text-muted-foreground/70 mt-1">Las miniaturas se generan durante la fase de Copy</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {allDrafts.map((draft) => (
+                  <ThumbnailCard key={draft.id} draft={draft} onClick={() => setSelectedDraft(draft)} />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
