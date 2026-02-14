@@ -97,7 +97,7 @@ export async function POST(request: Request) {
       Name: companyName,
       Status: "Onboarding",
       NameApp: slug,
-      ...(plan && { Plan: plan }),
+      ...(plan && { Product: plan }),
       ...(industria && { Industria: Array.isArray(industria) ? industria : [industria] }),
     });
 
