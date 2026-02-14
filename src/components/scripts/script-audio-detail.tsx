@@ -211,7 +211,7 @@ export function TabScript({ video }: { video: VideoWithScenes }) {
 
       {/* ── Scene Summary Table ── */}
       {video.scenes.length > 0 && (
-        <SceneSummaryTable scenes={video.scenes} />
+        <SceneSummaryTable scenes={video.scenes} videoId={video.id} feedbackCopy={video.feedback_copy} />
       )}
 
       {/* ── Ideas Inspiración (Videos X + Noticias) ── */}
@@ -1112,7 +1112,7 @@ function useSceneAutoSave(sceneId: string, field: string, delay = 800) {
   return { save, saving, saved };
 }
 
-function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
+function SceneSummaryTable({ scenes, videoId, feedbackCopy }: { scenes: SceneDetail[]; videoId: string; feedbackCopy: string | null }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Keyboard navigation: up/down arrows to move between scenes, space to play/pause
@@ -1167,20 +1167,23 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
       onKeyDown={handleKeyNav}
       tabIndex={0}
     >
-      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Clapperboard className="w-4 h-4 text-primary" />
-          Script & Copy por Escena
-          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full font-medium text-muted-foreground">
-            {scenes.length}
-          </span>
-        </h3>
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] text-muted-foreground/80">
-            {copyOkCount}/{scenes.length} copy OK
-          </span>
-          <span className="text-[10px] text-muted-foreground/40">↑↓ navegar · ␣ play/pause</span>
+      <div className="px-5 py-3 border-b border-border">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Clapperboard className="w-4 h-4 text-primary" />
+            Script & Copy por Escena
+            <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full font-medium text-muted-foreground">
+              {scenes.length}
+            </span>
+          </h3>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-muted-foreground/80">
+              {copyOkCount}/{scenes.length} copy OK
+            </span>
+            <span className="text-[10px] text-muted-foreground/40">↑↓ navegar · ␣ play/pause</span>
+          </div>
         </div>
+
       </div>
 
       {/* Table */}
@@ -1217,6 +1220,77 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
           </tbody>
         </table>
       </div>
+
+      {/* Feedback Copy + Modificar Script — below table */}
+      <InlineFeedbackCopy videoId={videoId} initialFeedback={feedbackCopy} />
+    </div>
+  );
+}
+
+// ─── Inline Feedback Copy (inside SceneSummaryTable footer) ──
+function InlineFeedbackCopy({ videoId, initialFeedback }: { videoId: string; initialFeedback: string | null }) {
+  const [feedback, setFeedback] = useState(initialFeedback || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryClient = useQueryClient();
+
+  useEffect(() => { setFeedback(initialFeedback || ""); }, [initialFeedback]);
+
+  // Debounced auto-save
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setFeedback(val);
+    setSaved(false);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      setSaving(true);
+      try {
+        const res = await fetch("/api/data/videos", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: videoId, fields: { Feedback: val } }),
+        });
+        if (res.ok) {
+          setSaved(true);
+          queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+          setTimeout(() => setSaved(false), 2000);
+        }
+      } catch { /* silent */ } finally {
+        setSaving(false);
+      }
+    }, 800);
+  }, [videoId, queryClient]);
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []);
+
+  return (
+    <div className="px-5 py-4 border-t border-border/40 space-y-3">
+      <div>
+        <div className="flex items-center gap-2 mb-1.5">
+          <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
+          <p className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">Feedback Copy</p>
+          {saving && <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />}
+          {saved && !saving && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+        </div>
+        <textarea
+          value={feedback}
+          onChange={handleChange}
+          rows={3}
+          placeholder="Escribe aquí el feedback para modificar el script..."
+          className="w-full bg-emerald-500/5 border border-emerald-500/15 rounded-lg px-3 py-2 text-xs text-foreground resize-y focus:outline-none focus:ring-1 focus:ring-emerald-500/30 placeholder:text-muted-foreground/40"
+        />
+      </div>
+      <ActionButton
+        videoId={videoId}
+        action="ModificarScript"
+        label="Modificar Script"
+        confirmLabel="Confirmar modificación del script"
+        icon={<Edit3 className="w-5 h-5" />}
+        color="green"
+      />
     </div>
   );
 }
