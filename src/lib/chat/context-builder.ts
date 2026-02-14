@@ -99,20 +99,20 @@ async function fetchRecentVideos(accountFilter: string) {
     const { records } = await airtableFetch(TABLES.VIDEOS, {
       filterByFormula: accountFilter,
       fields: [
-        "Name", "N Video", "Estado",
-        "Seguro Creacion Copy", "Status Audio", "Status Avatares", "Status Render Video",
+        "Name", "Titulo Youtube A", "Estado",
+        "Seguro Creación Copy", "Status Audio", "Status Avatares", "Status Render Video",
       ],
       maxRecords: 5,
-      sort: [{ field: "N Video", direction: "desc" }],
+      sort: [{ field: "Name", direction: "desc" }],
     });
     return records.map((r) => {
       const f = r.fields as Record<string, unknown>;
       return {
-        number: (f["N Video"] as number) || 0,
-        name: (f["Name"] as string) || "",
+        number: (f["Name"] as number) || 0,
+        name: (f["Titulo Youtube A"] as string) || `Video #${f["Name"] || ""}`,
         estado: (f["Estado"] as string) || "",
         pipeline: {
-          copy: f["Seguro Creacion Copy"] ? "done" : "pending",
+          copy: f["Seguro Creación Copy"] ? "done" : "pending",
           audio: (f["Status Audio"] as string) || "pending",
           video: (f["Status Avatares"] as string) || "pending",
           render: (f["Status Render Video"] as string) || "pending",

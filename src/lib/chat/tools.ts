@@ -33,7 +33,7 @@ export function createChatTools(
           if (videoId) {
             filter = `AND(RECORD_ID()='${videoId}', ${accountFilter})`;
           } else if (videoNumber) {
-            filter = `AND({N Video}=${videoNumber}, ${accountFilter})`;
+            filter = `AND({Name}=${videoNumber}, ${accountFilter})`;
           } else {
             return { error: "Provide either videoId or videoNumber" };
           }
@@ -41,9 +41,9 @@ export function createChatTools(
           const { records } = await airtableFetch(TABLES.VIDEOS, {
             filterByFormula: filter,
             fields: [
-              "Name", "Titulo Youtube A", "Estado", "N Video",
-              "Seguro Creacion Copy", "Status Audio", "Status Avatares",
-              "Status Render Video", "url_youtube", "Formato",
+              "Name", "Titulo Youtube A", "Estado",
+              "Seguro Creación Copy", "Status Audio", "Status Avatares",
+              "Status Render Video", "Format",
             ],
             maxRecords: 1,
           });
@@ -56,18 +56,16 @@ export function createChatTools(
           const f = r.fields as Record<string, unknown>;
           return {
             id: r.id,
-            number: f["N Video"],
-            name: f["Name"],
+            number: f["Name"],
             title: f["Titulo Youtube A"],
             estado: f["Estado"],
-            format: f["Formato"],
+            format: f["Format"],
             pipeline: {
-              copy: f["Seguro Creacion Copy"] ? "completed" : "pending",
+              copy: f["Seguro Creación Copy"] ? "completed" : "pending",
               audio: f["Status Audio"] || "pending",
               video: f["Status Avatares"] || "pending",
               render: f["Status Render Video"] || "pending",
             },
-            youtube_url: f["url_youtube"] || null,
           };
         } catch (err) {
           return { error: `Failed to fetch video: ${err instanceof Error ? err.message : "unknown"}` };
@@ -89,7 +87,7 @@ export function createChatTools(
 
           if (query) {
             conditions.push(
-              `OR(FIND(LOWER('${query}'), LOWER({Name})), FIND(LOWER('${query}'), LOWER({Titulo Youtube A})))`
+              `OR(FIND(LOWER('${query}'), LOWER({Titulo Youtube A})))`
             );
           }
           if (status) {
@@ -102,11 +100,11 @@ export function createChatTools(
           const { records } = await airtableFetch(TABLES.VIDEOS, {
             filterByFormula: formula,
             fields: [
-              "Name", "Titulo Youtube A", "Estado", "N Video",
-              "Seguro Creacion Copy", "Status Audio", "Status Avatares", "Status Render Video",
+              "Name", "Titulo Youtube A", "Estado",
+              "Seguro Creación Copy", "Status Audio", "Status Avatares", "Status Render Video",
             ],
             maxRecords: limit,
-            sort: [{ field: "N Video", direction: "desc" }],
+            sort: [{ field: "Name", direction: "desc" }],
           });
 
           return {
@@ -115,12 +113,11 @@ export function createChatTools(
               const f = r.fields as Record<string, unknown>;
               return {
                 id: r.id,
-                number: f["N Video"],
-                name: f["Name"],
+                number: f["Name"],
                 title: f["Titulo Youtube A"],
                 estado: f["Estado"],
                 pipeline: {
-                  copy: f["Seguro Creacion Copy"] ? "✓" : "○",
+                  copy: f["Seguro Creación Copy"] ? "✓" : "○",
                   audio: f["Status Audio"] || "○",
                   video: f["Status Avatares"] || "○",
                   render: f["Status Render Video"] || "○",
@@ -216,7 +213,7 @@ export function createChatTools(
           // Verify the video belongs to user's accounts
           const { records } = await airtableFetch(TABLES.VIDEOS, {
             filterByFormula: `AND(RECORD_ID()='${videoId}', ${accountFilter})`,
-            fields: ["Name", "N Video"],
+            fields: ["Name"],
             maxRecords: 1,
           });
 
@@ -251,7 +248,7 @@ export function createChatTools(
           const f = records[0].fields as Record<string, unknown>;
           return {
             success: true,
-            message: `Step "${step}" has been retriggered for video #${f["N Video"]} (${f["Name"]}). The process is now running in the background.`,
+            message: `Step "${step}" has been retriggered for video #${f["Name"]}. The process is now running in the background.`,
             videoId,
             step,
             action,
