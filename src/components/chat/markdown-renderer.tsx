@@ -49,10 +49,11 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
 
     flushList();
 
-    // Headers
+    // Headers — visually distinct with colors and backgrounds
     if (line.startsWith("### ")) {
       elements.push(
-        <h3 key={i} className="text-sm font-semibold text-foreground mt-3 mb-1">
+        <h3 key={i} className="text-sm font-semibold text-primary mt-3 mb-1 flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary/60 flex-shrink-0" />
           {renderInline(line.slice(4))}
         </h3>
       );
@@ -60,7 +61,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     }
     if (line.startsWith("## ")) {
       elements.push(
-        <h2 key={i} className="text-sm font-bold text-foreground mt-3 mb-1">
+        <h2 key={i} className="text-sm font-bold text-foreground mt-3 mb-1.5 pl-2.5 border-l-2 border-primary/50">
           {renderInline(line.slice(3))}
         </h2>
       );
@@ -68,7 +69,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     }
     if (line.startsWith("# ")) {
       elements.push(
-        <h1 key={i} className="text-base font-bold text-foreground mt-3 mb-1">
+        <h1 key={i} className="text-base font-bold mt-3 mb-2 px-2.5 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary">
           {renderInline(line.slice(2))}
         </h1>
       );

@@ -129,10 +129,13 @@ export function ChatWidget() {
       {isOpen && (
         <div className="fixed bottom-6 right-6 z-50 w-[400px] h-[560px] flex flex-col rounded-2xl overflow-hidden border border-border shadow-2xl chat-slide-up bg-background">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-gradient-to-r from-card via-card to-primary/5">
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-success" />
+                <div className="relative">
+                  <div className="w-2 h-2 rounded-full bg-success" />
+                  <div className="absolute inset-0 w-2 h-2 rounded-full bg-success animate-ping opacity-30" />
+                </div>
                 <span className="text-sm font-semibold text-foreground">
                   Soporte ContentFlow
                 </span>

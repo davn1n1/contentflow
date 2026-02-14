@@ -11,9 +11,9 @@ interface ToolInvocationProps {
 export function ChatToolResult({ toolName, state, result }: ToolInvocationProps) {
   if (state !== "result") {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/10 text-xs text-muted-foreground">
-        <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        <span>{getToolLabel(toolName)}...</span>
+      <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-gradient-to-r from-primary/8 to-transparent border border-primary/15 text-xs text-muted-foreground">
+        <div className="w-4 h-4 border-2 border-primary/60 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+        <span className="font-medium">{getToolLabel(toolName)}...</span>
       </div>
     );
   }
@@ -24,15 +24,16 @@ export function ChatToolResult({ toolName, state, result }: ToolInvocationProps)
 
   if (data.error) {
     return (
-      <div className="px-3 py-2 rounded-lg bg-destructive/5 border border-destructive/10 text-xs text-destructive">
+      <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-destructive/8 border border-destructive/15 text-xs text-destructive">
+        <span className="w-1.5 h-1.5 rounded-full bg-destructive flex-shrink-0" />
         {String(data.error)}
       </div>
     );
   }
 
   return (
-    <div className="px-3 py-2 rounded-lg bg-primary/5 border border-primary/10 text-xs space-y-1">
-      <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
+    <div className="px-3 py-2.5 rounded-lg bg-gradient-to-r from-primary/8 to-transparent border border-primary/15 text-xs space-y-1.5">
+      <div className="flex items-center gap-1.5 text-primary/80 font-semibold text-[11px] uppercase tracking-wider">
         {getToolIcon(toolName)}
         <span>{getToolLabel(toolName)}</span>
       </div>
