@@ -274,6 +274,15 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
   const [fullscreenSrc, setFullscreenSrc] = useState<string | null>(null);
   const [modificaState, setModificaState] = useState<ModificaState>("idle");
   const isGenerating = modificaState === "generating" || modificaState === "sending";
+  // Pop animation on expand
+  const [popKey, setPopKey] = useState(0);
+  const wasExpanded = useRef(false);
+  useEffect(() => {
+    if (isExpanded && !wasExpanded.current) {
+      setPopKey((k) => k + 1);
+    }
+    wasExpanded.current = isExpanded;
+  }, [isExpanded]);
 
   useEffect(() => { setFeedbackValue(scene.feedback_slide || ""); }, [scene.feedback_slide]);
   useEffect(() => { setEngineValue(scene.slide_engine || ""); }, [scene.slide_engine]);
@@ -303,7 +312,16 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
       >
         {/* # */}
         <td className="px-2 py-2 text-center">
-          <span className={cn("inline-flex items-center justify-center w-6 h-6 rounded-md text-[11px] font-bold", colors.bg, colors.text)}>
+          <span
+            key={popKey}
+            className={cn(
+              "inline-flex items-center justify-center rounded-md text-[11px] font-bold transition-all",
+              colors.bg, colors.text,
+              isExpanded
+                ? "w-8 h-8 text-sm shadow-lg shadow-current/20 ring-2 ring-current/30 animate-[scene-pop_0.4s_ease-out]"
+                : "w-6 h-6"
+            )}
+          >
             {scene.n_escena}
           </span>
         </td>
