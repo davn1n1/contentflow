@@ -464,11 +464,11 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
             </span>
           )}
         </td>
-        {/* Broll thumbnail */}
+        {/* Broll thumbnail (Custom priority > Broll Thumb) */}
         <td className="px-0.5 py-1.5">
-          {scene.broll_thumb ? (
-            <div className="w-16 h-10 rounded overflow-hidden bg-muted border border-border/30">
-              <img src={scene.broll_thumb} alt={`Broll ${scene.n_escena}`} className="w-full h-full object-cover" />
+          {(scene.broll_custom || scene.broll_thumb) ? (
+            <div className={cn("w-16 h-10 rounded overflow-hidden bg-muted border", scene.broll_custom ? "border-sky-500/40" : "border-border/30")}>
+              <img src={scene.broll_custom || scene.broll_thumb || ""} alt={`Broll ${scene.n_escena}`} className="w-full h-full object-cover" />
             </div>
           ) : (
             <div className="w-16 h-10 rounded bg-muted/30 border border-border/20 flex items-center justify-center">
@@ -659,65 +659,94 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
                   )}
                 </div>
 
-                <div className="flex gap-5">
-                  {/* Broll Thumb — medium size */}
-                  <div className="flex-shrink-0">
-                    {scene.broll_thumb ? (
-                      <div
-                        className="relative group cursor-zoom-in"
-                        onClick={(e) => { e.stopPropagation(); setFullscreenSrc(scene.broll_thumb || ""); }}
-                      >
-                        <div className="w-[280px] h-[158px] rounded-lg overflow-hidden bg-muted border border-border/30 hover:border-sky-400/40 transition-colors">
-                          <img src={scene.broll_thumb} alt={`Broll ${scene.n_escena}`} className="w-full h-full object-cover" />
-                        </div>
-                        <div className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/50 text-white/60 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
-                          <Maximize2 className="w-3.5 h-3.5" />
-                        </div>
+                {(() => {
+                  // Priority: Custom > Broll Thumb
+                  const brollImg = scene.broll_custom || scene.broll_thumb || null;
+                  const isCustom = !!scene.broll_custom;
+                  return (
+                    <div className="flex gap-5">
+                      {/* Broll image — Custom has priority */}
+                      <div className="flex-shrink-0">
+                        {brollImg ? (
+                          <div>
+                            {isCustom && (
+                              <p className="text-[9px] uppercase tracking-wider text-sky-400/60 font-medium mb-1">Custom</p>
+                            )}
+                            <div
+                              className="relative group cursor-zoom-in"
+                              onClick={(e) => { e.stopPropagation(); setFullscreenSrc(brollImg); }}
+                            >
+                              <div className={cn(
+                                "w-[280px] h-[158px] rounded-lg overflow-hidden bg-muted border transition-colors",
+                                isCustom ? "border-sky-500/40 hover:border-sky-400/60" : "border-border/30 hover:border-sky-400/40"
+                              )}>
+                                <img src={brollImg} alt={`Broll ${scene.n_escena}`} className="w-full h-full object-cover" />
+                              </div>
+                              <div className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/50 text-white/60 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
+                                <Maximize2 className="w-3.5 h-3.5" />
+                              </div>
+                            </div>
+                            {/* Show Broll Thumb below if Custom is shown and both exist */}
+                            {isCustom && scene.broll_thumb && (
+                              <div className="mt-2">
+                                <p className="text-[9px] uppercase tracking-wider text-muted-foreground/50 font-medium mb-1">Broll Original</p>
+                                <div
+                                  className="relative group cursor-zoom-in"
+                                  onClick={(e) => { e.stopPropagation(); setFullscreenSrc(scene.broll_thumb || ""); }}
+                                >
+                                  <div className="w-[140px] h-[79px] rounded-md overflow-hidden bg-muted border border-border/20 hover:border-border/40 transition-colors">
+                                    <img src={scene.broll_thumb} alt={`Broll original ${scene.n_escena}`} className="w-full h-full object-cover" />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="w-[280px] h-[158px] rounded-lg bg-muted/30 border border-border/20 flex items-center justify-center">
+                            <Film className="w-8 h-8 text-muted-foreground/15" />
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="w-[280px] h-[158px] rounded-lg bg-muted/30 border border-border/20 flex items-center justify-center">
-                        <Film className="w-8 h-8 text-muted-foreground/15" />
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Broll Video + Info */}
-                  <div className="flex-1 min-w-0 space-y-3">
-                    {/* Broll Video player */}
-                    {scene.broll_video && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Video B-Roll</p>
-                        <video
-                          src={scene.broll_video}
-                          controls
-                          preload="metadata"
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-full max-w-[360px] rounded-lg border border-border/30 bg-black"
-                        />
-                      </div>
-                    )}
+                      {/* Broll Video + Info */}
+                      <div className="flex-1 min-w-0 space-y-3">
+                        {/* Broll Video player */}
+                        {scene.broll_video && (
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Video B-Roll</p>
+                            <video
+                              src={scene.broll_video}
+                              controls
+                              preload="metadata"
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full max-w-[360px] rounded-lg border border-border/30 bg-black"
+                            />
+                          </div>
+                        )}
 
-                    {/* Broll metadata */}
-                    <div className="flex gap-4">
-                      {scene.broll_offset != null && (
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Offset</p>
-                          <p className="text-xs font-mono text-foreground/80">{scene.broll_offset}s</p>
+                        {/* Broll metadata */}
+                        <div className="flex gap-4">
+                          {scene.broll_offset != null && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Offset</p>
+                              <p className="text-xs font-mono text-foreground/80">{scene.broll_offset}s</p>
+                            </div>
+                          )}
+                          {scene.broll_duration != null && (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Duración</p>
+                              <p className="text-xs font-mono text-foreground/80">{scene.broll_duration}s</p>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {scene.broll_duration != null && (
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">Duración</p>
-                          <p className="text-xs font-mono text-foreground/80">{scene.broll_duration}s</p>
-                        </div>
-                      )}
+
+                        {!brollImg && !scene.broll_video && (
+                          <p className="text-xs text-muted-foreground/40 italic">Sin B-Roll asignado</p>
+                        )}
+                      </div>
                     </div>
-
-                    {!scene.broll_thumb && !scene.broll_video && (
-                      <p className="text-xs text-muted-foreground/40 italic">Sin B-Roll asignado</p>
-                    )}
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
 
             </div>
@@ -772,7 +801,7 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
   );
 
   const withSlides = scenes.filter((s) => s.slide).length;
-  const withBroll = scenes.filter((s) => s.broll_thumb).length;
+  const withBroll = scenes.filter((s) => s.broll_custom || s.broll_thumb).length;
   const withAvatar = scenes.filter((s) => s.photo_avatar).length;
   const activaSlideCount = scenes.filter((s) => s.slide_activa).length;
   const activaBrollCount = scenes.filter((s) => s.broll_activa).length;

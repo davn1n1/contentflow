@@ -68,7 +68,8 @@ interface SceneFields {
   "URL Broll S3"?: string[];
   "Broll Offset"?: number;
   "Broll Duration"?: number;
-  "Custom"?: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  "Custom"?: any[];
   "Broll_Video"?: string[];
   // Camera / Avatar fields
   "Zoom Camera"?: string;
@@ -146,7 +147,18 @@ export async function GET(request: NextRequest) {
         url_broll_s3: Array.isArray(r.fields["URL Broll S3"]) ? r.fields["URL Broll S3"]?.[0] || null : r.fields["URL Broll S3"] || null,
         broll_offset: r.fields["Broll Offset"] ?? null,
         broll_duration: r.fields["Broll Duration"] ?? null,
-        broll_custom: Array.isArray(r.fields["Custom"]) ? r.fields["Custom"]?.[0] || null : null,
+        broll_custom: (() => {
+          const c = r.fields["Custom"];
+          if (!Array.isArray(c) || c.length === 0) return null;
+          const first = c[0];
+          // Attachment object (from lookup)
+          if (typeof first === "object" && first !== null && "url" in first) {
+            return first.thumbnails?.large?.url || first.url || null;
+          }
+          // Direct URL string
+          if (typeof first === "string" && first.startsWith("http")) return first;
+          return null;
+        })(),
         broll_video: Array.isArray(r.fields["Broll_Video"]) ? r.fields["Broll_Video"]?.[0] || null : null,
         // Camera / Avatar fields
         zoom_camera: r.fields["Zoom Camera"] || null,
