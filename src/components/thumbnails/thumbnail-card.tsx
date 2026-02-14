@@ -1,72 +1,90 @@
 "use client";
 
-import type { Video } from "@/types/database";
-import { StatusBadge } from "@/components/videos/status-badge";
-import { PipelineProgressBar } from "@/components/videos/pipeline-progress-bar";
-import { Film } from "lucide-react";
+import type { DraftPublicacion } from "@/types/database";
+import { Star, ThumbsUp, ImageIcon } from "lucide-react";
 
 interface ThumbnailCardProps {
-  video: Video;
+  draft: DraftPublicacion;
   onClick: () => void;
 }
 
-export function ThumbnailCard({ video, onClick }: ThumbnailCardProps) {
-  const title = video.titulo || video.titulo_youtube_a || `Video #${video.name}`;
+export function ThumbnailCard({ draft, onClick }: ThumbnailCardProps) {
+  const imageUrl = draft.miniatura_url || draft.url_miniatura;
 
   return (
     <button
       onClick={onClick}
       className="glass-card rounded-xl overflow-hidden hover:border-primary/30 transition-all group text-left w-full"
     >
-      {/* Thumbnail */}
+      {/* image_preview */}
       <div className="relative aspect-video bg-muted">
-        {video.portada_a ? (
+        {imageUrl ? (
           <img
-            src={video.portada_a}
-            alt={title}
+            src={imageUrl}
+            alt={draft.titulo || draft.name || "Miniatura"}
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-            <Film className="w-10 h-10 text-muted-foreground/30" />
-            <span className="text-xs text-muted-foreground/50">
-              {video.status_copy ? "Sin miniatura" : "Pendiente copy"}
-            </span>
+          <div className="w-full h-full flex items-center justify-center">
+            <ImageIcon className="w-10 h-10 text-muted-foreground/20" />
           </div>
         )}
-        <div className="absolute top-2 right-2">
-          <StatusBadge status={video.estado} />
-        </div>
-        <span className="absolute bottom-2 left-2 text-xs font-mono text-white/80 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded">
-          #{video.name}
-        </span>
+
+        {/* thumb_id */}
+        {draft.numero_concepto && (
+          <span className="absolute bottom-2 left-2 text-xs font-mono font-bold text-white bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded">
+            {draft.numero_concepto}
+          </span>
+        )}
+
+        {/* is_favorite */}
+        {draft.favorita && (
+          <Star className="absolute top-2 right-2 w-5 h-5 text-amber-400 fill-amber-400 drop-shadow" />
+        )}
+
+        {/* category_code */}
+        {draft.portada_youtube_abc && (
+          <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+            {draft.portada_youtube_abc}
+          </span>
+        )}
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-3">
-        <h4 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors line-clamp-2">
-          {title}
-        </h4>
+      <div className="p-3 space-y-2">
+        {/* description_text */}
+        <p className="text-sm text-foreground line-clamp-3 leading-snug">
+          {draft.descripcion || draft.titulo || "Sin descripcion"}
+        </p>
 
-        {/* Title options preview */}
-        {(video.titulo_youtube_a || video.titulo_youtube_b) && (
-          <div className="flex items-center gap-1.5">
-            {video.titulo_youtube_a && (
-              <span className="text-[10px] font-bold text-primary bg-primary/10 rounded px-1 py-0.5">A</span>
-            )}
-            {video.titulo_youtube_b && (
-              <span className="text-[10px] font-bold text-purple-400 bg-purple-400/10 rounded px-1 py-0.5">B</span>
-            )}
-            {video.titulo_youtube_c && (
-              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 rounded px-1 py-0.5">C</span>
-            )}
-            <span className="text-[10px] text-muted-foreground ml-1">
-              {[video.titulo_youtube_a, video.titulo_youtube_b, video.titulo_youtube_c].filter(Boolean).length} titles
+        {/* Tags row */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* model_tag */}
+          {(draft.slideengine || draft.tipo_creatividad) && (
+            <span className="text-[10px] font-medium text-cyan-400 bg-cyan-400/10 rounded px-1.5 py-0.5">
+              {draft.slideengine || draft.tipo_creatividad}
             </span>
-          </div>
-        )}
+          )}
 
-        <PipelineProgressBar video={video} compact />
+          {/* approved */}
+          {draft.portada && (
+            <span className="text-[10px] font-medium text-emerald-400 bg-emerald-400/10 rounded px-1.5 py-0.5">
+              Si
+            </span>
+          )}
+
+          {/* tone_tag */}
+          {draft.pone_persona && (
+            <span className="text-[10px] font-medium text-purple-400 bg-purple-400/10 rounded px-1.5 py-0.5">
+              {draft.pone_persona}
+            </span>
+          )}
+
+          {/* liked */}
+          {draft.status === "Aprobada" && (
+            <ThumbsUp className="w-3.5 h-3.5 text-emerald-400" />
+          )}
+        </div>
       </div>
     </button>
   );

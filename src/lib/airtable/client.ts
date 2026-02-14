@@ -26,6 +26,7 @@ export const TABLES = {
   SOCIAL_PROFILES: "tblNESIBVHUgaTwce",
   ACCOUNT_SETTINGS: "tblyFkvBVuHs6mLOO",
   CAMPANAS: "tbl7YBYQ7Whb6JdE1",
+  DRAFT_PUBLICACION: "tbltxqsZK5lzHP98R",
 } as const;
 
 interface AirtableResponse<T = Record<string, unknown>> {

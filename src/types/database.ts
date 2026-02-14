@@ -82,6 +82,7 @@ export interface Video {
   genera_reels: string | null;
   status_agentes: string | null;
   formato: string | null;
+  draft_publicacion_ids: string[];
 }
 
 export interface Scene {
@@ -258,6 +259,31 @@ export interface ResearchSelectedIdea {
   yt_views_count: number | null;
   yt_video_id: string | null;
   yt_channel_name?: string | null;
+}
+
+export interface DraftPublicacion {
+  id: string;
+  name: string | null;
+  titulo: string | null;
+  status: string | null;
+  numero_concepto: string | null;
+  miniatura_url: string | null;
+  url_miniatura: string | null;
+  descripcion: string | null;
+  prompt_miniatura: string | null;
+  portada: boolean;
+  portada_youtube_abc: string | null;
+  favorita: boolean;
+  tipo_creatividad: string | null;
+  formato: string | null;
+  status_nuevas_miniaturas: string | null;
+  slideengine: string | null;
+  pone_persona: string | null;
+  expresion_ids: string[];
+  feedback: string | null;
+  notes: string | null;
+  video_ids: string[];
+  created: string;
 }
 
 export type PipelineStep = "copy" | "audio" | "video" | "render";

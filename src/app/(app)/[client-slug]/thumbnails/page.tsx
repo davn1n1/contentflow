@@ -1,136 +1,140 @@
 "use client";
 
-import { useState, useDeferredValue } from "react";
-import { useParams } from "next/navigation";
-import { useAccountStore } from "@/lib/stores/account-store";
-import { useVideos } from "@/lib/hooks/use-videos";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { useVideoContextStore } from "@/lib/stores/video-context-store";
+import { useVideoDetail } from "@/lib/hooks/use-video-detail";
+import { useDraftPublicacion } from "@/lib/hooks/use-draft-publicacion";
+import { PipelineHeader } from "@/components/shared/pipeline-header";
 import { ThumbnailCard } from "@/components/thumbnails/thumbnail-card";
 import { ThumbnailDetail } from "@/components/thumbnails/thumbnail-detail";
-import type { Video } from "@/types/database";
-import { Search, ImageIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-type ThumbnailFilter = "all" | "with-thumbnail" | "without-thumbnail";
-
-const FILTERS: { key: ThumbnailFilter; label: string }[] = [
-  { key: "all", label: "Todos" },
-  { key: "with-thumbnail", label: "Con miniatura" },
-  { key: "without-thumbnail", label: "Sin miniatura" },
-];
+import type { DraftPublicacion } from "@/types/database";
+import { ImageIcon, Star } from "lucide-react";
 
 export default function ThumbnailsPage() {
-  const params = useParams();
-  const clientSlug = params["client-slug"] as string;
-  const { currentAccount } = useAccountStore();
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<ThumbnailFilter>("all");
-  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+  const searchParams = useSearchParams();
+  const urlVideoId = searchParams.get("videoId");
+  const { activeVideoId, setActiveVideo } = useVideoContextStore();
 
-  const deferredSearch = useDeferredValue(search);
+  const videoId = urlVideoId || activeVideoId;
 
-  const { data: videos = [], isLoading } = useVideos({
-    accountId: currentAccount?.id,
-    search: deferredSearch || undefined,
-  });
+  // Sync URL → context store
+  useEffect(() => {
+    if (urlVideoId && urlVideoId !== activeVideoId) {
+      setActiveVideo(urlVideoId);
+    }
+  }, [urlVideoId, activeVideoId, setActiveVideo]);
 
-  const filteredVideos = videos.filter((video) => {
-    if (filter === "with-thumbnail") return !!video.portada_a;
-    if (filter === "without-thumbnail") return !video.portada_a && video.status_copy;
-    return true;
-  });
+  const { data: videoDetail } = useVideoDetail(videoId);
+  const { data: drafts = [], isLoading } = useDraftPublicacion(videoId);
+
+  const [selectedDraft, setSelectedDraft] = useState<DraftPublicacion | null>(null);
+
+  // Split into sections
+  const allDrafts = drafts;
+  const favoriteDrafts = drafts.filter((d) => d.favorita);
+
+  if (!videoId) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)]">
+        <ImageIcon className="w-12 h-12 mb-4 opacity-30" />
+        <h2 className="text-lg font-semibold text-muted-foreground">Sin video seleccionado</h2>
+        <p className="text-sm text-muted-foreground/70 mt-1">
+          Selecciona un video desde la lista de Videos
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Miniaturas</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {filteredVideos.length} videos{" "}
-            {currentAccount?.name ? `de ${currentAccount.name}` : ""}
-          </p>
-        </div>
-        <ImageIcon className="w-8 h-8 text-muted-foreground/30" />
-      </div>
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      <PipelineHeader currentPhase="copy" />
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-muted/50 border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-          />
+      <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        {/* Header with count */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <ImageIcon className="w-5 h-5 text-muted-foreground" />
+            <h2 className="text-lg font-bold text-foreground">Miniaturas</h2>
+            <span className="text-sm font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              {allDrafts.length} thumbs
+            </span>
+          </div>
         </div>
 
-        {/* Segmented filter */}
-        <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={cn(
-                "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                filter === f.key
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="glass-card rounded-xl overflow-hidden animate-pulse">
-              <div className="aspect-video bg-muted" />
-              <div className="p-4 space-y-3">
-                <div className="h-4 w-3/4 bg-muted rounded" />
-                <div className="h-3 w-1/2 bg-muted rounded" />
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="glass-card rounded-xl overflow-hidden animate-pulse">
+                <div className="aspect-video bg-muted" />
+                <div className="p-3 space-y-2">
+                  <div className="h-4 w-3/4 bg-muted rounded" />
+                  <div className="h-3 w-1/2 bg-muted rounded" />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : filteredVideos.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <ImageIcon className="w-12 h-12 text-muted-foreground/20 mb-4" />
-          <h3 className="text-sm font-semibold text-muted-foreground">
-            {search || filter !== "all"
-              ? "No se encontraron videos con estos filtros"
-              : "No hay videos disponibles"}
-          </h3>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            {filter === "without-thumbnail"
-              ? "Todos los videos con copy tienen miniatura"
-              : "Crea un video para empezar"}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredVideos.map((video) => (
-            <ThumbnailCard
-              key={video.id}
-              video={video}
-              onClick={() => setSelectedVideo(video)}
-            />
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        ) : allDrafts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <ImageIcon className="w-12 h-12 text-muted-foreground/20 mb-4" />
+            <h3 className="text-sm font-semibold text-muted-foreground">
+              No hay miniaturas para este video
+            </h3>
+            <p className="text-xs text-muted-foreground/70 mt-1">
+              Las miniaturas se generan durante la fase de Copy
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* MINIATURAS section */}
+            <section>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+                Miniaturas
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {allDrafts.map((draft) => (
+                  <ThumbnailCard
+                    key={draft.id}
+                    draft={draft}
+                    onClick={() => setSelectedDraft(draft)}
+                  />
+                ))}
+              </div>
+            </section>
+
+            {/* FAVORITAS section */}
+            {favoriteDrafts.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Favoritas
+                  </h3>
+                  <span className="text-xs text-muted-foreground">
+                    ({favoriteDrafts.length})
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {favoriteDrafts.map((draft) => (
+                    <ThumbnailCard
+                      key={`fav-${draft.id}`}
+                      draft={draft}
+                      onClick={() => setSelectedDraft(draft)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Detail Dialog */}
       <ThumbnailDetail
-        video={selectedVideo}
-        open={!!selectedVideo}
+        draft={selectedDraft}
+        open={!!selectedDraft}
         onOpenChange={(open) => {
-          if (!open) setSelectedVideo(null);
+          if (!open) setSelectedDraft(null);
         }}
       />
     </div>

@@ -31,6 +31,7 @@ const VIDEO_FIELDS = [
   "Status & Copy Analysis",
   "Extensión Palabras",
   "Estimated Duration mm:ss",
+  "Draft Publicacion",
 ];
 
 interface VideoFields {
@@ -80,6 +81,7 @@ interface VideoFields {
   "Status & Copy Analysis"?: string;
   "Extensión Palabras"?: number;
   "Estimated Duration mm:ss"?: string;
+  "Draft Publicacion"?: string[];
 }
 
 export async function GET(request: NextRequest) {
@@ -223,5 +225,6 @@ function mapVideo(r: { id: string; createdTime: string; fields: VideoFields }) {
     status_copy_analysis: r.fields["Status & Copy Analysis"] || null,
     extension_palabras: r.fields["Extensión Palabras"] ?? null,
     estimated_duration: r.fields["Estimated Duration mm:ss"] || null,
+    draft_publicacion_ids: r.fields["Draft Publicacion"] || [],
   };
 }
