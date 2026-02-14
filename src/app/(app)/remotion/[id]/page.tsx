@@ -275,6 +275,42 @@ export default function RemotionPreviewPage() {
 
   const rawTimeline = record?.remotion_timeline as RemotionTimeline | undefined;
   const playerRef = useRef<PlayerRef>(null);
+  const miniPlayerRef = useRef<PlayerRef>(null);
+
+  // ─── Floating mini player (PiP) when main player scrolls out of view ──
+  const mainPlayerRef = useRef<HTMLDivElement>(null);
+  const [mainPlayerVisible, setMainPlayerVisible] = useState(true);
+
+  useEffect(() => {
+    const el = mainPlayerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setMainPlayerVisible(entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [record]);
+
+  // Sync mini player frame with main player
+  useEffect(() => {
+    if (mainPlayerVisible || !playerRef.current || !miniPlayerRef.current) return;
+    const main = playerRef.current;
+    const mini = miniPlayerRef.current;
+    // Sync current frame on becoming visible
+    mini.seekTo(main.getCurrentFrame());
+    // Listen for frame changes on main player
+    const handler = () => {
+      if (main.isPlaying()) {
+        if (!mini.isPlaying()) mini.play();
+      } else {
+        if (mini.isPlaying()) mini.pause();
+        mini.seekTo(main.getCurrentFrame());
+      }
+    };
+    const interval = setInterval(handler, 200);
+    return () => clearInterval(interval);
+  }, [mainPlayerVisible]);
 
   // ─── Zoom state (lifted here so shortcuts can access it) ──
   const [zoom, setZoom] = useState(1);
@@ -588,7 +624,7 @@ export default function RemotionPreviewPage() {
       </div>
 
       {/* Player + Inspector layout */}
-      <div className="flex gap-4 items-start">
+      <div ref={mainPlayerRef} className="flex gap-4 items-start">
         <div className="flex-1 min-w-0 rounded-lg overflow-hidden border border-border/50 bg-black">
           <Player
             ref={playerRef}
@@ -608,6 +644,29 @@ export default function RemotionPreviewPage() {
         </div>
         <InspectorPanel />
       </div>
+
+      {/* Floating mini player — visible when main player scrolls out of view */}
+      {!mainPlayerVisible && (
+        <div className="fixed bottom-4 right-4 z-50 rounded-lg overflow-hidden border border-border/50 bg-black shadow-2xl shadow-black/50 transition-all"
+          style={{ width: 320, aspectRatio: `${timeline.width}/${timeline.height}` }}
+        >
+          <Player
+            ref={miniPlayerRef}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            component={DynamicVideo as any}
+            inputProps={inputProps}
+            durationInFrames={timeline.durationInFrames}
+            fps={timeline.fps}
+            compositionWidth={previewDimensions?.width ?? timeline.width}
+            compositionHeight={previewDimensions?.height ?? timeline.height}
+            style={{ width: "100%" }}
+            controls
+            autoPlay={false}
+            loop={false}
+            clickToPlay
+          />
+        </div>
+      )}
 
       {/* Lambda Render */}
       <RenderSection
