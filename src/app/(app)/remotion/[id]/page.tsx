@@ -49,6 +49,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { DynamicVideo } from "@/lib/remotion/compositions/DynamicVideo";
 import { RenderModeContext } from "@/lib/remotion/RenderModeContext";
 import { InspectorPanel } from "@/components/editor/inspector/InspectorPanel";
+import { AudioWaveform, VideoThumbnail } from "@/components/editor/ClipVisuals";
 import { useTimelineShortcuts } from "@/lib/hooks/useTimelineShortcuts";
 import type {
   RemotionTimeline,
@@ -1634,6 +1635,10 @@ function SortableClip({
       }}
       onMouseLeave={() => onHover(null)}
     >
+      {/* Background visuals: waveform for audio, thumbnail for video */}
+      {clip.type === "audio" && <AudioWaveform src={clip.src} bars={Math.max(Math.round(width * 1.2), 20)} />}
+      {clip.type === "video" && <VideoThumbnail src={clip.src} />}
+
       {/* Left resize handle */}
       <div
         className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover:opacity-100 bg-white/20 hover:bg-white/40 transition-opacity z-10 rounded-l-sm"
