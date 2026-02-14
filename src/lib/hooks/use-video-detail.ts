@@ -89,6 +89,17 @@ export interface SceneDetail {
   feedback_slide: string | null;
   prompt_slide: string | null;
   calificacion_imagen_final: string | null;
+  // Broll fields
+  broll_thumb: string | null;
+  broll_activa: boolean;
+  url_broll_s3: string | null;
+  broll_offset: number | null;
+  broll_duration: number | null;
+  broll_custom: string | null;
+  // Camera / Avatar fields
+  zoom_camera: string | null;
+  tipo_avatar: string | null;
+  photo_avatar: string | null;
 }
 
 export interface LinkedIdea {

@@ -16,6 +16,12 @@ const SCENE_FIELDS = [
   "Slide Activa", "StatusSlide", "SlideEngine",
   "Feedback Slide", "Prompt Slide",
   "Calificacion Imagen Final",
+  // Broll fields
+  "Broll Thumb", "Broll Activa", "URL Broll S3",
+  "Broll Offset", "Broll Duration",
+  "Custom",
+  // Camera / Avatar fields
+  "Zoom Camera", "Tipo Avatar", "Photo S3 Avatar IV",
 ];
 
 interface SceneFields {
@@ -56,6 +62,17 @@ interface SceneFields {
   "Feedback Slide"?: string;
   "Prompt Slide"?: string;
   "Calificacion Imagen Final"?: string;
+  // Broll fields
+  "Broll Thumb"?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  "Broll Activa"?: boolean;
+  "URL Broll S3"?: string[];
+  "Broll Offset"?: number;
+  "Broll Duration"?: number;
+  "Custom"?: string[];
+  // Camera / Avatar fields
+  "Zoom Camera"?: string;
+  "Tipo Avatar"?: string[];
+  "Photo S3 Avatar IV"?: string[];
 }
 
 export async function GET(request: NextRequest) {
@@ -122,6 +139,17 @@ export async function GET(request: NextRequest) {
         feedback_slide: r.fields["Feedback Slide"] || null,
         prompt_slide: r.fields["Prompt Slide"] || null,
         calificacion_imagen_final: r.fields["Calificacion Imagen Final"] || null,
+        // Broll fields
+        broll_thumb: r.fields["Broll Thumb"]?.[0]?.thumbnails?.large?.url || r.fields["Broll Thumb"]?.[0]?.url || null,
+        broll_activa: r.fields["Broll Activa"] || false,
+        url_broll_s3: Array.isArray(r.fields["URL Broll S3"]) ? r.fields["URL Broll S3"]?.[0] || null : r.fields["URL Broll S3"] || null,
+        broll_offset: r.fields["Broll Offset"] ?? null,
+        broll_duration: r.fields["Broll Duration"] ?? null,
+        broll_custom: Array.isArray(r.fields["Custom"]) ? r.fields["Custom"]?.[0] || null : null,
+        // Camera / Avatar fields
+        zoom_camera: r.fields["Zoom Camera"] || null,
+        tipo_avatar: Array.isArray(r.fields["Tipo Avatar"]) ? r.fields["Tipo Avatar"]?.[0] || null : null,
+        photo_avatar: Array.isArray(r.fields["Photo S3 Avatar IV"]) ? r.fields["Photo S3 Avatar IV"]?.[0] || null : null,
         camera_table_id: null,
         audio_id: null,
       }))

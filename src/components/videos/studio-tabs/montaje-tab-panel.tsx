@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import {
   Play, Settings2, ChevronDown, Palette, Music, ImageIcon, Image as ImageLucide,
   ChevronRight, Loader2, CheckCircle2, XCircle, Wand2, Maximize2, X,
+  Film, User2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -403,6 +404,61 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
             </div>
           )}
         </td>
+        {/* ── Broll group ── */}
+        {/* Broll Activa */}
+        <td className="px-1 py-3 text-center border-l border-border/20">
+          <span className={cn(
+            "inline-block w-2.5 h-2.5 rounded-full",
+            scene.broll_activa ? "bg-sky-400" : "bg-muted-foreground/20"
+          )} title={scene.broll_activa ? "Activa" : "Inactiva"} />
+        </td>
+        {/* Custom */}
+        <td className="px-1 py-3">
+          {scene.broll_custom && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-sky-400/10 text-sky-400 truncate max-w-[60px] inline-block">
+              {scene.broll_custom}
+            </span>
+          )}
+        </td>
+        {/* Broll thumbnail */}
+        <td className="px-0.5 py-1.5">
+          {scene.broll_thumb ? (
+            <div className="w-16 h-10 rounded overflow-hidden bg-muted border border-border/30">
+              <img src={scene.broll_thumb} alt={`Broll ${scene.n_escena}`} className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className="w-16 h-10 rounded bg-muted/30 border border-border/20 flex items-center justify-center">
+              <Film className="w-3 h-3 text-muted-foreground/20" />
+            </div>
+          )}
+        </td>
+        {/* ── Avatar group ── */}
+        {/* Tipo Avatar */}
+        <td className="px-1 py-3 border-l border-border/20">
+          {scene.tipo_avatar && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-400/10 text-amber-400 truncate max-w-[60px] inline-block">
+              {scene.tipo_avatar}
+            </span>
+          )}
+        </td>
+        {/* Zoom Camera */}
+        <td className="px-1 py-3 text-center">
+          {scene.zoom_camera && (
+            <span className="text-[10px] font-mono text-muted-foreground">{scene.zoom_camera}%</span>
+          )}
+        </td>
+        {/* Avatar thumbnail */}
+        <td className="px-0.5 py-1.5">
+          {scene.photo_avatar ? (
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border/30">
+              <img src={scene.photo_avatar} alt="Avatar" className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-muted/30 border border-border/20 flex items-center justify-center">
+              <User2 className="w-3 h-3 text-muted-foreground/20" />
+            </div>
+          )}
+        </td>
         {/* Expand indicator */}
         <td className="w-4 pr-2">
           <ChevronRight className={cn("w-3.5 h-3.5 text-muted-foreground/40 transition-transform", isExpanded && "rotate-90")} />
@@ -412,7 +468,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
       {/* Expanded Content */}
       {isExpanded && (
         <tr className="border-b border-border/40 bg-muted/10">
-          <td colSpan={10} className="px-4 py-4">
+          <td colSpan={16} className="px-4 py-4">
             <div className="space-y-4">
               {/* Script (readonly) */}
               {(scene.script || scene.script_elevenlabs) && (
@@ -585,7 +641,10 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
   );
 
   const withSlides = scenes.filter((s) => s.slide).length;
-  const activaCount = scenes.filter((s) => s.slide_activa).length;
+  const withBroll = scenes.filter((s) => s.broll_thumb).length;
+  const withAvatar = scenes.filter((s) => s.photo_avatar).length;
+  const activaSlideCount = scenes.filter((s) => s.slide_activa).length;
+  const activaBrollCount = scenes.filter((s) => s.broll_activa).length;
 
   return (
     <div
@@ -596,15 +655,15 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
       <div className="px-5 py-3 border-b border-border flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <ImageLucide className="w-4 h-4 text-violet-400" />
-          Escenas — Slides
+          Escenas — Montaje
           <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full font-medium text-muted-foreground">
             {scenes.length}
           </span>
         </h3>
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] text-muted-foreground/80">
-            {withSlides}/{scenes.length} slides · {activaCount} activas
-          </span>
+        <div className="flex items-center gap-4">
+          <span className="text-[10px] text-violet-400/80">{withSlides} slides · {activaSlideCount} act</span>
+          <span className="text-[10px] text-sky-400/80">{withBroll} broll · {activaBrollCount} act</span>
+          <span className="text-[10px] text-amber-400/80">{withAvatar} avatar</span>
           <span className="text-[10px] text-muted-foreground/40">↑↓ navegar</span>
         </div>
       </div>
@@ -612,16 +671,41 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
+            {/* Group header row */}
+            <tr className="bg-muted/20 border-b border-border/30">
+              <th colSpan={4} className="text-left px-2 py-1.5 text-[9px] uppercase tracking-widest text-muted-foreground/60 font-semibold">Escena</th>
+              <th colSpan={5} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-violet-400/70 font-semibold border-l border-border/30">
+                <span className="flex items-center gap-1"><ImageLucide className="w-3 h-3" /> Slide</span>
+              </th>
+              <th colSpan={3} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-sky-400/70 font-semibold border-l border-border/30">
+                <span className="flex items-center gap-1"><Film className="w-3 h-3" /> B-Roll</span>
+              </th>
+              <th colSpan={3} className="text-left px-1 py-1.5 text-[9px] uppercase tracking-widest text-amber-400/70 font-semibold border-l border-border/30">
+                <span className="flex items-center gap-1"><User2 className="w-3 h-3" /> Avatar</span>
+              </th>
+              <th className="w-4"></th>
+            </tr>
+            {/* Column header row */}
             <tr className="border-b border-border bg-muted/30">
-              <th className="text-center px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">#</th>
-              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-24">Tipo</th>
-              <th className="text-right px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-14">Start</th>
-              <th className="text-right px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-14">Dur.</th>
-              <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8" title="Slide Activa">Act</th>
-              <th className="text-left px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-20">Status</th>
-              <th className="text-left px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-24">Engine</th>
-              <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-10" title="Calificación Imagen">Score</th>
-              <th className="text-left px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Slide</th>
+              {/* Escena group */}
+              <th className="text-center px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">#</th>
+              <th className="text-left px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-20">Tipo</th>
+              <th className="text-right px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12">Start</th>
+              <th className="text-right px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-12">Dur.</th>
+              {/* Slide group */}
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-7 border-l border-border/30" title="Slide Activa">A</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-18">Status</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-20">Engine</th>
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8" title="Calificación Imagen">Sc</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Img</th>
+              {/* Broll group */}
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-7 border-l border-border/30" title="Broll Activa">A</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-14">Custom</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Img</th>
+              {/* Avatar group */}
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16 border-l border-border/30">Tipo</th>
+              <th className="text-center px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-10">Zoom</th>
+              <th className="text-left px-1 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Img</th>
               <th className="w-4"></th>
             </tr>
           </thead>
