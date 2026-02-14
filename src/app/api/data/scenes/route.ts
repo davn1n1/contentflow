@@ -26,6 +26,7 @@ const SCENE_FIELDS = [
   "Tipo Avatar (from Avatares) (from Camera Table)",
   "Photo S3 Avatar IV (from Avatares) (from Camera Table)",
   "Heygen Render (from Camera Table)",
+  "URL S3 (from Camera Table)",
   // Audio fields (lookups from linked Audio table)
   "Tipo (from Audio)",
   "Seccion (from Audio)",
@@ -85,7 +86,8 @@ interface SceneFields {
   "Zoom Camera"?: string;
   "Tipo Avatar (from Avatares) (from Camera Table)"?: string[];
   "Photo S3 Avatar IV (from Avatares) (from Camera Table)"?: unknown[];
-  "Heygen Render (from Camera Table)"?: unknown[];
+  "Heygen Render (from Camera Table)"?: string[];
+  "URL S3 (from Camera Table)"?: string[];
   // Audio fields (lookups from linked Audio table)
   "Tipo (from Audio)"?: string[];
   "Seccion (from Audio)"?: string[];
@@ -201,16 +203,15 @@ export async function GET(request: NextRequest) {
           }
           return null;
         })(),
-        // Heygen Render (from Camera Table) — could be attachment or URL
+        // Heygen Render status text (formula field, not an image)
         heygen_render: (() => {
           const v = r.fields["Heygen Render (from Camera Table)"];
-          if (Array.isArray(v) && v.length > 0) {
-            const first = v[0];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if (typeof first === "object" && first !== null && "url" in first) return (first as any).thumbnails?.large?.url || (first as any).url || null;
-            if (typeof first === "string" && first.startsWith("http")) return first;
-          }
-          return null;
+          return Array.isArray(v) ? v[0] || null : null;
+        })(),
+        // Actual camera render video URL from Camera Table
+        camera_s3_url: (() => {
+          const v = r.fields["URL S3 (from Camera Table)"];
+          return Array.isArray(v) ? v[0] || null : null;
         })(),
         // Audio fields (from linked Audio table)
         audio_tipo: (() => {

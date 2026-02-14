@@ -101,7 +101,8 @@ export interface SceneDetail {
   zoom_camera: string | null;
   tipo_avatar: string | null;
   photo_avatar: string | null;
-  heygen_render: string | null;
+  heygen_render: string | null; // status text, not image
+  camera_s3_url: string | null; // actual rendered camera video URL
   // Audio fields (from linked Audio table)
   audio_tipo: string | null;
   audio_seccion: string | null;

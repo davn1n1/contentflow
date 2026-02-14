@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { getEngineColor } from "@/lib/constants/engine-colors";
 import { ActionButton } from "@/components/scripts/script-audio-detail";
+import { WaveformAudioPlayer } from "@/components/shared/waveform-audio-player";
 import type { VideoWithScenes, SceneDetail, LinkedRecord } from "@/lib/hooks/use-video-detail";
 
 // ─── Slide Engine Options ─────────────────────────────────
@@ -490,18 +491,19 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
             <span className="text-[10px] font-mono text-muted-foreground">{scene.zoom_camera}%</span>
           )}
         </td>
-        {/* Heygen Render thumbnail (medium) */}
+        {/* Avatar image/video thumbnail */}
         <td className="px-0.5 py-1.5 bg-amber-500/[0.06]">
-          {scene.heygen_render ? (
-            <div className="w-14 h-9 rounded overflow-hidden bg-muted border border-amber-500/30">
-              <img src={scene.heygen_render} alt="Heygen Render" className="w-full h-full object-cover" />
-            </div>
-          ) : scene.photo_avatar ? (
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border/30">
+          {scene.photo_avatar ? (
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-amber-500/30">
               <img src={scene.photo_avatar} alt="Avatar" className="w-full h-full object-cover" />
             </div>
+          ) : scene.camera_s3_url ? (
+            <div className="w-14 h-9 rounded overflow-hidden bg-muted border border-amber-500/30 relative">
+              <video src={scene.camera_s3_url} preload="metadata" muted className="w-full h-full object-cover" />
+              <Play className="w-3 h-3 text-white absolute bottom-0.5 right-0.5 drop-shadow" />
+            </div>
           ) : (
-            <div className="w-14 h-9 rounded bg-muted/30 border border-border/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-muted/30 border border-border/20 flex items-center justify-center">
               <User2 className="w-3 h-3 text-muted-foreground/20" />
             </div>
           )}
@@ -559,7 +561,17 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
                       <Tag className="w-3 h-3" /> Topic
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {scene.topic.split(/[,;]+/).map((t) => t.trim()).filter(Boolean).map((tag, idx) => {
+                      {(() => {
+                        // Topic may be a JSON array string like '["tag1","tag2"]'
+                        let tags: string[];
+                        try {
+                          const parsed = JSON.parse(scene.topic!);
+                          tags = Array.isArray(parsed) ? parsed.map(String) : [scene.topic!];
+                        } catch {
+                          tags = scene.topic!.split(/[,;]+/).map((t) => t.trim());
+                        }
+                        return tags;
+                      })().filter(Boolean).map((tag, idx) => {
                         const tc = topicTagColor(idx);
                         return (
                           <span key={idx} className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium border", tc.bg, tc.text, tc.border)}>
@@ -767,6 +779,16 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
                       {scene.tipo_avatar}
                     </span>
                   )}
+                  {scene.heygen_render && (
+                    <span className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded-full font-medium border",
+                      scene.heygen_render.toLowerCase().includes("rendered")
+                        ? "bg-emerald-400/10 text-emerald-400 border-emerald-500/25"
+                        : "bg-amber-400/10 text-amber-400 border-amber-500/25 animate-pulse"
+                    )}>
+                      {scene.heygen_render}
+                    </span>
+                  )}
                   {scene.zoom_camera && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-400/10 text-amber-400/70 border border-amber-500/20 ml-auto">
                       Zoom: {scene.zoom_camera}%
@@ -775,30 +797,37 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
                 </div>
 
                 <div className="flex gap-5 items-start">
-                  {/* Heygen Render image (medium) */}
-                  <div className="flex-shrink-0">
-                    {scene.heygen_render ? (
+                  {/* Avatar photo */}
+                  {scene.photo_avatar && (
+                    <div className="flex-shrink-0">
                       <div
                         className="relative group cursor-zoom-in"
-                        onClick={(e) => { e.stopPropagation(); setFullscreenSrc(scene.heygen_render || ""); }}
+                        onClick={(e) => { e.stopPropagation(); setFullscreenSrc(scene.photo_avatar || ""); }}
                       >
-                        <div className="w-[200px] h-[112px] rounded-lg overflow-hidden bg-muted border border-amber-500/30 hover:border-amber-400/50 transition-colors">
-                          <img src={scene.heygen_render} alt="Heygen Render" className="w-full h-full object-cover" />
-                        </div>
-                        <div className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/50 text-white/60 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
-                          <Maximize2 className="w-3.5 h-3.5" />
+                        <div className="w-16 h-16 rounded-full overflow-hidden bg-muted border border-amber-500/30 hover:border-amber-400/50 transition-colors">
+                          <img src={scene.photo_avatar} alt="Avatar" className="w-full h-full object-cover" />
                         </div>
                       </div>
-                    ) : scene.photo_avatar ? (
-                      <div className="w-16 h-16 rounded-full overflow-hidden bg-muted border border-border/30">
-                        <img src={scene.photo_avatar} alt="Avatar" className="w-full h-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="w-[200px] h-[112px] rounded-lg bg-muted/30 border border-border/20 flex items-center justify-center">
-                        <User2 className="w-8 h-8 text-muted-foreground/15" />
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
+
+                  {/* Camera S3 video (rendered avatar) */}
+                  {scene.camera_s3_url && (
+                    <div className="flex-shrink-0">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Camera Render</p>
+                      <video
+                        src={scene.camera_s3_url}
+                        controls
+                        preload="metadata"
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-[200px] rounded-lg border border-amber-500/30 bg-black"
+                      />
+                    </div>
+                  )}
+
+                  {!scene.photo_avatar && !scene.camera_s3_url && (
+                    <p className="text-xs text-muted-foreground/40 italic">Sin avatar asignado</p>
+                  )}
                 </div>
               </div>
 
@@ -815,16 +844,15 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
                 </div>
 
                 <div className="flex gap-5 items-start">
-                  {/* Audio player */}
+                  {/* Audio waveform player */}
                   {scene.audio_attachment && (
-                    <div className="flex-shrink-0">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Reproducir</p>
-                      <audio
-                        src={scene.audio_attachment}
-                        controls
-                        preload="metadata"
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-8 w-[240px]"
+                    <div className="flex-1 min-w-0 max-w-[360px]">
+                      <WaveformAudioPlayer
+                        url={scene.audio_attachment}
+                        color="rose"
+                        height={40}
+                        compact
+                        className="border-rose-500/20"
                       />
                     </div>
                   )}
@@ -931,8 +959,7 @@ function usePrefetchAdjacentScenes(scenes: SceneDetail[], expandedId: string | n
       if (s.slide_full) urls.push(s.slide_full);
       else if (s.slide) urls.push(s.slide);
       if (s.broll_thumb) urls.push(s.broll_thumb);
-      if (s.heygen_render) urls.push(s.heygen_render);
-      else if (s.photo_avatar) urls.push(s.photo_avatar);
+      if (s.photo_avatar) urls.push(s.photo_avatar);
       if (s.muestra_audio) urls.push(s.muestra_audio);
     }
 
@@ -1007,7 +1034,7 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
 
   const withSlides = scenes.filter((s) => s.slide).length;
   const withBroll = scenes.filter((s) => s.broll_thumb).length;
-  const withAvatar = scenes.filter((s) => s.heygen_render || s.photo_avatar).length;
+  const withAvatar = scenes.filter((s) => s.photo_avatar || s.camera_s3_url).length;
   const withAudio = scenes.filter((s) => s.audio_attachment || s.muestra_audio).length;
   const activaSlideCount = scenes.filter((s) => s.slide_activa).length;
   const activaBrollCount = scenes.filter((s) => s.broll_activa).length;
@@ -1166,7 +1193,7 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
         color="amber"
       />
 
-      {/* Montaje Scene Table — Slides */}
+      {/* Montaje Scene Table */}
       {video.scenes.length > 0 && (
         <MontajeSceneTable scenes={video.scenes} />
       )}

@@ -12,6 +12,7 @@ import {
   ChevronDown, Twitter, Newspaper, ImageIcon,
 } from "lucide-react";
 import type { VideoWithScenes, LinkedIdea, LinkedIdeaFull, SceneDetail } from "@/lib/hooks/use-video-detail";
+import { WaveformAudioPlayer } from "@/components/shared/waveform-audio-player";
 import { LinkedRecordPicker } from "./linked-record-picker";
 
 interface ScriptAudioDetailProps {
@@ -1788,7 +1789,7 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                     <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generando nuevo audio…
                   </div>
                 ) : scene.voice_s3 ? (
-                  <audio controls src={scene.voice_s3} className="flex-1 h-8" onClick={(e) => e.stopPropagation()} />
+                  <WaveformAudioPlayer url={scene.voice_s3} color="emerald" height={32} compact className="flex-1 border-emerald-500/20" />
                 ) : (
                   <div className="flex-1 flex items-center gap-1.5 text-muted-foreground/40 text-[10px]">
                     <Volume2 className="w-3.5 h-3.5" /> Sin audio

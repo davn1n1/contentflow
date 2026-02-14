@@ -33,6 +33,7 @@
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.1",
     "@tanstack/react-query": "^5.66.0",
+    "@wavesurfer/react": "^1.0.12",
     "ai": "^6.0.85",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
@@ -47,6 +48,7 @@
     "react-hotkeys-hook": "^5.2.4",
     "remotion": "^4.0.421",
     "tailwind-merge": "^3.0.1",
+    "wavesurfer.js": "^7.12.1",
     "zod": "^3.24.1",
     "zundo": "^2.3.0",
     "zustand": "^5.0.3"
