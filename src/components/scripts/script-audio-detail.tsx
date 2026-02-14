@@ -1468,7 +1468,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
   onFontSizeChange: (size: number) => void;
 }) {
   const [scriptValue, setScriptValue] = useState(scene.script || "");
-  const { save: saveScript, saving, saved } = useSceneAutoSave(scene.id, "Script");
+  const { save: saveScript, saving, saved } = useSceneAutoSave(scene.id, "Script", 1500);
   const [feedbackCopyValue, setFeedbackCopyValue] = useState(scene.feedback_copy || "");
   const { save: saveFeedbackCopy, saving: savingFeedbackCopy, saved: savedFeedbackCopy } = useSceneAutoSave(scene.id, "Feedback Copy");
   const [copyRevisado, setCopyRevisado] = useState(scene.copy_revisado_ok);
@@ -1476,12 +1476,15 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
   const [modificaState, setModificaState] = useState<ModificaScriptState>("idle");
   const isModifying = modificaState === "generating" || modificaState === "sending";
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const scriptFocusedRef = useRef(false);
   const feedbackCopyRef = useRef<HTMLTextAreaElement>(null);
   const feedbackCopyFocusedRef = useRef(false);
 
   // Sync local state when scene data changes from server (skip if user is editing)
   useEffect(() => {
-    setScriptValue(scene.script || "");
+    if (!scriptFocusedRef.current) {
+      setScriptValue(scene.script || "");
+    }
   }, [scene.script]);
   useEffect(() => {
     if (!feedbackCopyFocusedRef.current) {
@@ -1724,6 +1727,8 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
                   onChange={handleScriptChange}
                   onKeyDown={handleTextareaKeyDown}
                   onClick={(e) => e.stopPropagation()}
+                  onFocus={() => { scriptFocusedRef.current = true; }}
+                  onBlur={() => { scriptFocusedRef.current = false; }}
                   style={{ fontSize: `${fontSize}px` }}
                   className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-y transition-colors max-h-[300px] overflow-y-auto"
                   rows={3}
