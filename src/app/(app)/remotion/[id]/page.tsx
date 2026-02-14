@@ -2056,15 +2056,23 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
     );
   }
 
-  // idle
+  // idle — show estimated time warning for long videos
+  const estMinutes = Math.ceil(timeline.durationInFrames / (3 * 60)); // ~3 fps estimate
+  const isLong = timeline.durationInFrames > 3000; // > 2 min at 25fps
+
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card px-4 py-3">
       <Monitor className="h-5 w-5 text-muted-foreground flex-shrink-0" />
       <div className="flex-1">
         <p className="text-sm text-foreground">Render en Navegador</p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Alternativa local — renderiza en tu navegador (WebM, experimental)
+          Alternativa local — WebM, experimental{isLong ? ` · ~${estMinutes} min estimados` : ""}
         </p>
+        {isLong && (
+          <p className="text-[10px] text-amber-400/70 mt-0.5">
+            Video largo ({Math.round(timeline.durationInFrames / timeline.fps / 60)} min) — usa Lambda para resultados en ~5 min
+          </p>
+        )}
       </div>
       <button
         onClick={startBrowserRender}
