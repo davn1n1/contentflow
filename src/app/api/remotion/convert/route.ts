@@ -98,6 +98,62 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * PUT /api/remotion/convert
+ *
+ * Saves an edited RemotionTimeline back to Supabase.
+ *
+ * Body: {
+ *   id: string,                    // Supabase record UUID
+ *   remotion_timeline: RemotionTimeline  // The edited timeline
+ * }
+ */
+export async function PUT(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { id, remotion_timeline } = body as {
+      id: string;
+      remotion_timeline: unknown;
+    };
+
+    if (!id || !remotion_timeline) {
+      return NextResponse.json(
+        { error: "Missing id or remotion_timeline" },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabase
+      .from("remotion_timelines")
+      .update({
+        remotion_timeline,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase update error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, id: data.id });
+  } catch (error) {
+    console.error("Remotion save error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Save failed" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * GET /api/remotion/convert?videoId=recXXX
  *
  * Retrieves a saved RemotionTimeline by video ID.

@@ -521,14 +521,20 @@ function LinkedRecordSection({ videoId, video }: { videoId: string; video: Video
     async (field: string, ids: string[]) => {
       setSaving(field);
       try {
-        await fetch("/api/data/videos", {
+        const res = await fetch("/api/data/videos", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: videoId, fields: { [field]: ids } }),
         });
-        queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
+        if (!res.ok) {
+          // PATCH failed — force refetch to restore correct state
+          queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
+        }
+        // On success: DON'T invalidate immediately — Airtable cache (60s) would
+        // return stale data and wipe the optimistic selection. The picker's
+        // optimistic state handles the visual update. Data syncs on next navigation.
       } catch {
-        // Error silently
+        queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
       } finally {
         setSaving(null);
       }
@@ -546,10 +552,11 @@ function LinkedRecordSection({ videoId, video }: { videoId: string; video: Video
           table="ctas"
           selected={video.linkedIntros}
           onSelectionChange={(ids) => handleUpdate("Intro", ids)}
+          multiple={false}
           color="emerald"
           showImages={false}
           isSaving={saving === "Intro"}
-          filterFormula="{CTA/Intro}='Intro'"
+          clientFilters={[{ field: "CTA/Intro", values: ["Intro"] }]}
         />
         {/* CTA Text */}
         <LinkedRecordPicker
@@ -557,12 +564,13 @@ function LinkedRecordSection({ videoId, video }: { videoId: string; video: Video
           table="ctas"
           selected={video.linkedCtas}
           onSelectionChange={(ids) => handleUpdate("CTA", ids)}
+          multiple={false}
           color="blue"
           showImages={false}
           isSaving={saving === "CTA"}
-          filterFormula="{CTA/Intro}='CTA'"
+          clientFilters={[{ field: "CTA/Intro", values: ["CTA"] }]}
         />
-        {/* Intro Broll */}
+        {/* Intro Broll: Account + Status active + Custom true + Tags INTRO */}
         <LinkedRecordPicker
           label="Intro Broll"
           table="broll"
@@ -571,9 +579,13 @@ function LinkedRecordSection({ videoId, video }: { videoId: string; video: Video
           color="emerald"
           largePreview
           isSaving={saving === "Intro Broll"}
-          filterFormula="OR({CTA/Intro}='Intro',{CTA/Intro}='Custom')"
+          clientFilters={[
+            { field: "Status", values: ["Activo"] },
+            { field: "Custom", values: [true, "true"] },
+            { field: "Tags", values: ["INTRO", "Intro"] },
+          ]}
         />
-        {/* CTA Broll */}
+        {/* CTA Broll: Account + Status Activo + Custom true + Tags CTA */}
         <LinkedRecordPicker
           label="CTA Broll"
           table="broll"
@@ -582,7 +594,11 @@ function LinkedRecordSection({ videoId, video }: { videoId: string; video: Video
           color="blue"
           largePreview
           isSaving={saving === "CTA Broll"}
-          filterFormula="OR({CTA/Intro}='CTA',{CTA/Intro}='Custom')"
+          clientFilters={[
+            { field: "Status", values: ["Activo"] },
+            { field: "Custom", values: [true, "true"] },
+            { field: "Tags", values: ["CTA", "Cta"] },
+          ]}
         />
       </div>
     </div>
@@ -599,14 +615,17 @@ function AvatarPersonaSection({ videoId, video }: { videoId: string; video: Vide
     async (field: string, ids: string[]) => {
       setSaving(field);
       try {
-        await fetch("/api/data/videos", {
+        const res = await fetch("/api/data/videos", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: videoId, fields: { [field]: ids } }),
         });
-        queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
+        if (!res.ok) {
+          queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
+        }
+        // On success: DON'T invalidate — optimistic state handles the visual update
       } catch {
-        // Error silently
+        queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
       } finally {
         setSaving(null);
       }

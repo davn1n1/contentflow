@@ -115,7 +115,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Client-side search: match against all string values in the record
-    function clientSearch(data: Record<string, unknown>[], term: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function clientSearch<T extends Record<string, any>>(data: T[], term: string): T[] {
       const lower = term.toLowerCase();
       return data.filter((r) =>
         Object.values(r).some(
@@ -135,13 +136,13 @@ export async function GET(request: NextRequest) {
         try {
           const { records } = await airtableFetch(tableId, { maxRecords: limit, filterByFormula: formula });
           return NextResponse.json(records.map((r) => ({ id: r.id, createdTime: r.createdTime, ...r.fields })));
-        } catch {
-          // Formula failed — try without search in formula
+        } catch (err) {
+          console.warn(`[app-data] Strategy 1 failed for ${table}:`, formula, err instanceof Error ? err.message : err);
         }
       }
     }
 
-    // Strategy 2: Try base filters only, search client-side
+    // Strategy 2: Try base filters only (without search), apply search client-side
     if (baseConditions.length > 0) {
       const formula = buildFormula(baseConditions);
       try {
@@ -149,14 +150,27 @@ export async function GET(request: NextRequest) {
         let data = records.map((r) => ({ id: r.id, createdTime: r.createdTime, ...r.fields }));
         if (search) data = clientSearch(data, search);
         return NextResponse.json(data);
-      } catch {
-        // Base formula also failed — full fallback
+      } catch (err) {
+        console.warn(`[app-data] Strategy 2 failed for ${table}:`, formula, err instanceof Error ? err.message : err);
       }
     }
 
-    // Strategy 3: Fetch all, filter client-side
+    // Strategy 3: Try filter only (without account), apply account + search client-side
+    if (filter) {
+      try {
+        const { records } = await airtableFetch(tableId, { maxRecords: limit, filterByFormula: filter });
+        let data = records.map((r) => ({ id: r.id, createdTime: r.createdTime, ...r.fields }));
+        if (search) data = clientSearch(data, search);
+        return NextResponse.json(data);
+      } catch (err) {
+        console.warn(`[app-data] Strategy 3 (filter-only) failed for ${table}:`, filter, err instanceof Error ? err.message : err);
+      }
+    }
+
+    // Strategy 4: Fetch all, filter client-side
     const { records } = await airtableFetch(tableId, { maxRecords: limit });
-    let data = records.map((r) => ({ id: r.id, createdTime: r.createdTime, ...r.fields }));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let data: Record<string, any>[] = records.map((r) => ({ id: r.id, createdTime: r.createdTime, ...r.fields }));
 
     // Client-side account filter
     if (accountName || accountId) {
@@ -169,6 +183,23 @@ export async function GET(request: NextRequest) {
         return false;
       });
       if (filtered.length > 0) data = filtered;
+    }
+
+    // Client-side custom filter (CTA/Intro field)
+    if (filter) {
+      // Parse simple equality filters like "{Field}='Value'" or "OR({Field}='A',{Field}='B')"
+      const eqMatches = [...filter.matchAll(/\{([^}]+)\}='([^']+)'/g)];
+      if (eqMatches.length > 0) {
+        const fieldName = eqMatches[0][1];
+        const allowedValues = eqMatches.map((m) => m[2]);
+        const filtered = data.filter((r) => {
+          const val = r[fieldName];
+          if (typeof val === "string") return allowedValues.includes(val);
+          if (Array.isArray(val)) return val.some((v) => allowedValues.includes(String(v)));
+          return false;
+        });
+        data = filtered;
+      }
     }
 
     // Client-side search

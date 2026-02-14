@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   GripVertical,
   Undo2,
+  Save,
   Rocket,
   Download,
   AlertCircle,
@@ -258,6 +259,32 @@ export default function RemotionPreviewPage() {
   const discardEdits = useCallback(() => {
     setEditedTimeline(null);
   }, []);
+
+  const [saving, setSaving] = useState(false);
+
+  const saveEdits = useCallback(async () => {
+    if (!editedTimeline || !record?.id) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/remotion/convert", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: record.id,
+          remotion_timeline: editedTimeline,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Error al guardar");
+      // Update local record with saved timeline
+      setRecord((prev) => prev ? { ...prev, remotion_timeline: editedTimeline, updated_at: new Date().toISOString() } : prev);
+      setEditedTimeline(null);
+    } catch (err) {
+      console.error("Save error:", err);
+    } finally {
+      setSaving(false);
+    }
+  }, [editedTimeline, record?.id]);
 
   // ─── CDN Proxy system (Cloudflare Stream) ─────────────
   const [proxyMap, setProxyMap] = useState<Record<string, string>>({});
@@ -559,6 +586,8 @@ export default function RemotionPreviewPage() {
         onClipReorder={handleClipReorder}
         isEdited={isEdited}
         onDiscardEdits={discardEdits}
+        onSaveEdits={saveEdits}
+        saving={saving}
       />
 
       {/* Track Explorer */}
@@ -915,12 +944,16 @@ function VisualTimeline({
   onClipReorder,
   isEdited,
   onDiscardEdits,
+  onSaveEdits,
+  saving,
 }: {
   timeline: RemotionTimeline;
   playerRef: React.RefObject<PlayerRef | null>;
   onClipReorder: (trackId: string, oldIndex: number, newIndex: number) => void;
   isEdited: boolean;
   onDiscardEdits: () => void;
+  onSaveEdits: () => void;
+  saving: boolean;
 }) {
   const totalFrames = timeline.durationInFrames;
   const [hoveredClip, setHoveredClip] = useState<{ clip: RemotionClip; rect: DOMRect } | null>(null);
@@ -1024,6 +1057,15 @@ function VisualTimeline({
               >
                 <Undo2 className="h-3 w-3" />
                 Descartar
+              </button>
+              <button
+                onClick={onSaveEdits}
+                disabled={saving}
+                className="flex items-center gap-1 text-[10px] text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded hover:bg-green-500/20 transition-colors disabled:opacity-50"
+                title="Guardar cambios en Supabase"
+              >
+                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                {saving ? "Guardando..." : "Guardar"}
               </button>
             </>
           )}

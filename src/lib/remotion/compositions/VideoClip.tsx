@@ -39,6 +39,7 @@ export const VideoClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
         src={clip.proxySrc || clip.src}
         startFrom={clip.startFrom}
         volume={clip.volume ?? 1}
+        pauseWhenBuffering
         style={{
           width: "100%",
           height: "100%",
