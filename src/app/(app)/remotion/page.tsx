@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Film, Clock, CheckCircle, AlertCircle, Play, ArrowRight } from "lucide-react";
+import { Film, Clock, CheckCircle, AlertCircle, Play, ArrowRight, Rocket } from "lucide-react";
 
 interface TimelineEntry {
   id: string;
@@ -133,7 +133,17 @@ export default function RemotionPage() {
                       </div>
                     </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/remotion/${entry.id}/render`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600/20 transition-colors"
+                    >
+                      <Rocket className="h-3 w-3" />
+                      Render
+                    </Link>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
                 </div>
               </Link>
             );
