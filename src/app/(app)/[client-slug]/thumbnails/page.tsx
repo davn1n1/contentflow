@@ -16,7 +16,7 @@ import type { DraftPublicacion } from "@/types/database";
 import { cn } from "@/lib/utils";
 import {
   ImageIcon, Star, RefreshCw, Award, Type, MessageSquare,
-  Save, Loader2, Megaphone, Pin, Check, ChevronDown, X,
+  Save, Loader2, Megaphone, Pin, Check, ChevronDown, X, AlertCircle,
 } from "lucide-react";
 
 const TABS = [
@@ -48,16 +48,23 @@ export default function ThumbnailsPage() {
 
   const { data: videoDetail } = useVideoDetail(videoId);
   const { data: drafts = [], isLoading } = useDraftPublicacion(videoDetail?.draft_publicacion_ids);
-  const { mutate: updateVideo, isPending: isUpdatingVideo } = useUpdateVideo();
+  const { mutate: updateVideo, isPending: isUpdatingVideo, error: updateError } = useUpdateVideo();
 
-  // App data for selectors — don't pass accountId (these tables may not have Account field, causing empty results)
-  const { data: allSponsors = [] } = useAppData({ table: "sponsors", enabled: !!videoId });
-  const { data: allComentarios = [] } = useAppData({ table: "comentario-pineado", enabled: !!videoId });
+  // App data for selectors — pass accountId if available, but always enabled when videoId exists
+  const {
+    data: allSponsors = [],
+    isLoading: isLoadingSponsors,
+    error: sponsorsError,
+  } = useAppData({ table: "sponsors", accountId, enabled: !!videoId });
+  const {
+    data: allComentarios = [],
+    isLoading: isLoadingComentarios,
+    error: comentariosError,
+  } = useAppData({ table: "comentario-pineado", accountId, enabled: !!videoId });
 
   const [selectedDraft, setSelectedDraft] = useState<DraftPublicacion | null>(null);
   const [expandedComentarioId, setExpandedComentarioId] = useState<string | null>(null);
   const [expandedSponsorId, setExpandedSponsorId] = useState<string | null>(null);
-  const [previewImage, setPreviewImage] = useState<{ url: string; label: string } | null>(null);
 
   // Editable video fields
   const [tituloA, setTituloA] = useState("");
@@ -88,7 +95,6 @@ export default function ThumbnailsPage() {
   // Auto-resize when variaciones content changes or tab switches
   useEffect(() => {
     if (activeTab === "titulos") {
-      // Small delay to ensure DOM is ready
       requestAnimationFrame(autoResizeVariaciones);
     }
   }, [variacionesTitulos, activeTab, autoResizeVariaciones]);
@@ -283,12 +289,7 @@ export default function ThumbnailsPage() {
                     : letter === "B" ? videoDetail?.titulo_b
                     : videoDetail?.titulo_c;
                   return (
-                    <button
-                      key={letter}
-                      onClick={() => url && setPreviewImage({ url, label: `Portada Youtube ${letter}` })}
-                      className={cn("glass-card rounded-xl overflow-hidden text-left transition-all", url && "hover:ring-2 hover:ring-primary/30 cursor-pointer")}
-                      disabled={!url}
-                    >
+                    <div key={letter} className="glass-card rounded-xl overflow-hidden">
                       <div className="relative aspect-video bg-muted">
                         {url ? (
                           <img src={url} alt={`Portada ${letter}`} className="w-full h-full object-cover" />
@@ -304,16 +305,16 @@ export default function ThumbnailsPage() {
                       <div className="p-3">
                         <p className="text-sm font-medium text-foreground">{titulo || `Portada Youtube ${letter}`}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {url ? "Click para ver en grande" : "Sin imagen"}
+                          {url ? "Imagen cargada" : "Sin imagen"}
                         </p>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
             </section>
 
-            {/* Portada drafts */}
+            {/* Portada drafts — click opens same ThumbnailDetail as Miniaturas/Favoritas */}
             <section>
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">
                 Miniaturas marcadas como Portada ({portadaDrafts.length})
@@ -387,43 +388,75 @@ export default function ThumbnailsPage() {
                 <Pin className="w-4 h-4 text-amber-400" />
                 <h3 className="text-sm font-semibold text-foreground">Comentario Pineado</h3>
                 <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded-full">
-                  {videoDetail?.comentario_pineado_ids?.length || 0} seleccionados
+                  {videoDetail?.comentario_pineado_ids?.length || 0} asignados
                 </span>
-              </div>
-              {/* Available comentarios to select */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {allComentarios.map((c) => {
-                  const isSelected = videoDetail?.comentario_pineado_ids?.includes(c.id);
-                  const name = (c.Name as string) || (c.Nombre as string) || c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => {
-                        if (isSelected) {
-                          // Already selected → toggle detail card
-                          setExpandedComentarioId(expandedComentarioId === c.id ? null : c.id);
-                        } else {
-                          // Not selected → select it
-                          handleToggleComentario(c.id);
-                        }
-                      }}
-                      className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer",
-                        isSelected
-                          ? "bg-amber-400/10 border-amber-400/30 text-amber-400"
-                          : "bg-muted/30 border-border/50 text-muted-foreground hover:border-amber-400/30 hover:text-amber-300"
-                      )}
-                    >
-                      <Pin className="w-3 h-3" />
-                      {name}
-                      {isSelected && <ChevronDown className={cn("w-3 h-3 transition-transform", expandedComentarioId === c.id && "rotate-180")} />}
-                    </button>
-                  );
-                })}
-                {allComentarios.length === 0 && (
-                  <p className="text-xs text-muted-foreground/70">No hay comentarios pineados disponibles</p>
+                {isUpdatingVideo && (
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
                 )}
               </div>
+
+              {/* Loading state */}
+              {isLoadingComentarios && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Cargando comentarios...
+                </div>
+              )}
+              {/* Error state */}
+              {comentariosError && (
+                <div className="flex items-center gap-2 text-xs text-red-400">
+                  <AlertCircle className="w-3 h-3" /> Error cargando: {(comentariosError as Error).message}
+                </div>
+              )}
+              {/* Mutation error */}
+              {updateError && (
+                <div className="flex items-center gap-2 text-xs text-red-400">
+                  <AlertCircle className="w-3 h-3" /> Error al guardar: {(updateError as Error).message}
+                </div>
+              )}
+
+              {/* Available comentarios — click ALWAYS toggles selection */}
+              {!isLoadingComentarios && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {allComentarios.map((c) => {
+                    const isSelected = videoDetail?.comentario_pineado_ids?.includes(c.id);
+                    const name = (c.Name as string) || (c.Nombre as string) || c.id;
+                    return (
+                      <div key={c.id} className="flex items-center gap-0.5">
+                        <button
+                          onClick={() => handleToggleComentario(c.id)}
+                          disabled={isUpdatingVideo}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                            isUpdatingVideo && "opacity-50 cursor-wait",
+                            isSelected
+                              ? "bg-amber-400/10 border-amber-400/30 text-amber-400"
+                              : "bg-muted/30 border-border/50 text-muted-foreground hover:border-amber-400/30 hover:text-amber-300"
+                          )}
+                        >
+                          {isSelected ? <Check className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
+                          {name}
+                        </button>
+                        {isSelected && (
+                          <button
+                            onClick={() => setExpandedComentarioId(expandedComentarioId === c.id ? null : c.id)}
+                            className="p-1 text-amber-400/60 hover:text-amber-400 transition-colors"
+                            title="Ver detalle"
+                          >
+                            <ChevronDown className={cn("w-3 h-3 transition-transform", expandedComentarioId === c.id && "rotate-180")} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {allComentarios.length === 0 && !comentariosError && (
+                    <p className="text-xs text-muted-foreground/70">
+                      No hay comentarios pineados disponibles
+                      {!accountId && " (sin cuenta seleccionada)"}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Detail card — only visible when expanded */}
               {expandedComentarioId && (() => {
                 const fullData = allComentarios.find((c) => c.id === expandedComentarioId);
@@ -436,23 +469,12 @@ export default function ThumbnailsPage() {
                         <Pin className="w-4 h-4 text-amber-400 flex-shrink-0" />
                         <h4 className="text-sm font-semibold text-foreground">{name || expandedComentarioId}</h4>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            handleToggleComentario(expandedComentarioId);
-                            setExpandedComentarioId(null);
-                          }}
-                          className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-400/20 hover:border-red-400/40 transition-all"
-                        >
-                          Quitar
-                        </button>
-                        <button
-                          onClick={() => setExpandedComentarioId(null)}
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setExpandedComentarioId(null)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
                     {fullData && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -482,43 +504,69 @@ export default function ThumbnailsPage() {
                 <Megaphone className="w-4 h-4 text-blue-400" />
                 <h3 className="text-sm font-semibold text-foreground">Sponsors</h3>
                 <span className="text-[10px] font-mono bg-muted px-1.5 py-0.5 rounded-full">
-                  {videoDetail?.sponsor_ids?.length || 0} seleccionados
+                  {videoDetail?.sponsor_ids?.length || 0} asignados
                 </span>
-              </div>
-              {/* Available sponsors to select */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {allSponsors.map((s) => {
-                  const isSelected = videoDetail?.sponsor_ids?.includes(s.id);
-                  const name = (s.Name as string) || (s.Nombre as string) || s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        if (isSelected) {
-                          // Already selected → toggle detail card
-                          setExpandedSponsorId(expandedSponsorId === s.id ? null : s.id);
-                        } else {
-                          // Not selected → select it
-                          handleToggleSponsor(s.id);
-                        }
-                      }}
-                      className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer",
-                        isSelected
-                          ? "bg-blue-400/10 border-blue-400/30 text-blue-400"
-                          : "bg-muted/30 border-border/50 text-muted-foreground hover:border-blue-400/30 hover:text-blue-300"
-                      )}
-                    >
-                      <Megaphone className="w-3 h-3" />
-                      {name}
-                      {isSelected && <ChevronDown className={cn("w-3 h-3 transition-transform", expandedSponsorId === s.id && "rotate-180")} />}
-                    </button>
-                  );
-                })}
-                {allSponsors.length === 0 && (
-                  <p className="text-xs text-muted-foreground/70">No hay sponsors disponibles</p>
+                {isUpdatingVideo && (
+                  <Loader2 className="w-3 h-3 animate-spin text-primary" />
                 )}
               </div>
+
+              {/* Loading state */}
+              {isLoadingSponsors && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Cargando sponsors...
+                </div>
+              )}
+              {/* Error state */}
+              {sponsorsError && (
+                <div className="flex items-center gap-2 text-xs text-red-400">
+                  <AlertCircle className="w-3 h-3" /> Error cargando: {(sponsorsError as Error).message}
+                </div>
+              )}
+
+              {/* Available sponsors — click ALWAYS toggles selection */}
+              {!isLoadingSponsors && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {allSponsors.map((s) => {
+                    const isSelected = videoDetail?.sponsor_ids?.includes(s.id);
+                    const name = (s.Name as string) || (s.Nombre as string) || s.id;
+                    return (
+                      <div key={s.id} className="flex items-center gap-0.5">
+                        <button
+                          onClick={() => handleToggleSponsor(s.id)}
+                          disabled={isUpdatingVideo}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                            isUpdatingVideo && "opacity-50 cursor-wait",
+                            isSelected
+                              ? "bg-blue-400/10 border-blue-400/30 text-blue-400"
+                              : "bg-muted/30 border-border/50 text-muted-foreground hover:border-blue-400/30 hover:text-blue-300"
+                          )}
+                        >
+                          {isSelected ? <Check className="w-3 h-3" /> : <Megaphone className="w-3 h-3" />}
+                          {name}
+                        </button>
+                        {isSelected && (
+                          <button
+                            onClick={() => setExpandedSponsorId(expandedSponsorId === s.id ? null : s.id)}
+                            className="p-1 text-blue-400/60 hover:text-blue-400 transition-colors"
+                            title="Ver detalle"
+                          >
+                            <ChevronDown className={cn("w-3 h-3 transition-transform", expandedSponsorId === s.id && "rotate-180")} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {allSponsors.length === 0 && !sponsorsError && (
+                    <p className="text-xs text-muted-foreground/70">
+                      No hay sponsors disponibles
+                      {!accountId && " (sin cuenta seleccionada)"}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Detail card — only visible when expanded */}
               {expandedSponsorId && (() => {
                 const fullData = allSponsors.find((s) => s.id === expandedSponsorId);
@@ -536,23 +584,12 @@ export default function ThumbnailsPage() {
                         )}
                         <h4 className="text-sm font-semibold text-foreground">{name || expandedSponsorId}</h4>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            handleToggleSponsor(expandedSponsorId);
-                            setExpandedSponsorId(null);
-                          }}
-                          className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded border border-red-400/20 hover:border-red-400/40 transition-all"
-                        >
-                          Quitar
-                        </button>
-                        <button
-                          onClick={() => setExpandedSponsorId(null)}
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setExpandedSponsorId(null)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
                     {fullData && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -579,7 +616,7 @@ export default function ThumbnailsPage() {
         )}
       </div>
 
-      {/* Detail Dialog */}
+      {/* Detail Dialog — works from all tabs (Miniaturas, Favoritas, Portadas) */}
       <ThumbnailDetail
         draft={selectedDraft}
         open={!!selectedDraft}
@@ -588,29 +625,6 @@ export default function ThumbnailsPage() {
         }}
         onVariationsTriggered={startPolling}
       />
-
-      {/* Image Lightbox */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-8 animate-in fade-in duration-200"
-          onClick={() => setPreviewImage(null)}
-        >
-          <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute -top-10 right-0 text-white/70 hover:text-white flex items-center gap-1.5 text-sm"
-            >
-              <X className="w-4 h-4" /> Cerrar
-            </button>
-            <img
-              src={previewImage.url}
-              alt={previewImage.label}
-              className="w-full rounded-xl shadow-2xl"
-            />
-            <p className="text-center text-white/80 text-sm mt-3 font-medium">{previewImage.label}</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -958,14 +958,29 @@ function useSceneAutoSave(sceneId: string, field: string, delay = 800) {
 function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Keyboard navigation: up/down arrows to move between scenes
+  // Keyboard navigation: up/down arrows to move between scenes, space to play/pause
   const handleKeyNav = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-      // Don't intercept if user is typing in a textarea
       if ((e.target as HTMLElement).tagName === "TEXTAREA") return;
 
+      // Spacebar: toggle play/pause on the expanded scene's audio
+      if (e.key === " ") {
+        e.preventDefault();
+        const audio = (e.currentTarget as HTMLElement).querySelector("audio");
+        if (audio) {
+          if (audio.paused) audio.play();
+          else audio.pause();
+        }
+        return;
+      }
+
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+
       e.preventDefault();
+      // Pause any playing audio before navigating
+      const audio = (e.currentTarget as HTMLElement).querySelector("audio");
+      if (audio && !audio.paused) audio.pause();
+
       const currentIdx = scenes.findIndex((s) => s.id === expandedId);
       let nextIdx: number;
 
@@ -1007,7 +1022,7 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
           <span className="text-[10px] text-muted-foreground/80">
             {copyOkCount}/{scenes.length} copy OK
           </span>
-          <span className="text-[10px] text-muted-foreground/40">↑↓ navegar</span>
+          <span className="text-[10px] text-muted-foreground/40">↑↓ navegar · ␣ play/pause</span>
         </div>
       </div>
 
@@ -1305,16 +1320,69 @@ function parseVozCompact(text: string | null): string | null {
   return cleaned ? `${emoji} ${cleaned}` : emoji || null;
 }
 
+// Tag color map for ElevenLabs emotion tags
+const TAG_COLORS: Record<string, string> = {
+  surprised: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+  excited: "bg-rose-500/20 text-rose-300 border-rose-500/30",
+  thoughtful: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  serious: "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  sad: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+  happy: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+  angry: "bg-red-500/20 text-red-300 border-red-500/30",
+  whisper: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  calm: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  neutral: "bg-gray-500/20 text-gray-300 border-gray-500/30",
+};
+const DEFAULT_TAG_COLOR = "bg-violet-500/20 text-violet-300 border-violet-500/30";
+
+function RenderTaggedText({ text }: { text: string }) {
+  // Split text by [tag] patterns, render tags as colored badges
+  const parts = text.split(/(\[[^\]]+\])/g);
+  return (
+    <p className="text-[11px] leading-relaxed">
+      {parts.map((part, i) => {
+        const tagMatch = part.match(/^\[(.+)\]$/);
+        if (tagMatch) {
+          const tag = tagMatch[1].toLowerCase();
+          const colorClass = TAG_COLORS[tag] || DEFAULT_TAG_COLOR;
+          return (
+            <span key={i} className={cn("inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold border mx-0.5 align-middle", colorClass)}>
+              {tagMatch[1]}
+            </span>
+          );
+        }
+        return <span key={i} className="text-foreground/70">{part}</span>;
+      })}
+    </p>
+  );
+}
+
 function AudioSceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Keyboard navigation: up/down arrows to move between scenes
+  // Keyboard navigation: up/down arrows to move between scenes, space to play/pause
   const handleKeyNav = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
       if ((e.target as HTMLElement).tagName === "TEXTAREA") return;
 
+      // Spacebar: toggle play/pause on the expanded scene's audio
+      if (e.key === " ") {
+        e.preventDefault();
+        const audio = (e.currentTarget as HTMLElement).querySelector("audio");
+        if (audio) {
+          if (audio.paused) audio.play();
+          else audio.pause();
+        }
+        return;
+      }
+
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+
       e.preventDefault();
+      // Pause any playing audio before navigating
+      const audio = (e.currentTarget as HTMLElement).querySelector("audio");
+      if (audio && !audio.paused) audio.pause();
+
       const currentIdx = scenes.findIndex((s) => s.id === expandedId);
       let nextIdx: number;
 
@@ -1359,7 +1427,7 @@ function AudioSceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
           <span className="text-[10px] text-muted-foreground/80">
             {withAudio}/{scenes.length} audio · {revisadoCount} revisado · {formatSeconds(totalDuration)}
           </span>
-          <span className="text-[10px] text-muted-foreground/40">↑↓ navegar</span>
+          <span className="text-[10px] text-muted-foreground/40">↑↓ navegar · ␣ play/pause</span>
         </div>
       </div>
 
@@ -1408,25 +1476,35 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   onToggle: () => void;
   expandedRef?: React.RefObject<HTMLTableRowElement | null>;
 }) {
-  const [scriptElValue, setScriptElValue] = useState(scene.script_elevenlabs || "");
-  const { save: saveScriptEl, saving: savingScript, saved: savedScript } = useSceneAutoSave(scene.id, "Script Elevenlabs");
+  const [scriptValue, setScriptValue] = useState(scene.script || "");
+  const { save: saveScript, saving: savingScript, saved: savedScript } = useSceneAutoSave(scene.id, "Script");
   const [feedbackValue, setFeedbackValue] = useState(scene.feedback_audio || "");
   const { save: saveFeedback, saving: savingFeedback, saved: savedFeedback } = useSceneAutoSave(scene.id, "Feedback Audio Elevenlabs");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const feedbackRef = useRef<HTMLTextAreaElement>(null);
   const [audioRevisado, setAudioRevisado] = useState(scene.audio_revisado_ok);
   const { save: saveRevisado } = useSceneAutoSave(scene.id, "Audio Revisado OK");
+  const [showExtra, setShowExtra] = useState(false);
+  const [generatingAudio, setGeneratingAudio] = useState(false);
+  const prevVoiceRef = useRef(scene.voice_s3);
 
   // Sync local state when scene data changes from server
   useEffect(() => {
-    setScriptElValue(scene.script_elevenlabs || "");
-  }, [scene.script_elevenlabs]);
+    setScriptValue(scene.script || "");
+  }, [scene.script]);
   useEffect(() => {
     setFeedbackValue(scene.feedback_audio || "");
   }, [scene.feedback_audio]);
   useEffect(() => {
     setAudioRevisado(scene.audio_revisado_ok);
   }, [scene.audio_revisado_ok]);
+  // Detect new audio arriving — clear generating state
+  useEffect(() => {
+    if (generatingAudio && scene.voice_s3 !== prevVoiceRef.current) {
+      setGeneratingAudio(false);
+    }
+    prevVoiceRef.current = scene.voice_s3;
+  }, [scene.voice_s3, generatingAudio]);
 
   // Auto-resize textareas
   useEffect(() => {
@@ -1434,7 +1512,7 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
     }
-  }, [isExpanded, scriptElValue]);
+  }, [isExpanded, scriptValue]);
   useEffect(() => {
     if (isExpanded && feedbackRef.current) {
       feedbackRef.current.style.height = "auto";
@@ -1442,10 +1520,10 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
     }
   }, [isExpanded, feedbackValue]);
 
-  const handleScriptElChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
-    setScriptElValue(val);
-    saveScriptEl(val);
+    setScriptValue(val);
+    saveScript(val);
   };
 
   const handleFeedbackChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -1465,7 +1543,7 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      saveScriptEl(scriptElValue);
+      saveScript(scriptValue);
       e.currentTarget.blur();
       if (expandedRef?.current) {
         expandedRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1476,7 +1554,7 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
     }
     if ((e.key === "ArrowUp" || e.key === "ArrowDown") && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      saveScriptEl(scriptElValue);
+      saveScript(scriptValue);
       e.currentTarget.blur();
       const parent = e.currentTarget.closest("[tabindex]");
       if (parent) {
@@ -1486,13 +1564,13 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   };
 
   const colors = sceneClassColors(scene.clasificación_escena);
-  const scriptText = scene.script_elevenlabs || scene.script;
+  const scriptText = scene.script || scene.script_elevenlabs;
   const scriptPreview = scriptText
     ? scriptText.length > 100 ? scriptText.slice(0, 100) + "..." : scriptText
     : "—";
 
-  const vozTexts = [scene.analisis_voz_1, scene.analisis_voz_2, scene.analisis_voz_3];
-  const hasAnyVoz = vozTexts.some(Boolean);
+  const vozTexts = generatingAudio ? [null, null, null] : [scene.analisis_voz_1, scene.analisis_voz_2, scene.analisis_voz_3];
+  const hasAnyVoz = !generatingAudio && [scene.analisis_voz_1, scene.analisis_voz_2, scene.analisis_voz_3].some(Boolean);
 
   return (
     <>
@@ -1514,7 +1592,9 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
           <SceneTypeBadge type={scene.clasificación_escena} />
         </td>
         <td className="px-1 py-2.5 text-center">
-          {scene.voice_s3 ? (
+          {generatingAudio ? (
+            <Loader2 className="w-3.5 h-3.5 text-blue-400 mx-auto animate-spin" />
+          ) : scene.voice_s3 ? (
             <Volume2 className="w-3.5 h-3.5 text-emerald-400 mx-auto" />
           ) : (
             <span className="text-muted-foreground/30 text-xs">—</span>
@@ -1527,7 +1607,7 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
           <p className="text-xs text-foreground/80 line-clamp-1 leading-relaxed">{scriptPreview}</p>
         </td>
         <td className="px-1 py-2.5 text-right text-xs text-muted-foreground">
-          {scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
+          {generatingAudio ? <span className="text-blue-400/50">…</span> : scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
         </td>
         <td className="px-1 py-2.5 text-center">
           {scene.audio_revisado_ok ? (
@@ -1536,14 +1616,14 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
             <span className="text-muted-foreground/30 text-xs">✗</span>
           )}
         </td>
-        <td className="px-1 py-2.5 text-center text-sm" title={scene.analisis_voz_1 || undefined}>
-          {extractEmoji(scene.analisis_voz_1)}
+        <td className="px-1 py-2.5 text-center text-sm" title={generatingAudio ? undefined : scene.analisis_voz_1 || undefined}>
+          {generatingAudio ? <span className="text-blue-400/50 text-xs">…</span> : extractEmoji(scene.analisis_voz_1)}
         </td>
-        <td className="px-1 py-2.5 text-center text-sm" title={scene.analisis_voz_2 || undefined}>
-          {extractEmoji(scene.analisis_voz_2)}
+        <td className="px-1 py-2.5 text-center text-sm" title={generatingAudio ? undefined : scene.analisis_voz_2 || undefined}>
+          {generatingAudio ? <span className="text-blue-400/50 text-xs">…</span> : extractEmoji(scene.analisis_voz_2)}
         </td>
-        <td className="px-1 py-2.5 text-center text-sm" title={scene.analisis_voz_3 || undefined}>
-          {extractEmoji(scene.analisis_voz_3)}
+        <td className="px-1 py-2.5 text-center text-sm" title={generatingAudio ? undefined : scene.analisis_voz_3 || undefined}>
+          {generatingAudio ? <span className="text-blue-400/50 text-xs">…</span> : extractEmoji(scene.analisis_voz_3)}
         </td>
         <td className="px-0.5 py-2.5">
           <ChevronDown className={cn(
@@ -1561,18 +1641,24 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
 
               {/* ── Top bar: Audio player + timing + revisado ── */}
               <div className="flex items-center gap-2">
-                {scene.voice_s3 ? (
+                {generatingAudio ? (
+                  <div className="flex-1 flex items-center gap-2 text-blue-400 text-[11px] bg-blue-500/10 rounded px-3 py-1.5 border border-blue-500/20 animate-pulse">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generando nuevo audio…
+                  </div>
+                ) : scene.voice_s3 ? (
                   <audio controls src={scene.voice_s3} className="flex-1 h-8" onClick={(e) => e.stopPropagation()} />
                 ) : (
                   <div className="flex-1 flex items-center gap-1.5 text-muted-foreground/40 text-[10px]">
                     <Volume2 className="w-3.5 h-3.5" /> Sin audio
                   </div>
                 )}
-                <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                  {scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
-                  {scene.start != null && <> · {formatMmSs(scene.start)}</>}
-                  {scene.end != null && <>–{formatMmSs(scene.end)}</>}
-                </span>
+                {!generatingAudio && (
+                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                    {scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
+                    {scene.start != null && <> · {formatMmSs(scene.start)}</>}
+                    {scene.end != null && <>–{formatMmSs(scene.end)}</>}
+                  </span>
+                )}
                 <button
                   onClick={toggleRevisado}
                   className={cn(
@@ -1585,66 +1671,79 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                   {audioRevisado ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
                   {audioRevisado ? "OK" : "No"}
                 </button>
-                <SceneActionButton sceneId={scene.id} />
+                <SceneActionButton sceneId={scene.id} currentVoiceS3={scene.voice_s3} onGenerating={() => setGeneratingAudio(true)} />
               </div>
 
-              {/* ── Análisis Voz V1/V2/V3 inline ── */}
-              {hasAnyVoz && (
-                <div className="flex gap-1.5">
-                  {vozTexts.map((raw, i) => {
-                    const parsed = parseVozCompact(raw);
-                    if (!parsed) return null;
-                    return (
-                      <div key={i} className="flex-1 bg-muted/25 rounded px-2 py-1.5 min-w-0">
-                        <p className="text-[11px] whitespace-pre-wrap leading-snug text-foreground/80 max-h-24 overflow-y-auto">{parsed}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* ── Script + v3 Enhanced + Feedback — 3 columns ── */}
+              {/* ── Script (editable) + V1/V2/V3 análisis ── */}
               <div className="flex gap-1.5">
-                {/* Script ElevenLabs (editable) */}
+                {/* Script (editable) */}
                 <div className="flex-1 min-w-0 relative">
                   <textarea
                     ref={textareaRef}
-                    value={scriptElValue}
-                    onChange={handleScriptElChange}
+                    value={scriptValue}
+                    onChange={handleScriptChange}
                     onKeyDown={handleTextareaKeyDown}
                     onClick={(e) => e.stopPropagation()}
                     className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none text-[11px] leading-snug"
                     rows={3}
-                    placeholder="Script ElevenLabs..."
+                    placeholder="Script..."
                   />
                   {savingScript && <Loader2 className="w-3 h-3 animate-spin text-amber-400 absolute top-1.5 right-1.5" />}
                   {savedScript && !savingScript && <CheckCircle2 className="w-3 h-3 text-emerald-400 absolute top-1.5 right-1.5" />}
                 </div>
 
-                {/* ElevenLabs v3 Enhanced (read-only) */}
-                {scene.elevenlabs_text_v3_enhanced && (
-                  <div className="flex-1 min-w-0 bg-violet-500/10 rounded px-2 py-1.5 relative">
-                    <InfoTooltip text="Tags de entonación V3 ElevenLabs" />
-                    <p className="text-[11px] whitespace-pre-wrap leading-snug text-foreground/70 max-h-20 overflow-y-auto">{scene.elevenlabs_text_v3_enhanced}</p>
-                  </div>
-                )}
-
-                {/* Feedback Audio (editable) */}
-                <div className="flex-1 min-w-0 relative">
-                  <textarea
-                    ref={feedbackRef}
-                    value={feedbackValue}
-                    onChange={handleFeedbackChange}
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); saveFeedback(feedbackValue); e.currentTarget.blur(); } }}
-                    className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-500/20 resize-none text-[11px] leading-snug"
-                    rows={3}
-                    placeholder="Feedback audio..."
-                  />
-                  {savingFeedback && <Loader2 className="w-3 h-3 animate-spin text-amber-400 absolute top-1.5 right-1.5" />}
-                  {savedFeedback && !savingFeedback && <CheckCircle2 className="w-3 h-3 text-emerald-400 absolute top-1.5 right-1.5" />}
-                </div>
+                {/* V1/V2/V3 análisis inline */}
+                {hasAnyVoz && vozTexts.map((raw, i) => {
+                  const parsed = parseVozCompact(raw);
+                  if (!parsed) return null;
+                  return (
+                    <div key={i} className="flex-1 bg-muted/25 rounded px-2 py-1.5 min-w-0">
+                      <p className="text-[11px] whitespace-pre-wrap leading-snug text-foreground/80">{parsed}</p>
+                    </div>
+                  );
+                })}
               </div>
+
+              {/* ── Tags entonación + Feedback (colapsable) ── */}
+              {(scene.elevenlabs_text_v3_enhanced || scene.feedback_audio) && (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowExtra(!showExtra); }}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all border cursor-pointer",
+                      showExtra
+                        ? "bg-violet-500/20 border-violet-400/40 text-violet-300 shadow-sm shadow-violet-500/10"
+                        : "bg-violet-500/10 border-violet-500/25 text-violet-400/80 hover:bg-violet-500/20 hover:text-violet-300 hover:border-violet-400/40"
+                    )}
+                  >
+                    <ChevronDown className={cn("w-3 h-3 transition-transform", showExtra && "rotate-180")} />
+                    Tags entonación · Feedback
+                  </button>
+                  {showExtra && (
+                    <div className="flex gap-1.5">
+                      {scene.elevenlabs_text_v3_enhanced && (
+                        <div className="flex-1 min-w-0 bg-violet-500/10 rounded px-2 py-1.5">
+                          <RenderTaggedText text={scene.elevenlabs_text_v3_enhanced} />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0 relative">
+                        <textarea
+                          ref={feedbackRef}
+                          value={feedbackValue}
+                          onChange={handleFeedbackChange}
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); saveFeedback(feedbackValue); e.currentTarget.blur(); } }}
+                          className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-500/20 resize-none text-[11px] leading-snug"
+                          rows={2}
+                          placeholder="Feedback audio..."
+                        />
+                        {savingFeedback && <Loader2 className="w-3 h-3 animate-spin text-amber-400 absolute top-1.5 right-1.5" />}
+                        {savedFeedback && !savingFeedback && <CheckCircle2 className="w-3 h-3 text-emerald-400 absolute top-1.5 right-1.5" />}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
             </div>
           </td>
@@ -2055,10 +2154,30 @@ function InfoTooltip({ text }: { text: string }) {
   );
 }
 
-function SceneActionButton({ sceneId }: { sceneId: string }) {
-  const [state, setState] = useState<"idle" | "confirming" | "executing" | "success" | "error">("idle");
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+function SceneActionButton({ sceneId, currentVoiceS3, onGenerating }: { sceneId: string; currentVoiceS3: string | null; onGenerating?: () => void }) {
+  const queryClient = useQueryClient();
+  type BtnState = "idle" | "confirming" | "sending" | "generating" | "ready" | "error";
+  const [state, setState] = useState<BtnState>("idle");
+  // Use a ref mirror to avoid stale closures in callbacks
+  const stateRef = useRef<BtnState>(state);
+  stateRef.current = state;
 
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const startTimeRef = useRef<number>(0);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (tickRef.current) clearInterval(tickRef.current);
+    };
+  }, []);
+
+  // Auto-dismiss confirming after 5s
   useEffect(() => {
     if (state === "confirming") {
       timerRef.current = setTimeout(() => setState("idle"), 5000);
@@ -2066,58 +2185,165 @@ function SceneActionButton({ sceneId }: { sceneId: string }) {
     }
   }, [state]);
 
+  // Auto-dismiss ready/error after 5s
   useEffect(() => {
-    if (state === "success" || state === "error") {
-      const t = setTimeout(() => setState("idle"), 3000);
+    if (state === "ready" || state === "error") {
+      const t = setTimeout(() => setState("idle"), 5000);
       return () => clearTimeout(t);
     }
   }, [state]);
 
+  // Elapsed timer during generating
+  useEffect(() => {
+    if (state === "generating") {
+      startTimeRef.current = Date.now();
+      setElapsed(0);
+      tickRef.current = setInterval(() => {
+        setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      }, 1000);
+      return () => { if (tickRef.current) clearInterval(tickRef.current); };
+    } else {
+      if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null; }
+    }
+  }, [state]);
+
+  // Track phases: audio arrival + analysis updates
+  const [audioArrived, setAudioArrived] = useState(false);
+  const lastAnalysisRef = useRef<(string | null)[]>([null, null, null]);
+
+  // Poll for audio + analysis changes while in "generating" state
+  useEffect(() => {
+    if (state !== "generating") {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      if (state === "idle") { setAudioArrived(false); lastAnalysisRef.current = [null, null, null]; }
+      return;
+    }
+    const baseVoice = currentVoiceS3;
+    let audioFound = false;
+    const checkScene = async () => {
+      try {
+        const res = await fetch(`/api/data/scenes?ids=${sceneId}`);
+        if (!res.ok) return;
+        const scenes = await res.json();
+        const scene = scenes?.[0];
+        if (!scene) return;
+
+        const newVoice = scene.voice_s3;
+        const audioStatus = scene.status_audio;
+
+        // Phase 1: Detect new audio
+        if (!audioFound) {
+          if (
+            (newVoice && newVoice !== baseVoice) ||
+            (audioStatus && audioStatus.toLowerCase().includes("generated") && newVoice)
+          ) {
+            audioFound = true;
+            setAudioArrived(true);
+            lastAnalysisRef.current = [scene.analisis_voz_1, scene.analisis_voz_2, scene.analisis_voz_3];
+            queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+          }
+          return;
+        }
+
+        // Phase 2: Audio arrived, keep polling for analysis field changes
+        const currentAnalysis = [scene.analisis_voz_1, scene.analisis_voz_2, scene.analisis_voz_3];
+        const analysisChanged = currentAnalysis.some((v, i) => v !== lastAnalysisRef.current[i]);
+        if (analysisChanged) {
+          lastAnalysisRef.current = currentAnalysis;
+          queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+        }
+        // Done: all 3 analysis fields populated → go to ready
+        if (currentAnalysis.every(Boolean)) {
+          if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+          setState("ready");
+        }
+      } catch { /* ignore polling errors */ }
+    };
+    pollRef.current = setInterval(checkScene, 5000);
+    // Max 3 minutes total (audio + analysis)
+    const maxTimeout = setTimeout(() => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      // If audio arrived but analysis didn't complete, still go to ready
+      setState((s) => s === "generating" ? (audioFound ? "ready" : "idle") : s);
+    }, 180000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      clearTimeout(maxTimeout);
+    };
+  }, [state, sceneId, currentVoiceS3, queryClient]);
+
+  // Use ref-based state reading to avoid stale closure issues
   const handleClick = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (state === "idle") {
+    const cur = stateRef.current;
+
+    // Allow clicking in error/ready to reset
+    if (cur === "error" || cur === "ready") {
+      setState("idle");
+      return;
+    }
+
+    if (cur === "idle") {
       setState("confirming");
       return;
     }
-    if (state === "confirming") {
+
+    if (cur === "confirming") {
       if (timerRef.current) clearTimeout(timerRef.current);
-      setState("executing");
+      setState("sending");
       try {
+        console.log("[SceneActionButton] Calling webhook for scene:", sceneId);
         const res = await fetch("/api/webhooks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "ModificaAudioEscena", recordId: sceneId }),
         });
-        setState(res.ok ? "success" : "error");
-      } catch {
+        if (res.ok) {
+          console.log("[SceneActionButton] Webhook OK, entering generating state");
+          setState("generating");
+          onGenerating?.();
+        } else {
+          const errText = await res.text().catch(() => "unknown");
+          console.error("[SceneActionButton] Webhook failed:", res.status, errText);
+          setState("error");
+        }
+      } catch (err) {
+        console.error("[SceneActionButton] Webhook exception:", err);
         setState("error");
       }
     }
-  }, [state, sceneId]);
+  }, [sceneId]); // Note: state NOT in deps — read from stateRef instead
 
-  const label = {
-    idle: "Modifica / Crea Audio Escena",
-    confirming: "Confirmar?",
-    executing: "Ejecutando...",
-    success: "Enviado",
-    error: "Error",
-  }[state];
+  const formatElapsed = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}:${sec.toString().padStart(2, "0")}` : `${sec}s`;
+  };
 
   return (
     <button
       onClick={handleClick}
-      disabled={state === "executing"}
+      disabled={state === "sending" || state === "generating"}
       className={cn(
-        "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap",
-        state === "idle" && "bg-blue-600 hover:bg-blue-500 text-white",
-        state === "confirming" && "bg-amber-500 hover:bg-amber-400 text-black",
-        state === "executing" && "bg-blue-600/50 text-white cursor-wait",
-        state === "success" && "bg-emerald-600 text-white",
-        state === "error" && "bg-red-600 text-white",
+        "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all border shadow-sm whitespace-nowrap shrink-0",
+        state === "idle" && "bg-blue-600 hover:bg-blue-500 border-blue-500 text-white cursor-pointer",
+        state === "confirming" && "bg-amber-500 hover:bg-amber-400 border-amber-400 text-black cursor-pointer animate-pulse",
+        state === "sending" && "bg-blue-600/50 border-blue-500/50 text-white/70 cursor-wait",
+        state === "generating" && "bg-blue-600/30 border-blue-400/50 text-blue-300 cursor-wait animate-pulse",
+        state === "ready" && "bg-emerald-600 border-emerald-500 text-white cursor-pointer",
+        state === "error" && "bg-red-600 border-red-500 text-white cursor-pointer",
       )}
     >
-      {state === "executing" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Headphones className="w-3.5 h-3.5" />}
-      {label}
+      {state === "sending" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+      {state === "generating" && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+      {state === "ready" && <CheckCircle2 className="w-3.5 h-3.5" />}
+      {(state === "idle" || state === "confirming" || state === "error") && <Headphones className="w-3.5 h-3.5" />}
+      {state === "idle" && "Modifica / Crea Audio Escena"}
+      {state === "confirming" && "Confirmar?"}
+      {state === "sending" && "Enviando..."}
+      {state === "generating" && <>Generando audio… {formatElapsed(elapsed)}</>}
+      {state === "ready" && "Audio listo!"}
+      {state === "error" && "Error — click para reintentar"}
     </button>
   );
 }
