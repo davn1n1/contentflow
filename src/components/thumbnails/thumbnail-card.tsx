@@ -1,19 +1,8 @@
 "use client";
 
 import type { DraftPublicacion } from "@/types/database";
+import { getEngineColor } from "@/lib/constants/engine-colors";
 import { CheckCircle2, ImageIcon, User } from "lucide-react";
-
-// Airtable-style colors for SlideEngine tags
-const ENGINE_COLORS: Record<string, { text: string; bg: string }> = {
-  "Flux": { text: "text-violet-400", bg: "bg-violet-400/10" },
-  "Midjourney": { text: "text-blue-400", bg: "bg-blue-400/10" },
-  "DALL-E": { text: "text-emerald-400", bg: "bg-emerald-400/10" },
-  "Stable Diffusion": { text: "text-orange-400", bg: "bg-orange-400/10" },
-  "Ideogram": { text: "text-pink-400", bg: "bg-pink-400/10" },
-  "Leonardo": { text: "text-amber-400", bg: "bg-amber-400/10" },
-  "Recraft": { text: "text-teal-400", bg: "bg-teal-400/10" },
-  "GPT-Image": { text: "text-green-400", bg: "bg-green-400/10" },
-};
 
 const STATUS_COLORS: Record<string, { text: string; bg: string }> = {
   "Aprobada": { text: "text-emerald-400", bg: "bg-emerald-400/10" },
@@ -22,10 +11,6 @@ const STATUS_COLORS: Record<string, { text: string; bg: string }> = {
   "Rechazada": { text: "text-red-400", bg: "bg-red-400/10" },
   "Nueva": { text: "text-cyan-400", bg: "bg-cyan-400/10" },
 };
-
-function getEngineColor(engine: string) {
-  return ENGINE_COLORS[engine] || { text: "text-cyan-400", bg: "bg-cyan-400/10" };
-}
 
 function getStatusColor(status: string) {
   return STATUS_COLORS[status] || { text: "text-muted-foreground", bg: "bg-muted" };
@@ -103,13 +88,16 @@ export function ThumbnailCard({ draft, onClick }: ThumbnailCardProps) {
             </span>
           )}
 
-          {/* Expresión tags */}
-          {draft.expresion_ids.map((expr) => (
+          {/* Expresion tags - resolved names */}
+          {draft.expresiones.map((expr) => (
             <span
-              key={expr}
-              className="text-[10px] font-medium text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5"
+              key={expr.id}
+              className="text-[10px] font-medium text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5 inline-flex items-center gap-1"
             >
-              {expr}
+              {expr.image && (
+                <img src={expr.image} alt="" className="w-3 h-3 rounded-full object-cover" />
+              )}
+              {expr.name}
             </span>
           ))}
 

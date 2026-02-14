@@ -282,10 +282,12 @@ export interface DraftPublicacion {
   slideengine: string | null;
   pone_persona: string | null;
   expresion_ids: string[];
+  expresiones: { id: string; name: string; image: string | null }[];
   muestra_expresion_url: string | null;
   numero_variaciones: string | null;
   prompt_anadir_persona: string | null;
   persona_lookup: string[];
+  persona_names: string[];
   archivar: boolean;
   feedback: string | null;
   notes: string | null;

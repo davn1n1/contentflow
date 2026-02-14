@@ -90,27 +90,49 @@ export async function GET(request: NextRequest) {
     const videoId = searchParams.get("videoId");
     const ids = searchParams.get("ids");
 
+    let records: { id: string; createdTime: string; fields: DraftFields }[] = [];
+
     if (ids) {
       const recordIds = ids.split(",").filter(Boolean);
       if (recordIds.length === 0) {
         return NextResponse.json([]);
       }
-      const records = await airtableFetchByIds<DraftFields>(
+      records = await airtableFetchByIds<DraftFields>(
         TABLES.DRAFT_PUBLICACION,
         recordIds,
         DRAFT_FIELDS
       );
-      return NextResponse.json(records.map(mapDraft));
-    }
-
-    if (videoId) {
-      const { records } = await airtableFetch<DraftFields>(TABLES.DRAFT_PUBLICACION, {
+    } else if (videoId) {
+      const result = await airtableFetch<DraftFields>(TABLES.DRAFT_PUBLICACION, {
         filterByFormula: `FIND('${videoId}', ARRAYJOIN({Youtube 365 Full Posts}, ','))`,
         fields: DRAFT_FIELDS,
         sort: [{ field: "Name", direction: "asc" }],
       });
-      return NextResponse.json(records.map(mapDraft));
+      records = result.records;
+    } else {
+      return NextResponse.json({ error: "videoId or ids required" }, { status: 400 });
     }
+
+    // Resolve persona and expression names in parallel
+    const personaIds = [...new Set(records.flatMap((r) => r.fields["Persona (from Youtube 365 Full Posts)"] || []))];
+    const expresionIds = [...new Set(records.flatMap((r) => r.fields.Expresion || []))];
+
+    const [personaRecords, expresionRecords] = await Promise.all([
+      personaIds.length > 0
+        ? airtableFetchByIds<{ Name?: string }>(TABLES.PERSONA, personaIds, ["Name"])
+        : Promise.resolve([]),
+      expresionIds.length > 0
+        ? airtableFetchByIds<{ "Expresión"?: string; Muestra?: AttachmentValue[] }>(TABLES.EXPRESIONES_MINIATURAS, expresionIds, ["Expresión", "Muestra"])
+        : Promise.resolve([]),
+    ]);
+
+    const personaMap = new Map(personaRecords.map((r) => [r.id, r.fields.Name || r.id]));
+    const expresionMap = new Map(expresionRecords.map((r) => [r.id, {
+      name: r.fields["Expresión"] || r.id,
+      image: r.fields.Muestra?.[0]?.thumbnails?.large?.url || r.fields.Muestra?.[0]?.url || null,
+    }]));
+
+    return NextResponse.json(records.map((r) => mapDraft(r, personaMap, expresionMap)));
 
     return NextResponse.json({ error: "videoId or ids required" }, { status: 400 });
   } catch (error) {
@@ -152,7 +174,14 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-function mapDraft(r: { id: string; createdTime: string; fields: DraftFields }) {
+function mapDraft(
+  r: { id: string; createdTime: string; fields: DraftFields },
+  personaMap: Map<string, string>,
+  expresionMap: Map<string, { name: string; image: string | null }>,
+) {
+  const personaIds = r.fields["Persona (from Youtube 365 Full Posts)"] || [];
+  const expresionIds = r.fields.Expresion || [];
+
   return {
     id: r.id,
     name: r.fields.Name || null,
@@ -174,14 +203,20 @@ function mapDraft(r: { id: string; createdTime: string; fields: DraftFields }) {
     status_nuevas_miniaturas: r.fields["Status Nuevas Miniaturas"] || null,
     slideengine: r.fields.SlideEngine || null,
     pone_persona: r.fields["Pone Persona"] || null,
-    expresion_ids: r.fields.Expresion || [],
+    expresion_ids: expresionIds,
+    expresiones: expresionIds.map((id) => ({
+      id,
+      name: expresionMap.get(id)?.name || id,
+      image: expresionMap.get(id)?.image || null,
+    })),
     muestra_expresion_url:
       r.fields["Muestra (from Expresion)"]?.[0]?.thumbnails?.large?.url ||
       r.fields["Muestra (from Expresion)"]?.[0]?.url ||
       null,
     numero_variaciones: r.fields["Numero Variaciones"] || null,
     prompt_anadir_persona: r.fields["Prompt Anadir Persona"] || null,
-    persona_lookup: r.fields["Persona (from Youtube 365 Full Posts)"] || [],
+    persona_lookup: personaIds,
+    persona_names: personaIds.map((id) => personaMap.get(id) || id),
     archivar: r.fields.Archivar || false,
     feedback: r.fields.Feedback || null,
     notes: r.fields.Notes || null,

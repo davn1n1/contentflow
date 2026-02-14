@@ -27,6 +27,7 @@ export const TABLES = {
   ACCOUNT_SETTINGS: "tblyFkvBVuHs6mLOO",
   CAMPANAS: "tbl7YBYQ7Whb6JdE1",
   DRAFT_PUBLICACION: "tbltxqsZK5lzHP98R",
+  EXPRESIONES_MINIATURAS: "tbliunY5HiSCKBO45",
 } as const;
 
 interface AirtableResponse<T = Record<string, unknown>> {
@@ -57,38 +58,64 @@ export async function airtableFetch<T = Record<string, unknown>>(
     throw new Error("Airtable credentials not configured");
   }
 
-  const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableId}`);
+  // Copy fields so we can mutate on retry
+  let currentFields = options?.fields ? [...options.fields] : undefined;
+  const MAX_RETRIES = 5;
 
-  if (options?.fields) {
-    options.fields.forEach((f) => url.searchParams.append("fields[]", f));
-  }
-  if (options?.filterByFormula) {
-    url.searchParams.set("filterByFormula", options.filterByFormula);
-  }
-  if (options?.maxRecords) {
-    url.searchParams.set("maxRecords", String(options.maxRecords));
-  }
-  if (options?.sort) {
-    options.sort.forEach((s, i) => {
-      url.searchParams.set(`sort[${i}][field]`, s.field);
-      url.searchParams.set(`sort[${i}][direction]`, s.direction || "asc");
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableId}`);
+
+    if (currentFields) {
+      currentFields.forEach((f) => url.searchParams.append("fields[]", f));
+    }
+    if (options?.filterByFormula) {
+      url.searchParams.set("filterByFormula", options.filterByFormula);
+    }
+    if (options?.maxRecords) {
+      url.searchParams.set("maxRecords", String(options.maxRecords));
+    }
+    if (options?.sort) {
+      options.sort.forEach((s, i) => {
+        url.searchParams.set(`sort[${i}][field]`, s.field);
+        url.searchParams.set(`sort[${i}][direction]`, s.direction || "asc");
+      });
+    }
+    if (options?.offset) {
+      url.searchParams.set("offset", options.offset);
+    }
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${pat}` },
+      cache: "no-store",
     });
-  }
-  if (options?.offset) {
-    url.searchParams.set("offset", options.offset);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+
+      // Auto-recover from UNKNOWN_FIELD_NAME: remove bad field and retry
+      if (
+        res.status === 422 &&
+        err?.error?.type === "UNKNOWN_FIELD_NAME" &&
+        currentFields &&
+        attempt < MAX_RETRIES
+      ) {
+        const msg: string = err.error.message || "";
+        const match = msg.match(/Unknown field name: "(.+?)"/);
+        if (match) {
+          const badField = match[1];
+          console.warn(`[Airtable] Removing unknown field "${badField}" from table ${tableId} and retrying (attempt ${attempt + 1})`);
+          currentFields = currentFields.filter((f) => f !== badField);
+          continue;
+        }
+      }
+
+      throw new Error(`Airtable error: ${res.status} ${JSON.stringify(err)}`);
+    }
+
+    return res.json();
   }
 
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${pat}` },
-    cache: "no-store", // Disable cache — fix stale Escenas data
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`Airtable error: ${res.status} ${JSON.stringify(err)}`);
-  }
-
-  return res.json();
+  throw new Error("Airtable fetch: max retries exceeded");
 }
 
 // Create a new record in a table

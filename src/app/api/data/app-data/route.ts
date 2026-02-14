@@ -22,6 +22,7 @@ const ALLOWED_TABLES: Record<string, string> = {
   "social-profiles": TABLES.SOCIAL_PROFILES,
   "default-settings": TABLES.ACCOUNT_SETTINGS,
   campanas: TABLES.CAMPANAS,
+  expresiones: TABLES.EXPRESIONES_MINIATURAS,
 };
 
 // Resolve account name from record ID (cached per request)

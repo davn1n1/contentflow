@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { useTriggerThumbnail } from "@/lib/hooks/use-trigger-thumbnail";
 import { useUpdateDraft } from "@/lib/hooks/use-update-draft";
+import { useExpressions } from "@/lib/hooks/use-expressions";
+import { getEngineColor } from "@/lib/constants/engine-colors";
 import { cn } from "@/lib/utils";
 import {
   X,
@@ -27,22 +29,6 @@ import {
   Save,
 } from "lucide-react";
 
-// SlideEngine colors (Airtable-style)
-const ENGINE_COLORS: Record<string, { text: string; bg: string; border: string }> = {
-  OpenAI: { text: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/30" },
-  NanoBanana: { text: "text-violet-400", bg: "bg-violet-400/10", border: "border-violet-400/30" },
-  "NanoBanana Pro": { text: "text-purple-400", bg: "bg-purple-400/10", border: "border-purple-400/30" },
-  SeeDream4: { text: "text-blue-400", bg: "bg-blue-400/10", border: "border-blue-400/30" },
-  "z-image": { text: "text-orange-400", bg: "bg-orange-400/10", border: "border-orange-400/30" },
-  Flux: { text: "text-pink-400", bg: "bg-pink-400/10", border: "border-pink-400/30" },
-  Midjourney: { text: "text-cyan-400", bg: "bg-cyan-400/10", border: "border-cyan-400/30" },
-  "DALL-E": { text: "text-teal-400", bg: "bg-teal-400/10", border: "border-teal-400/30" },
-};
-
-function getEngineColor(engine: string) {
-  return ENGINE_COLORS[engine] || { text: "text-cyan-400", bg: "bg-cyan-400/10", border: "border-cyan-400/30" };
-}
-
 const ABC_OPTIONS = ["A", "B", "C"];
 const VARIACIONES_OPTIONS = ["1", "2", "3", "4"];
 const PONE_PERSONA_OPTIONS = ["Si", "No"];
@@ -57,6 +43,7 @@ interface ThumbnailDetailProps {
 export function ThumbnailDetail({ draft, open, onOpenChange, onVariationsTriggered }: ThumbnailDetailProps) {
   const { mutate: triggerVariations, isPending: isTriggering, isSuccess: triggerSuccess, isError: triggerError, error: triggerErrorMsg, reset: resetTrigger } = useTriggerThumbnail();
   const { mutate: updateDraft, isPending: isUpdating } = useUpdateDraft();
+  const { data: allExpressions = [] } = useExpressions();
 
   // Local editable state
   const [titulo, setTitulo] = useState("");
@@ -68,6 +55,7 @@ export function ThumbnailDetail({ draft, open, onOpenChange, onVariationsTrigger
   const [portadaAbc, setPortadaAbc] = useState<string | null>(null);
   const [ponePersona, setPonePersona] = useState<string | null>(null);
   const [numVariaciones, setNumVariaciones] = useState<string | null>(null);
+  const [selectedExpresionIds, setSelectedExpresionIds] = useState<string[]>([]);
   const [showInfo, setShowInfo] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -83,6 +71,7 @@ export function ThumbnailDetail({ draft, open, onOpenChange, onVariationsTrigger
       setPortadaAbc(draft.portada_youtube_abc);
       setPonePersona(draft.pone_persona);
       setNumVariaciones(draft.numero_variaciones);
+      setSelectedExpresionIds(draft.expresion_ids || []);
       setHasChanges(false);
     }
   }, [draft]);
@@ -116,6 +105,15 @@ export function ThumbnailDetail({ draft, open, onOpenChange, onVariationsTrigger
     if (!draft) return;
     setter(value);
     updateDraft({ id: draft.id, [field]: value });
+  };
+
+  const handleToggleExpresion = (expresionId: string) => {
+    if (!draft) return;
+    const newIds = selectedExpresionIds.includes(expresionId)
+      ? selectedExpresionIds.filter((id) => id !== expresionId)
+      : [...selectedExpresionIds, expresionId];
+    setSelectedExpresionIds(newIds);
+    updateDraft({ id: draft.id, expresion_ids: newIds });
   };
 
   const handleCreateVariations = () => {
@@ -318,13 +316,13 @@ export function ThumbnailDetail({ draft, open, onOpenChange, onVariationsTrigger
             )}
 
             <div className="grid grid-cols-2 gap-4">
-              {/* Persona lookup */}
-              {draft.persona_lookup.length > 0 && (
+              {/* Persona - resolved names */}
+              {draft.persona_names.length > 0 && (
                 <div>
                   <span className="text-xs text-muted-foreground block mb-1">Persona</span>
                   <div className="flex items-center gap-1.5">
                     <User className="w-3.5 h-3.5 text-purple-400" />
-                    <span className="text-sm font-medium text-foreground">{draft.persona_lookup.join(", ")}</span>
+                    <span className="text-sm font-medium text-foreground">{draft.persona_names.join(", ")}</span>
                   </div>
                 </div>
               )}
@@ -352,18 +350,36 @@ export function ThumbnailDetail({ draft, open, onOpenChange, onVariationsTrigger
                 </div>
               </div>
 
-              {/* Expresion */}
-              {draft.expresion_ids.length > 0 && (
-                <div>
-                  <span className="text-xs text-muted-foreground block mb-1">Expresion</span>
-                  <div className="flex items-center gap-2">
-                    {draft.muestra_expresion_url && (
-                      <img src={draft.muestra_expresion_url} alt="Expresion" className="w-8 h-8 rounded-full object-cover border border-border/50" />
-                    )}
-                    <span className="text-xs text-foreground">{draft.expresion_ids.length} seleccionada(s)</span>
-                  </div>
+              {/* Expresion selector */}
+              <div className="col-span-2">
+                <span className="text-xs text-muted-foreground block mb-1.5">Expresion</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {allExpressions.map((expr) => {
+                    const isSelected = selectedExpresionIds.includes(expr.id);
+                    return (
+                      <button
+                        key={expr.id}
+                        onClick={() => handleToggleExpresion(expr.id)}
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                          isSelected
+                            ? "bg-amber-400/10 border-amber-400/30 text-amber-400"
+                            : "bg-muted/30 border-border/50 text-muted-foreground hover:border-amber-400/30"
+                        )}
+                      >
+                        {expr.image && (
+                          <img src={expr.image} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        )}
+                        {expr.name}
+                        {isSelected && <Check className="w-3 h-3" />}
+                      </button>
+                    );
+                  })}
+                  {allExpressions.length === 0 && selectedExpresionIds.length > 0 && (
+                    <span className="text-xs text-muted-foreground">{selectedExpresionIds.length} seleccionada(s)</span>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Numero Variaciones selector */}
               <div>
