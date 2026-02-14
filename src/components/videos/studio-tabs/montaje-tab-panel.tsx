@@ -78,32 +78,39 @@ function useSceneAutoSave(sceneId: string, field: string, delay = 800) {
   return { save, saving, saved };
 }
 
-// ─── Fullscreen Image Modal ──────────────────────────────
+// ─── Fullscreen Lightbox ─────────────────────────────────
 function FullscreenImageModal({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    // Prevent body scroll while lightbox is open
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = "";
+    };
   }, [onClose]);
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm cursor-zoom-out"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md cursor-pointer animate-[fade-in_0.15s_ease-out]"
       onClick={onClose}
     >
+      {/* X button */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors z-10"
+        className="absolute top-5 right-5 p-2.5 rounded-full bg-white/10 hover:bg-white/25 text-white/80 hover:text-white transition-all z-10 backdrop-blur-sm border border-white/10"
       >
-        <X className="w-6 h-6" />
+        <X className="w-5 h-5" />
       </button>
+      {/* Image in original aspect ratio */}
       <img
         src={src}
         alt={alt}
-        className="max-w-[95vw] max-h-[95vh] object-contain rounded-lg shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className="max-w-[92vw] max-h-[92vh] rounded-xl shadow-2xl shadow-black/50 animate-[scale-in_0.2s_ease-out]"
+        style={{ objectFit: "scale-down" }}
       />
     </div>
   );
@@ -438,25 +445,24 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
                       </span>
                     </div>
                   ) : (scene.slide_full || scene.slide) ? (
-                    <div className="relative group">
-                      <div className="w-[480px] h-[270px] rounded-xl overflow-hidden bg-muted border border-border/30">
+                    <div
+                      className="relative group cursor-zoom-in"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFullscreenSrc(scene.slide_full || scene.slide || "");
+                      }}
+                    >
+                      <div className="w-[480px] h-[270px] rounded-xl overflow-hidden bg-muted border border-border/30 hover:border-primary/40 transition-colors">
                         <img
                           src={scene.slide_full || scene.slide || ""}
                           alt={`Slide ${scene.n_escena}`}
                           className="w-full h-full object-contain bg-black/20"
                         />
                       </div>
-                      {/* Fullscreen button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFullscreenSrc(scene.slide_full || scene.slide || "");
-                        }}
-                        className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 hover:bg-black/70 text-white/80 hover:text-white opacity-0 group-hover:opacity-100 transition-all"
-                        title="Ver a pantalla completa"
-                      >
+                      {/* Fullscreen hint */}
+                      <div className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white/60 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
                         <Maximize2 className="w-4 h-4" />
-                      </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="w-[480px] h-[270px] rounded-xl bg-muted/30 border border-border/20 flex items-center justify-center">
