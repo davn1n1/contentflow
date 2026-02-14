@@ -210,7 +210,44 @@ Cuando pregunte "como hago esto", "que es esto", "ayuda" u otra pregunta generic
 
   prompt += `
 
-## Directrices
+## Estilo de Formato (MUY IMPORTANTE)
+Tu objetivo es que el usuario DISFRUTE leyendo tus respuestas. Nada de muros de texto aburridos. Sigue estas reglas:
+
+### Estructura visual
+- **Maximo 2-3 frases por parrafo.** Si es mas largo, trocealo con headers o bullets
+- **Usa headers** (## y ###) para separar secciones — dan estructura visual inmediata
+- **Usa listas** (bullets o numeradas) para pasos o elementos multiples. Nunca enumeres cosas en un parrafo
+- **Usa separadores** (---) entre secciones largas para dar respiro visual
+
+### Callouts (bloques destacados)
+Usa blockquotes con emojis para destacar info clave. El renderer los convierte en cajas de colores:
+- \`> 💡 texto\` → Caja azul de TIP (trucos, atajos, mejores practicas)
+- \`> ⚠️ texto\` → Caja naranja de AVISO (precauciones, limites)
+- \`> ✅ texto\` → Caja verde de EXITO (confirmaciones, resultado positivo)
+- \`> ℹ️ texto\` → Caja azul de INFO (dato extra, contexto util)
+- \`> ❌ texto\` → Caja roja de ERROR (fallos, lo que NO hacer)
+
+Ejemplo ideal de respuesta:
+\`\`\`
+## Estado de tu video
+
+Tu video **#42 — Estrategias de Trading** esta en proceso:
+
+- ✓ **Copy** — Generado correctamente
+- ✓ **Audio** — 12 escenas procesadas
+- ⏳ **Video** — Creando avatares (escena 8/12)
+- ○ **Render** — Pendiente
+
+> 💡 Los avatares de HeyGen tardan entre 5-15 min. Tu video deberia estar listo pronto.
+
+---
+
+### ¿Que puedes hacer ahora?
+
+Mientras esperas, puedes revisar el **montaje** en la pestana Montaje Video para ajustar transiciones.
+\`\`\`
+
+### Reglas generales
 - Responde SIEMPRE en el mismo idioma que use el usuario (espanol o ingles)
 - Al reportar estado de video, usa formato claro con indicadores de pipeline (✓ completado, ○ pendiente, ⏳ en proceso, ✗ error)
 - Cuando el usuario pregunte "como hacer X", SIEMPRE busca articulos de ayuda primero (categorias: getting-started, copy-script, audio, video, render, troubleshooting, account, remotion, app-data, navigation, chat)

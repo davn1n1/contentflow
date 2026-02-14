@@ -4,6 +4,37 @@ interface MarkdownRendererProps {
   content: string;
 }
 
+/** Detect callout type from leading emoji in a blockquote line */
+function detectCalloutType(text: string): {
+  type: "tip" | "warning" | "success" | "info" | "error" | "quote";
+  content: string;
+} {
+  const trimmed = text.trimStart();
+  if (/^[💡🔑]/.test(trimmed)) return { type: "tip", content: trimmed.replace(/^[💡🔑]\s*/, "") };
+  if (/^[⚠️🚨]/.test(trimmed)) return { type: "warning", content: trimmed.replace(/^[⚠️🚨]\s*/, "") };
+  if (/^[✅✓]/.test(trimmed)) return { type: "success", content: trimmed.replace(/^[✅✓]\s*/, "") };
+  if (/^[ℹ️📌]/.test(trimmed)) return { type: "info", content: trimmed.replace(/^[ℹ️📌]\s*/, "") };
+  if (/^[❌🛑]/.test(trimmed)) return { type: "error", content: trimmed.replace(/^[❌🛑]\s*/, "") };
+  return { type: "quote", content: trimmed };
+}
+
+const CALLOUT_STYLES = {
+  tip: "bg-primary/8 border-primary/30 text-primary",
+  warning: "bg-warning/8 border-warning/30 text-warning",
+  success: "bg-success/8 border-success/30 text-success",
+  info: "bg-info/8 border-info/30 text-info",
+  error: "bg-destructive/8 border-destructive/30 text-destructive",
+  quote: "bg-muted/30 border-muted-foreground/20 text-muted-foreground",
+} as const;
+
+const CALLOUT_LABELS: Record<string, string> = {
+  tip: "Tip",
+  warning: "Aviso",
+  success: "Listo",
+  info: "Info",
+  error: "Error",
+};
+
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
   const lines = content.split("\n");
   const elements: React.ReactNode[] = [];
@@ -12,17 +43,37 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
 
   function flushList() {
     if (listItems.length > 0 && listType) {
-      const Tag = listType;
-      elements.push(
-        <Tag
-          key={`list-${elements.length}`}
-          className={listType === "ul" ? "list-disc pl-4 space-y-1" : "list-decimal pl-4 space-y-1"}
-        >
-          {listItems.map((item, i) => (
-            <li key={i}>{renderInline(item)}</li>
-          ))}
-        </Tag>
-      );
+      if (listType === "ol") {
+        elements.push(
+          <ol
+            key={`list-${elements.length}`}
+            className="pl-0 space-y-1.5 my-1"
+          >
+            {listItems.map((item, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center mt-0.5">
+                  {i + 1}
+                </span>
+                <span className="flex-1">{renderInline(item)}</span>
+              </li>
+            ))}
+          </ol>
+        );
+      } else {
+        elements.push(
+          <ul
+            key={`list-${elements.length}`}
+            className="pl-0 space-y-1 my-1"
+          >
+            {listItems.map((item, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary/50 mt-[7px]" />
+                <span className="flex-1">{renderInline(item)}</span>
+              </li>
+            ))}
+          </ul>
+        );
+      }
       listItems = [];
       listType = null;
     }
@@ -48,6 +99,47 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     }
 
     flushList();
+
+    // Horizontal rule (---, ***, ___)
+    if (/^[-*_]{3,}\s*$/.test(line)) {
+      elements.push(
+        <hr
+          key={`hr-${i}`}
+          className="my-3 border-0 h-px bg-gradient-to-r from-transparent via-border to-transparent"
+        />
+      );
+      continue;
+    }
+
+    // Blockquote / Callout (> text) — collect consecutive lines
+    if (line.startsWith("> ")) {
+      const quoteLines: string[] = [line.slice(2)];
+      while (i + 1 < lines.length && lines[i + 1].startsWith("> ")) {
+        i++;
+        quoteLines.push(lines[i].slice(2));
+      }
+      const fullText = quoteLines.join("\n");
+      const { type, content: calloutContent } = detectCalloutType(fullText);
+      const styles = CALLOUT_STYLES[type];
+      const label = CALLOUT_LABELS[type];
+
+      elements.push(
+        <div
+          key={`callout-${i}`}
+          className={`my-2 px-3 py-2 rounded-lg border-l-3 ${styles}`}
+        >
+          {label && (
+            <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 block mb-0.5">
+              {label}
+            </span>
+          )}
+          <span className="text-foreground text-sm">
+            {renderInline(calloutContent)}
+          </span>
+        </div>
+      );
+      continue;
+    }
 
     // Headers — visually distinct with colors and backgrounds
     if (line.startsWith("### ")) {
