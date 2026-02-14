@@ -5,7 +5,7 @@ import { useVideoContextStore } from "@/lib/stores/video-context-store";
 import { useVideoDetail } from "@/lib/hooks/use-video-detail";
 import {
   FileText, Headphones, Video, Tv,
-  CheckCircle2, ChevronRight,
+  CheckCircle2, ChevronRight, Clock, Hash, AlignLeft,
 } from "lucide-react";
 
 const PHASES = [
@@ -72,6 +72,36 @@ export function PipelineHeader({ currentPhase }: PipelineHeaderProps) {
               {activeVideoId}
             </p>
           </div>
+
+          {/* Video Stats Pills */}
+          {video && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {video.extension_listado && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20">
+                  <AlignLeft className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-primary">{video.extension_listado}</span>
+                </div>
+              )}
+              {video.extension_palabras != null && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted border border-border">
+                  <Hash className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-foreground">{video.extension_palabras.toLocaleString()} palabras</span>
+                </div>
+              )}
+              {video.estimated_duration && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted border border-border">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-foreground">{video.estimated_duration}</span>
+                </div>
+              )}
+              {!video.estimated_duration && video.voice_length_minutes && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted border border-border">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-foreground">{video.voice_length_minutes}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

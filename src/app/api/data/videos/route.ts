@@ -29,6 +29,8 @@ const VIDEO_FIELDS = [
   "Engine Copy",
   "Sponsors",
   "Status & Copy Analysis",
+  "Extension",
+  "Estimated Duration",
 ];
 
 interface VideoFields {
@@ -75,6 +77,8 @@ interface VideoFields {
   "Engine Copy"?: string;
   Sponsors?: string[];
   "Status & Copy Analysis"?: string;
+  Extension?: number;
+  "Estimated Duration"?: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -216,5 +220,7 @@ function mapVideo(r: { id: string; createdTime: string; fields: VideoFields }) {
     sponsor_ids: r.fields.Sponsors || [],
     seguro_creacion_copy: r.fields["Seguro Creación Copy"] || null,
     status_copy_analysis: r.fields["Status & Copy Analysis"] || null,
+    extension_palabras: r.fields.Extension || null,
+    estimated_duration: r.fields["Estimated Duration"] || null,
   };
 }

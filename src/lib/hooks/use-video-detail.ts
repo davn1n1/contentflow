@@ -41,6 +41,8 @@ interface VideoDetail {
   sponsor_ids: string[];
   seguro_creacion_copy: string | null;
   status_copy_analysis: string | null;
+  extension_palabras: number | null;
+  estimated_duration: string | null;
 }
 
 export interface SceneDetail {
