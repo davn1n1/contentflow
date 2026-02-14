@@ -1301,6 +1301,9 @@ function VisualTimeline({
       >
         <div className="relative space-y-1.5" style={{ width: zoom > 1 ? `${zoom * 100}%` : undefined }}>
 
+        {/* Time ruler — top */}
+        <TimeRuler totalFrames={totalFrames} fps={timeline.fps} position="top" />
+
         {/* Scene zones — colored bands showing Hook, Intro, Desarrollo, CTA */}
         {timeline.scenes && timeline.scenes.length > 1 && (
           <div className="relative h-5 rounded overflow-hidden flex mb-1">
@@ -1379,8 +1382,8 @@ function VisualTimeline({
           </div>
         </div>
 
-        {/* Time markers — scale with zoom */}
-        <TimeRuler totalFrames={totalFrames} fps={timeline.fps} />
+        {/* Time ruler — bottom */}
+        <TimeRuler totalFrames={totalFrames} fps={timeline.fps} position="bottom" />
         </div>{/* close zoom width div */}
       </div>{/* close scroll container */}
 
@@ -1394,7 +1397,7 @@ function VisualTimeline({
 
 // ─── Time Ruler ─────────────────────────────────────────
 
-function TimeRuler({ totalFrames, fps }: { totalFrames: number; fps: number }) {
+function TimeRuler({ totalFrames, fps, position = "bottom" }: { totalFrames: number; fps: number; position?: "top" | "bottom" }) {
   const totalSec = totalFrames / fps;
   // Decide interval: aim for ~8-12 marks visible
   let interval: number;
@@ -1411,20 +1414,20 @@ function TimeRuler({ totalFrames, fps }: { totalFrames: number; fps: number }) {
   if (marks[marks.length - 1] < totalSec) marks.push(totalSec);
 
   return (
-    <div className="relative h-4 mt-1">
+    <div className={`relative h-5 ${position === "bottom" ? "mt-1" : "mb-0.5"}`}>
       <div className="absolute inset-0 flex items-center" style={{ marginLeft: "7rem" }}>
         {marks.map((s) => {
           const pct = (s / totalSec) * 100;
           const min = Math.floor(s / 60);
           const sec = Math.floor(s % 60);
           return (
-            <span
-              key={s}
-              className="absolute text-[9px] text-muted-foreground/50 -translate-x-1/2"
-              style={{ left: `${pct}%` }}
-            >
-              {min}:{sec.toString().padStart(2, "0")}
-            </span>
+            <div key={s} className="absolute -translate-x-1/2 flex flex-col items-center" style={{ left: `${pct}%` }}>
+              {position === "bottom" && <div className="w-px h-1.5 bg-white/30" />}
+              <span className="text-[10px] font-mono text-white/70 leading-none">
+                {min}:{sec.toString().padStart(2, "0")}
+              </span>
+              {position === "top" && <div className="w-px h-1.5 bg-white/30" />}
+            </div>
           );
         })}
       </div>
