@@ -1,12 +1,15 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Audio,
+  Sequence,
   useCurrentFrame,
   useVideoConfig,
   interpolate,
   spring,
   Easing,
 } from "remotion";
+import { STATIC_ASSETS } from "../constants";
 
 // ─── Input Props ────────────────────────────────────────
 export interface TextRevealProps {
@@ -206,6 +209,18 @@ export const TextReveal: React.FC<TextRevealProps> = ({
           </div>
         )}
       </div>
+
+      {/* ── Audio FX synced to animations ── */}
+
+      {/* Whoosh IN → synced with title slide-up (frame 9 = 0.3s) */}
+      <Sequence from={titleStart} durationInFrames={30} name="SFX: Whoosh In">
+        <Audio src={STATIC_ASSETS.WHOOSH_IN} volume={0.5} />
+      </Sequence>
+
+      {/* Whoosh OUT → synced with outro fade (frame 96 = 3.2s) */}
+      <Sequence from={outStart} durationInFrames={24} name="SFX: Whoosh Out">
+        <Audio src={STATIC_ASSETS.WHOOSH_OUT} volume={0.4} />
+      </Sequence>
     </AbsoluteFill>
   );
 };
