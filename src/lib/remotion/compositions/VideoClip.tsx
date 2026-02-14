@@ -1,9 +1,12 @@
-import React from "react";
-import { Video } from "@remotion/media";
+import React, { useContext } from "react";
+import { Video as RemotionVideo } from "remotion";
+import { Video as MediaVideo } from "@remotion/media";
 import type { RemotionClip } from "../types";
+import { RenderModeContext } from "../RenderModeContext";
 import { useZoomInSlow, useTransitionIn, useTransitionOut } from "./effects";
 
 export const VideoClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
+  const isWebRender = useContext(RenderModeContext);
   const scale = useZoomInSlow(clip.effect, clip.durationInFrames);
   const transIn = useTransitionIn(clip.transition, clip.durationInFrames);
   const transOut = useTransitionOut(clip.transition, clip.durationInFrames);
@@ -22,6 +25,13 @@ export const VideoClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
 
   const opacity = transIn.opacity ?? transOut.opacity ?? 1;
 
+  const videoStyle: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    objectFit: clip.fit || "cover",
+    transform: transforms.length > 0 ? transforms.join(" ") : undefined,
+  };
+
   return (
     <div
       style={{
@@ -35,18 +45,23 @@ export const VideoClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
         filter: clip.filter === "blur" ? "blur(10px)" : undefined,
       }}
     >
-      <Video
-        src={clip.proxySrc || clip.src}
-        trimBefore={clip.startFrom}
-        volume={clip.volume ?? 1}
-        fallbackOffthreadVideoProps={{ pauseWhenBuffering: true }}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: clip.fit || "cover",
-          transform: transforms.length > 0 ? transforms.join(" ") : undefined,
-        }}
-      />
+      {isWebRender ? (
+        <MediaVideo
+          src={clip.proxySrc || clip.src}
+          trimBefore={clip.startFrom}
+          volume={clip.volume ?? 1}
+          fallbackOffthreadVideoProps={{ pauseWhenBuffering: true }}
+          style={videoStyle}
+        />
+      ) : (
+        <RemotionVideo
+          src={clip.proxySrc || clip.src}
+          startFrom={clip.startFrom}
+          volume={clip.volume ?? 1}
+          pauseWhenBuffering
+          style={videoStyle}
+        />
+      )}
     </div>
   );
 };

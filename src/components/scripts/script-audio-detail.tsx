@@ -965,11 +965,81 @@ function TabAudio({ video }: { video: VideoWithScenes }) {
 
 // ─── Scene Summary Table (below Crear Copy button) ───────
 
+// Auto-save a scene field to Airtable (debounced)
+function useSceneAutoSave(sceneId: string, field: string, delay = 800) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryClient = useQueryClient();
+
+  const save = useCallback(
+    (value: string) => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setSaved(false);
+      timerRef.current = setTimeout(async () => {
+        setSaving(true);
+        try {
+          const res = await fetch("/api/data/scenes", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: sceneId, fields: { [field]: value } }),
+          });
+          if (res.ok) {
+            setSaved(true);
+            queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+            setTimeout(() => setSaved(false), 2000);
+          }
+        } catch {
+          // Silently fail — user can retry
+        } finally {
+          setSaving(false);
+        }
+      }, delay);
+    },
+    [sceneId, field, delay, queryClient]
+  );
+
+  return { save, saving, saved };
+}
+
 function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Keyboard navigation: up/down arrows to move between scenes
+  const handleKeyNav = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      // Don't intercept if user is typing in a textarea
+      if ((e.target as HTMLElement).tagName === "TEXTAREA") return;
+
+      e.preventDefault();
+      const currentIdx = scenes.findIndex((s) => s.id === expandedId);
+      let nextIdx: number;
+
+      if (e.key === "ArrowDown") {
+        nextIdx = currentIdx < scenes.length - 1 ? currentIdx + 1 : 0;
+      } else {
+        nextIdx = currentIdx > 0 ? currentIdx - 1 : scenes.length - 1;
+      }
+      setExpandedId(scenes[nextIdx].id);
+    },
+    [expandedId, scenes]
+  );
+
+  // Scroll expanded scene — summary row pinned to top of visible area
+  const expandedRowRef = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    if (expandedId && expandedRowRef.current) {
+      expandedRowRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [expandedId]);
+
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
+    <div
+      className="glass-card rounded-xl overflow-hidden"
+      onKeyDown={handleKeyNav}
+      tabIndex={0}
+    >
       <div className="px-5 py-3 border-b border-border flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <Clapperboard className="w-4 h-4 text-primary" />
@@ -978,6 +1048,7 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
             {scenes.length}
           </span>
         </h3>
+        <span className="text-[10px] text-muted-foreground/60">↑↓ navegar entre escenas</span>
       </div>
 
       {/* Table */}
@@ -1002,6 +1073,7 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
                   scene={scene}
                   isExpanded={isExpanded}
                   onToggle={() => setExpandedId(isExpanded ? null : scene.id)}
+                  expandedRef={isExpanded ? expandedRowRef : undefined}
                 />
               );
             })}
@@ -1012,11 +1084,61 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
   );
 }
 
-function SceneSummaryRow({ scene, isExpanded, onToggle }: {
+function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   scene: SceneDetail;
   isExpanded: boolean;
   onToggle: () => void;
+  expandedRef?: React.RefObject<HTMLTableRowElement | null>;
 }) {
+  const [scriptValue, setScriptValue] = useState(scene.script || "");
+  const { save: saveScript, saving, saved } = useSceneAutoSave(scene.id, "Script");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Sync local state when scene data changes from server
+  useEffect(() => {
+    setScriptValue(scene.script || "");
+  }, [scene.script]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (isExpanded && textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+    }
+  }, [isExpanded, scriptValue]);
+
+  const handleScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setScriptValue(val);
+    saveScript(val);
+  };
+
+  // Handle keyboard in textarea
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Escape: save, exit textarea, scroll to top, focus table for arrow nav
+    if (e.key === "Escape") {
+      e.preventDefault();
+      saveScript(scriptValue);
+      e.currentTarget.blur();
+      if (expandedRef?.current) {
+        expandedRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      const table = e.currentTarget.closest("[tabindex]");
+      if (table instanceof HTMLElement) table.focus();
+      return;
+    }
+    // Ctrl/Cmd + ArrowUp/Down: navigate scenes
+    if ((e.key === "ArrowUp" || e.key === "ArrowDown") && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      saveScript(scriptValue);
+      e.currentTarget.blur();
+      const parent = e.currentTarget.closest("[tabindex]");
+      if (parent) {
+        parent.dispatchEvent(new KeyboardEvent("keydown", { key: e.key, bubbles: true }));
+      }
+    }
+  };
+
   const scriptPreview = scene.script
     ? scene.script.length > 120 ? scene.script.slice(0, 120) + "..." : scene.script
     : "—";
@@ -1025,6 +1147,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle }: {
     <>
       {/* Summary row */}
       <tr
+        ref={isExpanded ? expandedRef : undefined}
         onClick={onToggle}
         className={cn(
           "border-b border-border/50 cursor-pointer transition-colors",
@@ -1072,15 +1195,34 @@ function SceneSummaryRow({ scene, isExpanded, onToggle }: {
         <tr className="bg-primary/5">
           <td colSpan={6} className="px-4 py-4">
             <div className="space-y-3 max-w-4xl">
-              {/* Full script */}
-              {scene.script && (
-                <div>
+              {/* Editable script */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script completo</span>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed mt-1 bg-muted/30 rounded-lg p-3">
-                    {scene.script}
-                  </p>
+                  <span className="text-[10px] text-muted-foreground/50">
+                    {saving ? (
+                      <span className="flex items-center gap-1 text-amber-400">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
+                      </span>
+                    ) : saved ? (
+                      <span className="flex items-center gap-1 text-emerald-400">
+                        <CheckCircle2 className="w-3 h-3" /> Guardado
+                      </span>
+                    ) : (
+                      <span>Esc para salir · ↑↓ navegar</span>
+                    )}
+                  </span>
                 </div>
-              )}
+                <textarea
+                  ref={textareaRef}
+                  value={scriptValue}
+                  onChange={handleScriptChange}
+                  onKeyDown={handleTextareaKeyDown}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full text-sm whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none transition-colors"
+                  rows={3}
+                />
+              </div>
 
               {/* Metadata grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

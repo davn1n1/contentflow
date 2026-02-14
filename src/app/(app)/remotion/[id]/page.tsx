@@ -29,6 +29,7 @@ import {
   ExternalLink,
   Minus,
   Plus,
+  Timer,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -46,6 +47,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DynamicVideo } from "@/lib/remotion/compositions/DynamicVideo";
+import { RenderModeContext } from "@/lib/remotion/RenderModeContext";
 import { InspectorPanel } from "@/components/editor/inspector/InspectorPanel";
 import { useTimelineShortcuts } from "@/lib/hooks/useTimelineShortcuts";
 import type {
@@ -56,6 +58,30 @@ import type {
 } from "@/lib/remotion/types";
 import { useEditorStore } from "@/lib/stores/editor-store";
 import { cn } from "@/lib/utils";
+
+// ─── Elapsed Timer Hook ──────────────────────────────────
+
+/** Returns a formatted elapsed time string (M:SS) that ticks every second while running. */
+function useElapsedTimer(running: boolean) {
+  const startRef = useRef<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (running) {
+      startRef.current = Date.now();
+      setElapsed(0);
+      const interval = setInterval(() => {
+        setElapsed(Math.floor((Date.now() - startRef.current!) / 1000));
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+    // When stopped, keep the final elapsed value (don't reset)
+  }, [running]);
+
+  const min = Math.floor(elapsed / 60);
+  const sec = elapsed % 60;
+  return `${min}:${sec.toString().padStart(2, "0")}`;
+}
 
 // ─── Helpers ─────────────────────────────────────────────
 
@@ -690,6 +716,7 @@ function RenderSection({
   const [renderUrl, setRenderUrl] = useState(initialRenderUrl);
   const [renderSize, setRenderSize] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const elapsedTime = useElapsedTimer(renderState === "launching" || renderState === "rendering");
   const [renderInfo, setRenderInfo] = useState<{
     renderId: string;
     bucketName: string;
@@ -782,11 +809,9 @@ function RenderSection({
         <CheckCircle2 className="h-5 w-5 text-green-400 flex-shrink-0" />
         <div className="flex-1">
           <p className="text-sm font-medium text-green-400">Render completado</p>
-          {renderSize && (
-            <p className="text-xs text-green-400/60 mt-0.5">
-              {(renderSize / 1024 / 1024).toFixed(1)} MB
-            </p>
-          )}
+          <p className="text-xs text-green-400/60 mt-0.5">
+            {renderSize ? `${(renderSize / 1024 / 1024).toFixed(1)} MB · ` : ""}{elapsedTime}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <a
@@ -822,7 +847,10 @@ function RenderSection({
     return (
       <div className="flex items-center gap-3 rounded-lg border border-blue-500/20 bg-blue-500/5 px-4 py-3">
         <Loader2 className="h-5 w-5 text-blue-400 flex-shrink-0 animate-spin" />
-        <p className="text-sm text-blue-400">Lanzando render en AWS Lambda...</p>
+        <p className="text-sm text-blue-400 flex-1">Lanzando render en AWS Lambda...</p>
+        <span className="flex items-center gap-1 text-xs text-blue-400/70 font-mono flex-shrink-0">
+          <Timer className="h-3 w-3" />{elapsedTime}
+        </span>
       </div>
     );
   }
@@ -834,7 +862,12 @@ function RenderSection({
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1.5">
             <p className="text-sm text-blue-400">Renderizando en Lambda...</p>
-            <span className="text-xs text-blue-400/70 font-mono">{progress}%</span>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-xs text-blue-400/70 font-mono">
+                <Timer className="h-3 w-3" />{elapsedTime}
+              </span>
+              <span className="text-xs text-blue-400/70 font-mono">{progress}%</span>
+            </div>
           </div>
           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
             <div
@@ -1748,6 +1781,7 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
   const [blobSize, setBlobSize] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const elapsedTime = useElapsedTimer(state === "rendering");
 
   // Check browser support on mount
   useEffect(() => {
@@ -1781,22 +1815,34 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
     try {
       const { renderMediaOnWeb } = await import("@remotion/web-renderer");
 
-      // Strip proxySrc from clips — CDN URLs have CORS restrictions in browser
+      // Route all media through our server-side proxy to avoid CORS issues.
+      // Strip proxySrc (CDN) and rewrite src to use /api/remotion/media-proxy.
       const browserTimeline = {
         ...timeline,
         tracks: timeline.tracks.map((track) => ({
           ...track,
           clips: track.clips.map((clip) => {
             const { proxySrc: _p, ...rest } = clip;
-            return rest;
+            return {
+              ...rest,
+              src: `/api/remotion/media-proxy?url=${encodeURIComponent(clip.src)}`,
+            };
           }),
         })),
       };
 
+      // Wrap DynamicVideo with web-render context so VideoClip uses @remotion/media
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const WebDynamicVideo: React.FC<any> = (props) => (
+        <RenderModeContext.Provider value={true}>
+          <DynamicVideo {...props} />
+        </RenderModeContext.Provider>
+      );
+
       const { getBlob } = await renderMediaOnWeb({
         composition: {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          component: DynamicVideo as any,
+          component: WebDynamicVideo as any,
           durationInFrames: browserTimeline.durationInFrames,
           fps: browserTimeline.fps,
           width: browserTimeline.width,
@@ -1852,11 +1898,9 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
         <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
         <div className="flex-1">
           <p className="text-sm font-medium text-emerald-400">Render en navegador completado</p>
-          {blobSize && (
-            <p className="text-xs text-emerald-400/60 mt-0.5">
-              {(blobSize / 1024 / 1024).toFixed(1)} MB · WebM/VP8
-            </p>
-          )}
+          <p className="text-xs text-emerald-400/60 mt-0.5">
+            {blobSize ? `${(blobSize / 1024 / 1024).toFixed(1)} MB · ` : ""}WebM/VP8 · {elapsedTime}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
@@ -1885,7 +1929,12 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1.5">
             <p className="text-sm text-amber-400">Renderizando en navegador...</p>
-            <span className="text-xs text-amber-400/70 font-mono">{progress}%</span>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-xs text-amber-400/70 font-mono">
+                <Timer className="h-3 w-3" />{elapsedTime}
+              </span>
+              <span className="text-xs text-amber-400/70 font-mono">{progress}%</span>
+            </div>
           </div>
           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
             <div
@@ -1894,7 +1943,7 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
             />
           </div>
           <p className="text-[10px] text-muted-foreground mt-1">
-            WebM/VP8 · {timeline.width}x{timeline.height} · Esto puede tardar varios minutos
+            WebM/VP8 · {timeline.width}x{timeline.height}
           </p>
         </div>
         <button

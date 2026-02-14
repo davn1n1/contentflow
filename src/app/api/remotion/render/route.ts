@@ -12,33 +12,48 @@ const AWS_REGION = process.env.REMOTION_AWS_REGION as
   | "eu-west-1";
 
 // AWS Lambda concurrent execution limit for this account.
-// New accounts start with very low burst concurrency (~2-3).
-// Once AWS approves the quota increase (requested 1500), update this env var.
-// Check status: https://eu-central-1.console.aws.amazon.com/servicequotas/home/services/lambda/quotas/L-B99A9384
 const LAMBDA_CONCURRENCY_LIMIT = parseInt(
   process.env.REMOTION_LAMBDA_CONCURRENCY ?? "3",
   10
 );
 
+// Remotion hard limit on max functions per render
+const REMOTION_MAX_FUNCTIONS = 200;
+
 /**
- * Calculate optimal framesPerLambda to stay within concurrency limits.
- * Remotion uses 1 main Lambda + N chunk Lambdas running concurrently.
- * We reserve 2 slots (main + stitcher) and distribute frames across the rest.
- *
- * With concurrency 3 → maxChunks=1 → all frames in 1 Lambda (safest).
- * With concurrency 1500 → maxChunks=1498 → fast parallel rendering.
+ * Calculate optimal framesPerLambda given total frames and max allowed chunks.
+ * Always ensures chunks stay within both our concurrency limit and Remotion's 200 cap.
  */
-function calculateFramesPerLambda(totalFrames: number): number {
-  const maxChunks = Math.max(LAMBDA_CONCURRENCY_LIMIT - 2, 1);
+function calculateFramesPerLambda(totalFrames: number, maxFunctions = REMOTION_MAX_FUNCTIONS): number {
+  const maxFromConcurrency = Math.max(LAMBDA_CONCURRENCY_LIMIT - 2, 1);
+  const maxChunks = Math.min(maxFromConcurrency, maxFunctions);
   const calculated = Math.ceil(totalFrames / maxChunks);
   // Minimum 20 frames per chunk (no point in smaller chunks)
   return Math.max(calculated, 20);
 }
 
 /**
+ * Extract a numeric limit from Remotion error messages like:
+ * "Too many functions: This render would cause 884 functions to spawn. We limit this amount to 200 functions"
+ */
+function extractFunctionLimit(errorMsg: string): number | null {
+  const match = errorMsg.match(/limit this amount to (\d+)/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/**
+ * Extract "would cause N functions" from error message to know what was attempted.
+ */
+function extractAttemptedFunctions(errorMsg: string): number | null {
+  const match = errorMsg.match(/would cause (\d+) functions/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+/**
  * POST /api/remotion/render
  *
  * Launches a Remotion Lambda render for a given timeline.
+ * Auto-retries with adjusted framesPerLambda if Remotion rejects due to function limits.
  * Body: { timelineId: string }
  * Returns: { renderId, bucketName, framesPerLambda, estimatedChunks }
  */
@@ -122,42 +137,106 @@ export async function POST(request: NextRequest) {
     }
 
     const totalFrames = timeline.durationInFrames;
-    const framesPerLambda = calculateFramesPerLambda(totalFrames);
-    const estimatedChunks = Math.ceil(totalFrames / framesPerLambda);
 
-    // Launch render on Lambda
-    // maxRetries=1 avoids extra Lambda invocations from retries hitting concurrency limits.
-    // When AWS approves higher concurrency, we can increase or remove this.
-    const { renderId, bucketName } = await renderMediaOnLambda({
-      region: AWS_REGION,
-      functionName,
-      serveUrl,
-      composition: "DynamicVideo",
-      inputProps: timeline as unknown as Record<string, unknown>,
-      codec: "h264",
-      framesPerLambda,
-      maxRetries: 1,
-      privacy: "public",
-    });
+    // Auto-retry loop: if Remotion rejects due to function limits, adjust and retry
+    const MAX_RETRIES = 3;
+    let currentMaxFunctions = REMOTION_MAX_FUNCTIONS;
+    let lastError: Error | null = null;
 
-    // Update status in Supabase (persist for page reload)
-    await supabase
-      .from("remotion_timelines")
-      .update({
-        status: "rendering",
-        render_id: renderId,
-        render_bucket: bucketName,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", timelineId);
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      const framesPerLambda = calculateFramesPerLambda(totalFrames, currentMaxFunctions);
+      const estimatedChunks = Math.ceil(totalFrames / framesPerLambda);
 
-    return NextResponse.json({
-      renderId,
-      bucketName,
-      framesPerLambda,
-      estimatedChunks,
-      concurrencyLimit: LAMBDA_CONCURRENCY_LIMIT,
-    });
+      console.log(
+        `[Render] Attempt ${attempt}/${MAX_RETRIES}: ${totalFrames} frames, ` +
+        `${framesPerLambda} frames/lambda, ~${estimatedChunks} chunks, ` +
+        `maxFunctions=${currentMaxFunctions}`
+      );
+
+      try {
+        const { renderId, bucketName } = await renderMediaOnLambda({
+          region: AWS_REGION,
+          functionName,
+          serveUrl,
+          composition: "DynamicVideo",
+          inputProps: timeline as unknown as Record<string, unknown>,
+          codec: "h264",
+          // High quality encoding: CRF 18 = visually lossless for H.264
+          crf: 18,
+          // 1GB cache per Lambda for smooth video frame extraction (Lambda has 2GB total)
+          offthreadVideoCacheSizeInBytes: 1024 * 1024 * 1024,
+          framesPerLambda,
+          maxRetries: 1,
+          privacy: "public",
+        });
+
+        // Success — update Supabase and return
+        await supabase
+          .from("remotion_timelines")
+          .update({
+            status: "rendering",
+            render_id: renderId,
+            render_bucket: bucketName,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", timelineId);
+
+        console.log(
+          `[Render] Launched: renderId=${renderId}, ${estimatedChunks} chunks, ${framesPerLambda} frames/lambda`
+        );
+
+        return NextResponse.json({
+          renderId,
+          bucketName,
+          framesPerLambda,
+          estimatedChunks,
+          concurrencyLimit: LAMBDA_CONCURRENCY_LIMIT,
+          attempt,
+        });
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        const msg = lastError.message;
+
+        // Check if it's a "too many functions" error — auto-adjust and retry
+        if (msg.includes("Too many functions") || msg.includes("too many functions")) {
+          const remotionLimit = extractFunctionLimit(msg);
+          const attempted = extractAttemptedFunctions(msg);
+
+          console.warn(
+            `[Render] Too many functions (attempted: ${attempted}, limit: ${remotionLimit}). ` +
+            `Adjusting maxFunctions from ${currentMaxFunctions} to ${remotionLimit ?? Math.floor(currentMaxFunctions * 0.5)}`
+          );
+
+          // Use the limit Remotion told us, or halve our estimate
+          currentMaxFunctions = remotionLimit ?? Math.floor(currentMaxFunctions * 0.5);
+          if (currentMaxFunctions < 1) currentMaxFunctions = 1;
+          continue;
+        }
+
+        // Check for concurrency/throttle errors — reduce aggressively
+        if (
+          msg.includes("TooManyRequestsException") ||
+          msg.includes("Rate exceeded") ||
+          msg.includes("concurrency")
+        ) {
+          console.warn(
+            `[Render] Concurrency/throttle error. Reducing maxFunctions from ${currentMaxFunctions} to ${Math.floor(currentMaxFunctions * 0.5)}`
+          );
+          currentMaxFunctions = Math.max(Math.floor(currentMaxFunctions * 0.5), 1);
+          continue;
+        }
+
+        // Non-retryable error — break
+        break;
+      }
+    }
+
+    // All retries exhausted
+    console.error("Remotion render error (all retries exhausted):", lastError);
+    return NextResponse.json(
+      { error: lastError?.message ?? "Render failed after retries" },
+      { status: 500 }
+    );
   } catch (err) {
     console.error("Remotion render error:", err);
     return NextResponse.json(

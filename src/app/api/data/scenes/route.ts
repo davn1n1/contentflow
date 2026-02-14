@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { airtableFetchByIds, TABLES } from "@/lib/airtable/client";
+import { airtableFetchByIds, airtableUpdate, TABLES } from "@/lib/airtable/client";
 import { authenticateApiRequest } from "@/lib/auth/api-guard";
 
 const SCENE_FIELDS = [
@@ -100,5 +100,29 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Airtable scenes error:", error);
     return NextResponse.json({ error: "Failed to fetch scenes" }, { status: 500 });
+  }
+}
+
+// PATCH: Update a scene field (Script, etc.)
+export async function PATCH(request: NextRequest) {
+  const auth = await authenticateApiRequest();
+  if ("error" in auth) return auth.error;
+
+  try {
+    const body = await request.json();
+    const { id, fields } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "id required" }, { status: 400 });
+    }
+    if (!fields || typeof fields !== "object") {
+      return NextResponse.json({ error: "fields required" }, { status: 400 });
+    }
+
+    const updated = await airtableUpdate<SceneFields>(TABLES.ESCENAS, id, fields);
+    return NextResponse.json({ id: updated.id, ok: true });
+  } catch (error) {
+    console.error("Airtable scene update error:", error);
+    return NextResponse.json({ error: "Failed to update scene" }, { status: 500 });
   }
 }
