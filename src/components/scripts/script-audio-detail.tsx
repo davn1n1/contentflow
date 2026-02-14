@@ -9,7 +9,7 @@ import {
   Volume2, Calendar, ExternalLink, Lightbulb,
   Save, AlertCircle, Users, UserCog,
   Cpu, Zap, Shield, Play, Info,
-  ChevronDown, Twitter, Newspaper, ImageIcon,
+  ChevronDown, Twitter, Newspaper, ImageIcon, AlertTriangle,
 } from "lucide-react";
 import type { VideoWithScenes, LinkedIdea, LinkedIdeaFull, SceneDetail } from "@/lib/hooks/use-video-detail";
 import { WaveformAudioPlayer } from "@/components/shared/waveform-audio-player";
@@ -93,7 +93,7 @@ export function ScriptAudioDetail({ video, isLoading }: ScriptAudioDetailProps) 
 
 export function TabScript({ video }: { video: VideoWithScenes }) {
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       {/* Scheduled Date */}
       <ScheduledDateEditor videoId={video.id} initialDate={video.scheduled_date} />
 
@@ -1141,7 +1141,7 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
 
   return (
     <div
-      className="glass-card rounded-xl overflow-hidden"
+      className="-mx-6 overflow-hidden border-y border-border/40 bg-background/30"
       onKeyDown={handleKeyNav}
       tabIndex={0}
     >
@@ -1166,12 +1166,16 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30">
-              <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">#</th>
-              <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-20">Tipo</th>
-              <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script</th>
-              <th className="text-center px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-10">OK</th>
-              <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-48">Informe Resumen</th>
-              <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-48">Observaciones</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">#</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16">Tipo</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script</th>
+              <th className="text-center px-1 py-2.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8">OK</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-emerald-400/60 font-semibold w-40 border-l border-emerald-500/15 bg-emerald-500/[0.04]">Informe</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-emerald-400/60 font-semibold w-40 bg-emerald-500/[0.04]">Observaciones</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-emerald-400/60 font-semibold w-36 bg-emerald-500/[0.04]">Comparativa</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-amber-400/60 font-semibold w-36 border-l border-amber-500/15 bg-amber-500/[0.04]">Conclusión</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-blue-400/60 font-semibold w-32 bg-blue-500/[0.04]">Guardaraíles</th>
+              <th className="text-left px-2 py-2.5 text-[10px] uppercase tracking-wider text-red-400/60 font-semibold w-28 bg-red-500/[0.04]">Conflictivas</th>
               <th className="w-5"></th>
             </tr>
           </thead>
@@ -1264,7 +1268,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
           isExpanded ? "bg-primary/5" : "hover:bg-muted/30"
         )}
       >
-        <td className="px-3 py-2.5">
+        <td className="px-2 py-2.5">
           <span
             className={cn(
               "inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold transition-all duration-300",
@@ -1276,27 +1280,60 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
             {scene.n_escena}
           </span>
         </td>
-        <td className="px-3 py-2.5">
+        <td className="px-2 py-2.5">
           <SceneTypeBadge type={scene.clasificación_escena} />
         </td>
-        <td className="px-3 py-2.5">
+        <td className="px-2 py-2.5">
           <p className="text-xs text-foreground/80 line-clamp-1 leading-relaxed">{scriptPreview}</p>
         </td>
-        <td className="px-3 py-2.5 text-center">
+        <td className="px-1 py-2.5 text-center">
           {scene.copy_revisado_ok ? (
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mx-auto" />
           ) : (
             <XCircle className="w-3.5 h-3.5 text-muted-foreground/30 mx-auto" />
           )}
         </td>
-        <td className="px-3 py-2.5">
-          <p className="text-xs text-foreground/80 line-clamp-1 leading-relaxed">
-            {scene.informe_resumen_emoticonos || "—"}
+        {/* Informe Resumen */}
+        <td className="px-2 py-2.5 border-l border-emerald-500/10 bg-emerald-500/[0.02]">
+          <p className="text-[11px] text-foreground/70 line-clamp-2 leading-relaxed">
+            {scene.informe_resumen_emoticonos || <span className="text-muted-foreground/30">—</span>}
           </p>
         </td>
-        <td className="px-3 py-2.5">
-          <p className="text-xs text-foreground/80 line-clamp-1 leading-relaxed">
-            {scene.solo_observaciones || "—"}
+        {/* Observaciones */}
+        <td className="px-2 py-2.5 bg-emerald-500/[0.02]">
+          <p className="text-[11px] text-foreground/70 line-clamp-2 leading-relaxed">
+            {scene.solo_observaciones || <span className="text-muted-foreground/30">—</span>}
+          </p>
+        </td>
+        {/* Comparativa */}
+        <td className="px-2 py-2.5 bg-emerald-500/[0.02]">
+          {scene.comparativa_transcript_original ? (
+            <p className={cn(
+              "text-[11px] line-clamp-2 leading-relaxed",
+              scene.comparativa_transcript_original.toLowerCase().startsWith("ok") || scene.comparativa_transcript_original.startsWith("✅")
+                ? "text-emerald-400"
+                : "text-foreground/70"
+            )}>
+              {scene.comparativa_transcript_original}
+            </p>
+          ) : <span className="text-muted-foreground/30 text-[11px]">—</span>}
+        </td>
+        {/* Conclusión */}
+        <td className="px-2 py-2.5 border-l border-amber-500/10 bg-amber-500/[0.02]">
+          <p className="text-[11px] text-foreground/70 line-clamp-2 leading-relaxed">
+            {scene.conclusion_general_datos_difieren_mucho || <span className="text-muted-foreground/30">—</span>}
+          </p>
+        </td>
+        {/* Guardaraíles */}
+        <td className="px-2 py-2.5 bg-blue-500/[0.02]">
+          <p className="text-[11px] text-foreground/70 line-clamp-2 leading-relaxed">
+            {scene.informe_guardarailes || <span className="text-muted-foreground/30">—</span>}
+          </p>
+        </td>
+        {/* Palabras Conflictivas */}
+        <td className="px-2 py-2.5 bg-red-500/[0.02]">
+          <p className="text-[11px] text-foreground/70 line-clamp-2 leading-relaxed">
+            {scene.palabras_conflictivas || <span className="text-muted-foreground/30">—</span>}
           </p>
         </td>
         <td className="px-1 py-2.5">
@@ -1310,8 +1347,8 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
       {/* Expanded detail */}
       {isExpanded && (
         <tr className="bg-primary/5">
-          <td colSpan={7} className="px-4 py-4">
-            <div className="space-y-3 max-w-4xl">
+          <td colSpan={11} className="px-4 py-4">
+            <div className="space-y-3">
               {/* Two-column layout: Script + Metadata */}
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
                 {/* Left: Editable script */}
@@ -1411,10 +1448,91 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
               {/* Full observaciones */}
               {scene.solo_observaciones && (
                 <div>
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Observaciones</span>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1">
+                    Observaciones
+                    <span title="Lo ha creado el Agente Informe, revisando el copy y consultando decenas de fuentes externas para confirmar los datos.">
+                      <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
+                    </span>
+                  </p>
                   <p className="text-xs whitespace-pre-wrap leading-relaxed mt-1 bg-amber-500/10 rounded-lg p-3 text-amber-200">
                     {scene.solo_observaciones}
                   </p>
+                </div>
+              )}
+
+              {/* ── Feedback grid — Copy con Observaciones, Comparativa, Conclusión, Guardaraíles, Conflictivas ── */}
+              {(scene.montaje_copy_con_observaciones || scene.comparativa_transcript_original || scene.conclusion_general_datos_difieren_mucho || scene.informe_guardarailes || scene.palabras_conflictivas) && (
+                <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/5 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-emerald-400/70 font-semibold mb-2 flex items-center gap-1">
+                    <FileText className="w-3 h-3" /> Informe Detallado
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {scene.montaje_copy_con_observaciones && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                          Copy con Observaciones
+                          <span title="El texto combinado con el informe, para saber exactamente donde está.">
+                            <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
+                          </span>
+                        </p>
+                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-emerald-500/15 max-h-[120px] overflow-y-auto">
+                          {scene.montaje_copy_con_observaciones}
+                        </div>
+                      </div>
+                    )}
+
+                    {scene.comparativa_transcript_original && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                          Comparativa Transcript
+                          <span title="Cuanto difiere de la fuente original. OK green es que no hay grandes diferencias.">
+                            <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
+                          </span>
+                        </p>
+                        <div className={cn(
+                          "text-[11px] whitespace-pre-wrap leading-relaxed rounded-lg p-2.5 border max-h-[120px] overflow-y-auto",
+                          scene.comparativa_transcript_original.toLowerCase().startsWith("ok") || scene.comparativa_transcript_original.startsWith("✅")
+                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                            : "bg-background/40 border-emerald-500/15 text-foreground/70"
+                        )}>
+                          {scene.comparativa_transcript_original}
+                        </div>
+                      </div>
+                    )}
+
+                    {scene.conclusion_general_datos_difieren_mucho && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-amber-400/60" /> Conclusión General
+                        </p>
+                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-amber-500/15 max-h-[120px] overflow-y-auto">
+                          {scene.conclusion_general_datos_difieren_mucho}
+                        </div>
+                      </div>
+                    )}
+
+                    {scene.informe_guardarailes && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                          <Shield className="w-3 h-3 text-blue-400/60" /> Guardaraíles
+                        </p>
+                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-blue-500/15 max-h-[120px] overflow-y-auto">
+                          {scene.informe_guardarailes}
+                        </div>
+                      </div>
+                    )}
+
+                    {scene.palabras_conflictivas && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-1 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-red-400/60" /> Palabras Conflictivas
+                        </p>
+                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded-lg p-2.5 border border-red-500/15 max-h-[120px] overflow-y-auto">
+                          {scene.palabras_conflictivas}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
