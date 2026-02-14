@@ -1286,6 +1286,25 @@ function extractEmoji(text: string | null): string {
   return match ? match[0] : "—";
 }
 
+// Parse "RESUMEN\n✅\n\nANÁLISIS DETALLADO\ntext..." → "✅ text..."
+function parseVozCompact(text: string | null): string | null {
+  if (!text) return null;
+  const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u;
+  const emojiMatch = text.match(emojiRegex);
+  const emoji = emojiMatch ? emojiMatch[0] : "";
+  // Extract text after "ANÁLISIS DETALLADO" header (if present)
+  const detailMatch = text.match(/AN[ÁA]LISIS\s+DETALLADO\s*\n+([\s\S]+)/i);
+  const detailText = detailMatch ? detailMatch[1].trim() : "";
+  if (detailText) return `${emoji} ${detailText}`;
+  // Fallback: remove headers and emoji-only lines, return remaining text
+  const cleaned = text
+    .replace(/^RESUMEN\s*$/gim, "")
+    .replace(/^AN[ÁA]LISIS\s+DETALLADO\s*$/gim, "")
+    .replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*$/gmu, "")
+    .trim();
+  return cleaned ? `${emoji} ${cleaned}` : emoji || null;
+}
+
 function AudioSceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -1534,161 +1553,96 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
         </td>
       </tr>
 
-      {/* Expanded detail — flat layout, everything visible at a glance */}
+      {/* Expanded detail — compact, full-width */}
       {isExpanded && (
         <tr className="bg-emerald-500/5">
-          <td colSpan={11} className="px-4 py-4">
-            <div className="space-y-4 max-w-4xl">
+          <td colSpan={11} className="px-3 py-2">
+            <div className="space-y-1.5">
 
-              {/* ── Row 1: Audio player + Revisado OK ── */}
-              <div className="flex items-start gap-4">
-                <div className="flex-1">
-                  {scene.voice_s3 ? (
-                    <audio
-                      controls
-                      src={scene.voice_s3}
-                      className="w-full h-10"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : (
-                    <div className="bg-muted/30 rounded-lg p-3 text-center">
-                      <Volume2 className="w-5 h-5 text-muted-foreground/30 mx-auto" />
-                      <p className="text-[10px] text-muted-foreground/40 mt-0.5">Sin audio</p>
-                    </div>
-                  )}
-                </div>
-                <span className="text-xs text-muted-foreground tabular-nums pt-2.5">
+              {/* ── Top bar: Audio player + timing + revisado ── */}
+              <div className="flex items-center gap-2">
+                {scene.voice_s3 ? (
+                  <audio controls src={scene.voice_s3} className="flex-1 h-8" onClick={(e) => e.stopPropagation()} />
+                ) : (
+                  <div className="flex-1 flex items-center gap-1.5 text-muted-foreground/40 text-[10px]">
+                    <Volume2 className="w-3.5 h-3.5" /> Sin audio
+                  </div>
+                )}
+                <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
                   {scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
+                  {scene.start != null && <> · {formatMmSs(scene.start)}</>}
+                  {scene.end != null && <>–{formatMmSs(scene.end)}</>}
                 </span>
                 <button
                   onClick={toggleRevisado}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all border shadow-sm cursor-pointer",
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all border shadow-sm cursor-pointer shrink-0",
                     audioRevisado
                       ? "bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white shadow-emerald-500/20"
                       : "bg-muted/60 hover:bg-red-500/20 border-border hover:border-red-500/50 text-muted-foreground hover:text-red-400"
                   )}
                 >
-                  {audioRevisado ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                  {audioRevisado ? "Revisado OK" : "No revisado"}
+                  {audioRevisado ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                  {audioRevisado ? "OK" : "No"}
                 </button>
-              </div>
-
-              {/* ── Análisis Voz V1 / V2 / V3 — textos completos ── */}
-              {hasAnyVoz ? (
-                <div className="space-y-2">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Análisis Voz</span>
-                  {vozTexts.map((text, i) => text && (
-                    <div key={i} className="bg-muted/30 rounded-lg p-3">
-                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-1 block">V{i + 1}</span>
-                      <p className="text-xs whitespace-pre-wrap leading-relaxed text-foreground/80">{text}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-muted/20 rounded-lg p-3 text-center">
-                  <p className="text-xs text-muted-foreground/50">Sin análisis de voz</p>
-                </div>
-              )}
-
-              {/* ── Row 2: Script ElevenLabs (editable) ── */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script ElevenLabs</span>
-                  <span className="text-[10px] text-muted-foreground/50">
-                    {savingScript ? (
-                      <span className="flex items-center gap-1 text-amber-400">
-                        <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
-                      </span>
-                    ) : savedScript ? (
-                      <span className="flex items-center gap-1 text-emerald-400">
-                        <CheckCircle2 className="w-3 h-3" /> Guardado
-                      </span>
-                    ) : (
-                      <span>Esc para salir</span>
-                    )}
-                  </span>
-                </div>
-                <textarea
-                  ref={textareaRef}
-                  value={scriptElValue}
-                  onChange={handleScriptElChange}
-                  onKeyDown={handleTextareaKeyDown}
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none transition-colors text-xs"
-                  rows={4}
-                />
-              </div>
-
-              {/* ── Row 3: ElevenLabs Text v3 Enhanced (read-only) ── */}
-              {scene.elevenlabs_text_v3_enhanced && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">ElevenLabs Text v3 Enhanced</span>
-                    <InfoTooltip text="Si es V3 de Elevenlabs, muestra los tags de entonación." />
-                  </div>
-                  <p className="text-xs whitespace-pre-wrap leading-relaxed bg-violet-500/10 rounded-lg p-3 text-foreground/80 max-h-40 overflow-y-auto">
-                    {scene.elevenlabs_text_v3_enhanced}
-                  </p>
-                </div>
-              )}
-
-              {/* ── Row 4: Feedback Audio (editable) ── */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Feedback Audio</span>
-                    <InfoTooltip text="Si se usa la Voz V3 de Elevenlabs, se le puede dar indicaciones de la emoción o entonación." />
-                  </div>
-                  <span className="text-[10px] text-muted-foreground/50">
-                    {savingFeedback ? (
-                      <span className="flex items-center gap-1 text-amber-400">
-                        <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
-                      </span>
-                    ) : savedFeedback ? (
-                      <span className="flex items-center gap-1 text-emerald-400">
-                        <CheckCircle2 className="w-3 h-3" /> Guardado
-                      </span>
-                    ) : null}
-                  </span>
-                </div>
-                <textarea
-                  ref={feedbackRef}
-                  value={feedbackValue}
-                  onChange={handleFeedbackChange}
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      saveFeedback(feedbackValue);
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-500/20 resize-none transition-colors text-xs"
-                  rows={3}
-                  placeholder="Instrucciones para mejorar entonación, emoción o ritmo..."
-                />
-              </div>
-
-              {/* ── Row 5: Action button + Timing card ── */}
-              <div className="flex items-start gap-4">
-                {/* Action Button */}
                 <SceneActionButton sceneId={scene.id} />
+              </div>
 
-                {/* Timing card */}
-                <div className="flex-1 bg-muted/20 rounded-lg px-4 py-2.5 flex items-center gap-6">
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Duration</span>
-                    <p className="text-sm font-mono">{scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}</p>
+              {/* ── Análisis Voz V1/V2/V3 inline ── */}
+              {hasAnyVoz && (
+                <div className="flex gap-1.5">
+                  {vozTexts.map((raw, i) => {
+                    const parsed = parseVozCompact(raw);
+                    if (!parsed) return null;
+                    return (
+                      <div key={i} className="flex-1 bg-muted/25 rounded px-2 py-1.5 min-w-0">
+                        <p className="text-[11px] whitespace-pre-wrap leading-snug text-foreground/80 max-h-24 overflow-y-auto">{parsed}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── Script + v3 Enhanced + Feedback — 3 columns ── */}
+              <div className="flex gap-1.5">
+                {/* Script ElevenLabs (editable) */}
+                <div className="flex-1 min-w-0 relative">
+                  <textarea
+                    ref={textareaRef}
+                    value={scriptElValue}
+                    onChange={handleScriptElChange}
+                    onKeyDown={handleTextareaKeyDown}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none text-[11px] leading-snug"
+                    rows={3}
+                    placeholder="Script ElevenLabs..."
+                  />
+                  {savingScript && <Loader2 className="w-3 h-3 animate-spin text-amber-400 absolute top-1.5 right-1.5" />}
+                  {savedScript && !savingScript && <CheckCircle2 className="w-3 h-3 text-emerald-400 absolute top-1.5 right-1.5" />}
+                </div>
+
+                {/* ElevenLabs v3 Enhanced (read-only) */}
+                {scene.elevenlabs_text_v3_enhanced && (
+                  <div className="flex-1 min-w-0 bg-violet-500/10 rounded px-2 py-1.5 relative">
+                    <InfoTooltip text="Tags de entonación V3 ElevenLabs" />
+                    <p className="text-[11px] whitespace-pre-wrap leading-snug text-foreground/70 max-h-20 overflow-y-auto">{scene.elevenlabs_text_v3_enhanced}</p>
                   </div>
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Start</span>
-                    <p className="text-sm font-mono">{scene.start != null ? formatMmSs(scene.start) : "—"}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">End</span>
-                    <p className="text-sm font-mono">{scene.end != null ? formatMmSs(scene.end) : "—"}</p>
-                  </div>
+                )}
+
+                {/* Feedback Audio (editable) */}
+                <div className="flex-1 min-w-0 relative">
+                  <textarea
+                    ref={feedbackRef}
+                    value={feedbackValue}
+                    onChange={handleFeedbackChange}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); saveFeedback(feedbackValue); e.currentTarget.blur(); } }}
+                    className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-500/20 resize-none text-[11px] leading-snug"
+                    rows={3}
+                    placeholder="Feedback audio..."
+                  />
+                  {savingFeedback && <Loader2 className="w-3 h-3 animate-spin text-amber-400 absolute top-1.5 right-1.5" />}
+                  {savedFeedback && !savingFeedback && <CheckCircle2 className="w-3 h-3 text-emerald-400 absolute top-1.5 right-1.5" />}
                 </div>
               </div>
 
