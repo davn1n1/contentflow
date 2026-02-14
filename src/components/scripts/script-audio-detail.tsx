@@ -1127,28 +1127,22 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(12);
 
-  // Keyboard navigation: up/down arrows to move between scenes, space to play/pause
+  // Keyboard navigation: up/down arrows to move between scenes, space to toggle Copy Revisado OK
   const handleKeyNav = useCallback(
     (e: React.KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === "TEXTAREA") return;
 
-      // Spacebar: toggle play/pause on the expanded scene's audio
+      // Spacebar: toggle Copy Revisado OK on the expanded scene
       if (e.key === " ") {
         e.preventDefault();
-        const audio = (e.currentTarget as HTMLElement).querySelector("audio");
-        if (audio) {
-          if (audio.paused) audio.play();
-          else audio.pause();
-        }
+        const btn = (e.currentTarget as HTMLElement).querySelector<HTMLButtonElement>("[data-copy-revisado-toggle]");
+        if (btn) btn.click();
         return;
       }
 
       if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
 
       e.preventDefault();
-      // Pause any playing audio before navigating
-      const audio = (e.currentTarget as HTMLElement).querySelector("audio");
-      if (audio && !audio.paused) audio.pause();
 
       const currentIdx = scenes.findIndex((s) => s.id === expandedId);
       let nextIdx: number;
@@ -1192,7 +1186,7 @@ function SceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
             <span className="text-[10px] text-muted-foreground/80">
               {copyOkCount}/{scenes.length} copy OK
             </span>
-            <span className="text-[10px] text-muted-foreground/40">↑↓ navegar · ␣ play/pause</span>
+            <span className="text-[10px] text-muted-foreground/40">↑↓ navegar · ␣ Copy OK</span>
           </div>
         </div>
 
@@ -1441,17 +1435,17 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
     setCopyRevisado(scene.copy_revisado_ok);
   }, [scene.copy_revisado_ok]);
 
-  // Auto-resize textareas
+  // Auto-resize textareas (script capped at 300px, feedback uncapped)
   useEffect(() => {
     if (isExpanded && textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 300) + "px";
     }
     if (isExpanded && feedbackCopyRef.current) {
       feedbackCopyRef.current.style.height = "auto";
       feedbackCopyRef.current.style.height = feedbackCopyRef.current.scrollHeight + "px";
     }
-  }, [isExpanded, scriptValue, feedbackCopyValue]);
+  }, [isExpanded, scriptValue, feedbackCopyValue, fontSize]);
 
   const handleScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -1610,6 +1604,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script completo</span>
                     {scene.topic && <TopicTags topic={scene.topic} />}
                     <button
+                      data-copy-revisado-toggle
                       onClick={toggleCopyRevisado}
                       className={cn(
                         "flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-semibold transition-all border shadow-sm cursor-pointer shrink-0 ml-auto",
@@ -1673,7 +1668,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
                   onKeyDown={handleTextareaKeyDown}
                   onClick={(e) => e.stopPropagation()}
                   style={{ fontSize: `${fontSize}px` }}
-                  className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none transition-colors"
+                  className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-y transition-colors max-h-[300px] overflow-y-auto"
                   rows={3}
                 />
                 )}
