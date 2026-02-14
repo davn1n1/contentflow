@@ -206,7 +206,9 @@ export async function GET(request: NextRequest) {
         for (const rec of atRes.records) {
           const title = rec.fields["Titulo Youtube A"];
           const num = rec.fields.Name;
-          const name = title || (num ? `Video #${num}` : null);
+          const name = num && title
+            ? `#${num} — ${title}`
+            : title || (num ? `Video #${num}` : null);
           if (name) {
             const entry = (data || []).find((d) => d.video_id === rec.id);
             if (entry) {
@@ -241,8 +243,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Auto-fill video_name from Airtable if missing
-  if (!data.video_name && data.video_id) {
+  // Auto-fill video_name from Airtable if missing or doesn't include #NUM
+  const needsNameRefresh = !data.video_name || (data.video_name && !data.video_name.startsWith("#"));
+  if (needsNameRefresh && data.video_id) {
     try {
       const atRes = await airtableFetch<{ Name?: number; "Titulo Youtube A"?: string }>(
         TABLES.VIDEOS,
@@ -256,7 +259,10 @@ export async function GET(request: NextRequest) {
       if (rec) {
         const title = rec.fields["Titulo Youtube A"];
         const num = rec.fields.Name;
-        const name = title || (num ? `Video #${num}` : null);
+        // Always include #NUM when available
+        const name = num && title
+          ? `#${num} — ${title}`
+          : title || (num ? `Video #${num}` : null);
         if (name) {
           data.video_name = name;
           // Persist so we don't look it up again

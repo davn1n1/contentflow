@@ -617,8 +617,21 @@ export default function RemotionPreviewPage() {
           >
             <ArrowLeft className="h-4 w-4" /> Volver
           </Link>
-          <h1 className="text-2xl font-bold">
-            {record?.video_name || record?.video_id || "Preview"}
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            {(() => {
+              const name = record?.video_name || record?.video_id || "Preview";
+              // Parse "#NUM — Title" format
+              const match = name.match(/^(#\d+)\s*—\s*(.+)$/);
+              if (match) {
+                return (
+                  <>
+                    <span className="text-primary/80 bg-primary/10 px-2 py-0.5 rounded-md text-lg font-mono">{match[1]}</span>
+                    <span>{match[2]}</span>
+                  </>
+                );
+              }
+              return name;
+            })()}
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
             Composicion en tiempo real — el navegador monta todas las capas individualmente
