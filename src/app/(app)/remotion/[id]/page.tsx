@@ -470,6 +470,30 @@ export default function RemotionPreviewPage() {
     };
   }, [record?.id]);
 
+  // Fetch proxy URLs from GET endpoint and update proxyMap
+  async function fetchProxyMap() {
+    if (!record?.id) return;
+    const res = await fetch(`/api/remotion/proxy?timelineId=${record.id}`);
+    const d = await res.json();
+    if (!d.proxies) return d;
+
+    const map: Record<string, string> = {};
+    for (const [url, info] of Object.entries(d.proxies)) {
+      const p = info as { proxy_url: string | null; hls_url: string | null; status: string };
+      const proxyUrl = p.proxy_url || p.hls_url;
+      if (proxyUrl && p.status === "ready") {
+        map[url] = proxyUrl;
+      }
+    }
+    setProxyMap(map);
+    setProxyStatus({
+      state: d.allReady ? "ready" : "polling",
+      ready: d.ready,
+      total: d.total,
+    });
+    return d;
+  }
+
   async function generateProxies() {
     if (!record?.id) return;
     setProxyStatus((s) => ({ ...s, state: "generating" }));
@@ -493,32 +517,18 @@ export default function RemotionPreviewPage() {
         total: data.total,
       });
 
-      // Start polling if not all ready
-      if (data.ready < data.total) {
-        const poll = async () => {
-          const res = await fetch(`/api/remotion/proxy?timelineId=${record!.id}`);
-          const d = await res.json();
-          if (!d.proxies) return;
-
-          const map: Record<string, string> = {};
-          for (const [url, info] of Object.entries(d.proxies)) {
-            const p = info as { proxy_url: string | null; hls_url: string | null; status: string };
-            const proxyUrl = p.proxy_url || p.hls_url;
-            if (proxyUrl && p.status === "ready") {
-              map[url] = proxyUrl;
-            }
-          }
-          setProxyMap(map);
-          setProxyStatus({
-            state: d.allReady ? "ready" : "polling",
-            ready: d.ready,
-            total: d.total,
-          });
-
-          if (!d.allReady) setTimeout(poll, 5000);
-        };
-        setTimeout(poll, 5000);
+      // If all ready, immediately fetch proxy URLs
+      if (data.ready === data.total) {
+        await fetchProxyMap();
+        return;
       }
+
+      // Start polling if not all ready
+      const poll = async () => {
+        const d = await fetchProxyMap();
+        if (d && !d.allReady) setTimeout(poll, 5000);
+      };
+      setTimeout(poll, 5000);
     } catch {
       setProxyStatus({ state: "unavailable", ready: 0, total: 0 });
     }
