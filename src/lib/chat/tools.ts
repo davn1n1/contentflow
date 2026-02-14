@@ -175,7 +175,7 @@ export function createChatTools(
         "Search the knowledge base for help articles using semantic search. Use this when the user asks how to do something or needs help with a feature.",
       inputSchema: z.object({
         query: z.string().describe("Search terms in Spanish or English"),
-        category: z.string().optional().describe("Category filter: getting-started, copy-script, audio, video, render, troubleshooting, account, remotion"),
+        category: z.string().optional().describe("Category filter: getting-started, copy-script, audio, video, render, troubleshooting, account, remotion, app-data, navigation, chat"),
       }),
       execute: async ({ query, category }: { query: string; category?: string }) => {
         try {
