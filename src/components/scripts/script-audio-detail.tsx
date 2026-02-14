@@ -2017,22 +2017,28 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   expandedRef?: React.RefObject<HTMLTableRowElement | null>;
 }) {
   const [scriptValue, setScriptValue] = useState(scene.script || "");
-  const { save: saveScript, saving: savingScript, saved: savedScript } = useSceneAutoSave(scene.id, "Script");
+  const { save: saveScript, saving: savingScript, saved: savedScript } = useSceneAutoSave(scene.id, "Script", 1500);
   const [feedbackValue, setFeedbackValue] = useState(scene.feedback_audio || "");
   const { save: saveFeedback, saving: savingFeedback, saved: savedFeedback } = useSceneAutoSave(scene.id, "Feedback Audio Elevenlabs");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const scriptFocusedRef = useRef(false);
   const feedbackRef = useRef<HTMLTextAreaElement>(null);
+  const feedbackFocusedRef = useRef(false);
   const [audioRevisado, setAudioRevisado] = useState(scene.audio_revisado_ok);
   const { save: saveRevisado } = useSceneAutoSave(scene.id, "Audio Revisado OK");
   const [showExtra, setShowExtra] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
 
-  // Sync local state when scene data changes from server
+  // Sync local state when scene data changes from server (skip if user is editing)
   useEffect(() => {
-    setScriptValue(scene.script || "");
+    if (!scriptFocusedRef.current) {
+      setScriptValue(scene.script || "");
+    }
   }, [scene.script]);
   useEffect(() => {
-    setFeedbackValue(scene.feedback_audio || "");
+    if (!feedbackFocusedRef.current) {
+      setFeedbackValue(scene.feedback_audio || "");
+    }
   }, [scene.feedback_audio]);
   useEffect(() => {
     setAudioRevisado(scene.audio_revisado_ok);
@@ -2223,6 +2229,8 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                     onChange={handleScriptChange}
                     onKeyDown={handleTextareaKeyDown}
                     onClick={(e) => e.stopPropagation()}
+                    onFocus={() => { scriptFocusedRef.current = true; }}
+                    onBlur={() => { scriptFocusedRef.current = false; }}
                     className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none text-[11px] leading-snug"
                     rows={3}
                     placeholder="Script..."
@@ -2271,6 +2279,8 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                           value={feedbackValue}
                           onChange={handleFeedbackChange}
                           onClick={(e) => e.stopPropagation()}
+                          onFocus={() => { feedbackFocusedRef.current = true; }}
+                          onBlur={() => { feedbackFocusedRef.current = false; }}
                           onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); saveFeedback(feedbackValue); e.currentTarget.blur(); } }}
                           className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-500/20 resize-none text-[11px] leading-snug"
                           rows={2}

@@ -334,6 +334,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
   const [engineValue, setEngineValue] = useState(scene.slide_engine || "");
   const { save: saveEngine } = useSceneAutoSave(scene.id, "SlideEngine");
   const feedbackRef = useRef<HTMLTextAreaElement>(null);
+  const feedbackFocusedRef = useRef(false);
   const [fullscreenSrc, setFullscreenSrc] = useState<string | null>(null);
   const [modificaState, setModificaState] = useState<ModificaState>("idle");
   const isGenerating = modificaState === "generating" || modificaState === "sending";
@@ -347,7 +348,7 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
     wasExpanded.current = isExpanded;
   }, [isExpanded]);
 
-  useEffect(() => { setFeedbackValue(scene.feedback_slide || ""); }, [scene.feedback_slide]);
+  useEffect(() => { if (!feedbackFocusedRef.current) setFeedbackValue(scene.feedback_slide || ""); }, [scene.feedback_slide]);
   useEffect(() => { setEngineValue(scene.slide_engine || ""); }, [scene.slide_engine]);
 
   useEffect(() => {
@@ -627,6 +628,8 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
                         value={feedbackValue}
                         onChange={(e) => { setFeedbackValue(e.target.value); saveFeedback(e.target.value); }}
                         onClick={(e) => e.stopPropagation()}
+                        onFocus={() => { feedbackFocusedRef.current = true; }}
+                        onBlur={() => { feedbackFocusedRef.current = false; }}
                         placeholder="Instrucciones para regenerar la slide..."
                         className="w-full bg-background/50 border border-border/30 rounded-lg px-3 py-2 text-xs text-foreground resize-none overflow-hidden focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 min-h-[60px]"
                       />
