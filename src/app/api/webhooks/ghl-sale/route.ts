@@ -22,11 +22,15 @@ function authenticateWebhook(request: Request): boolean {
   return false;
 }
 
+// Products that require app user creation
+const APP_PRODUCTS = ["content ia", "pro"];
+
 /**
  * POST /api/webhooks/ghl-sale
  *
- * Called by GoHighLevel Workflow when an opportunity moves to "won".
+ * Called by GoHighLevel Workflow on "Order Submitted".
  * Creates Account + User in Airtable, invites via Supabase (email with magic link).
+ * Only processes orders for Content IA and Pro products (ignores Bots IA).
  *
  * Auth: Bearer token | X-Api-Key | X-Webhook-Secret (unified GHL_API_KEY)
  * Idempotent: if user with email already exists, returns existing data.
@@ -45,6 +49,15 @@ export async function POST(request: Request) {
     const plan = body.plan || body.product_name || body.product || null;
     const industria = body.industria || body.industry;
     const phone = body.contact_phone || body.phone;
+
+    // Skip products that don't need app access (e.g. "Bots IA")
+    if (plan && !APP_PRODUCTS.includes(plan.toLowerCase())) {
+      return NextResponse.json({
+        success: true,
+        status: "skipped",
+        reason: `Product "${plan}" does not require app user creation`,
+      });
+    }
 
     if (!contactEmail) {
       return NextResponse.json(
