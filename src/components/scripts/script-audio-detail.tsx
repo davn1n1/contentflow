@@ -1273,6 +1273,47 @@ function ElevenLabsCollapsible({ text }: { text: string }) {
   );
 }
 
+function MoreDetailsCollapsible({ copyObs, conclusion, conflictivas }: {
+  copyObs: string | null;
+  conclusion: string | null;
+  conflictivas: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded border border-border/30 bg-muted/10 overflow-hidden">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-muted/20 transition-colors"
+      >
+        <span className="text-[9px] uppercase tracking-wider text-muted-foreground/60 font-semibold">Más detalles</span>
+        <ChevronDown className={cn("w-3 h-3 text-muted-foreground/40 ml-auto transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="grid grid-cols-3 gap-1.5 px-2 pb-2">
+          {copyObs && (
+            <div className="rounded border border-border/20 bg-muted/10 p-2">
+              <p className="text-[9px] uppercase tracking-wider font-semibold mb-0.5 text-muted-foreground/60">Copy c/ Obs</p>
+              <div className="text-[11px] whitespace-pre-wrap leading-relaxed text-foreground/70">{copyObs}</div>
+            </div>
+          )}
+          {conclusion && (
+            <div className="rounded border border-border/20 bg-muted/10 p-2">
+              <p className="text-[9px] uppercase tracking-wider font-semibold mb-0.5 text-muted-foreground/60">Conclusión</p>
+              <div className="text-[11px] whitespace-pre-wrap leading-relaxed text-foreground/70">{conclusion}</div>
+            </div>
+          )}
+          {conflictivas && (
+            <div className="rounded border border-border/20 bg-muted/10 p-2">
+              <p className="text-[9px] uppercase tracking-wider font-semibold mb-0.5 text-muted-foreground/60">Conflictivas</p>
+              <div className="text-[11px] whitespace-pre-wrap leading-relaxed text-foreground/70">{conflictivas}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Modifica Script Button (per-scene, same pattern as ModificaSlideButton) ──
 type ModificaScriptState = "idle" | "confirming" | "sending" | "generating" | "ready" | "error";
 
@@ -1739,6 +1780,14 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, o
                     );
                   })()}
                   </div>
+                  {/* Collapsible: secondary fields */}
+                  {(scene.montaje_copy_con_observaciones || scene.conclusion_general_datos_difieren_mucho || scene.palabras_conflictivas) && (
+                    <MoreDetailsCollapsible
+                      copyObs={scene.montaje_copy_con_observaciones}
+                      conclusion={scene.conclusion_general_datos_difieren_mucho}
+                      conflictivas={scene.palabras_conflictivas}
+                    />
+                  )}
                 </div>
                 );
               })()}
