@@ -1067,6 +1067,25 @@ export function TabAudio({ video }: { video: VideoWithScenes }) {
 
 // ─── Scene Summary Table (below Crear Copy button) ───────
 
+// Warning level detection for observation fields
+type WarningLevel = "ok" | "warning" | "error" | "info" | "neutral";
+
+function getWarningLevel(text: string): WarningLevel {
+  const t = text.toLowerCase();
+  if (t.includes("❌") || t.includes("🔴") || t.includes("incorrecto") || t.includes("conflictiv")) return "error";
+  if (t.includes("⚠") || t.includes("🟡") || t.includes("🟠") || t.includes("difieren") || t.includes("diferencia") || t.includes("cuidado")) return "warning";
+  if (t.includes("✅") || t.includes("🟢") || t.startsWith("ok") || t.includes("coincide") || t.includes("correcto")) return "ok";
+  return "neutral";
+}
+
+const OBS_COLORS: Record<WarningLevel, { border: string; bg: string; text: string; label: string }> = {
+  ok:      { border: "border-emerald-500/20", bg: "bg-emerald-500/5",  text: "text-emerald-300/90", label: "text-emerald-400/70" },
+  warning: { border: "border-amber-500/20",   bg: "bg-amber-500/5",    text: "text-amber-300/90",   label: "text-amber-400/70" },
+  error:   { border: "border-red-500/20",     bg: "bg-red-500/5",      text: "text-red-300/90",     label: "text-red-400/70" },
+  info:    { border: "border-blue-500/20",    bg: "bg-blue-500/5",     text: "text-blue-300/90",    label: "text-blue-400/70" },
+  neutral: { border: "border-border/30",      bg: "bg-muted/20",       text: "text-foreground/70",  label: "text-muted-foreground/70" },
+};
+
 // Auto-save a scene field to Airtable (debounced)
 function useSceneAutoSave(sceneId: string, field: string, delay = 800) {
   const [saving, setSaving] = useState(false);
@@ -1396,6 +1415,8 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   const { save: saveScript, saving, saved } = useSceneAutoSave(scene.id, "Script");
   const [feedbackCopyValue, setFeedbackCopyValue] = useState(scene.feedback_copy || "");
   const { save: saveFeedbackCopy, saving: savingFeedbackCopy, saved: savedFeedbackCopy } = useSceneAutoSave(scene.id, "Feedback Copy");
+  const [copyRevisado, setCopyRevisado] = useState(scene.copy_revisado_ok);
+  const { save: saveCopyRevisado } = useSceneAutoSave(scene.id, "Copy Revisado OK");
   const [modificaState, setModificaState] = useState<ModificaScriptState>("idle");
   const isModifying = modificaState === "generating" || modificaState === "sending";
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1411,6 +1432,9 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
       setFeedbackCopyValue(scene.feedback_copy || "");
     }
   }, [scene.feedback_copy]);
+  useEffect(() => {
+    setCopyRevisado(scene.copy_revisado_ok);
+  }, [scene.copy_revisado_ok]);
 
   // Auto-resize textareas
   useEffect(() => {
@@ -1434,6 +1458,13 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
     const val = e.target.value;
     setFeedbackCopyValue(val);
     saveFeedbackCopy(val);
+  };
+
+  const toggleCopyRevisado = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !copyRevisado;
+    setCopyRevisado(next);
+    saveCopyRevisado(next);
   };
 
   // Handle keyboard in textarea
@@ -1495,11 +1526,21 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
           <p className="text-xs text-foreground/80 line-clamp-1 leading-relaxed">{scriptPreview}</p>
         </td>
         <td className="px-1 py-2.5 text-center">
-          {scene.copy_revisado_ok ? (
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mx-auto" />
-          ) : (
-            <XCircle className="w-3.5 h-3.5 text-muted-foreground/30 mx-auto" />
-          )}
+          <button
+            onClick={toggleCopyRevisado}
+            className={cn(
+              "inline-flex items-center justify-center w-6 h-6 rounded-md transition-all cursor-pointer",
+              copyRevisado
+                ? "bg-emerald-500/20 hover:bg-emerald-500/30"
+                : "bg-muted/30 hover:bg-red-500/10"
+            )}
+          >
+            {copyRevisado ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            ) : (
+              <XCircle className="w-3.5 h-3.5 text-muted-foreground/30 hover:text-red-400/60" />
+            )}
+          </button>
         </td>
         {/* Informe Resumen */}
         <td className="px-2 py-2.5 border-l border-emerald-500/10 bg-emerald-500/[0.02]">
@@ -1563,6 +1604,18 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Script completo</span>
                     {scene.topic && <TopicTags topic={scene.topic} />}
+                    <button
+                      onClick={toggleCopyRevisado}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-semibold transition-all border shadow-sm cursor-pointer shrink-0 ml-auto",
+                        copyRevisado
+                          ? "bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white shadow-emerald-500/20"
+                          : "bg-muted/60 hover:bg-red-500/20 border-border hover:border-red-500/50 text-muted-foreground hover:text-red-400"
+                      )}
+                    >
+                      {copyRevisado ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                      {copyRevisado ? "Copy OK" : "No OK"}
+                    </button>
                   </div>
                   <span className="text-[10px] text-muted-foreground/50">
                     {isModifying ? (
@@ -1601,102 +1654,86 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                 )}
               </div>
 
-              {/* ── All feedback fields in a single compact grid ── */}
+              {/* ── Observaciones — compact 3-col grid, colors by warning level ── */}
               {(scene.informe_resumen_emoticonos || scene.solo_observaciones || scene.montaje_copy_con_observaciones || scene.comparativa_transcript_original || scene.conclusion_general_datos_difieren_mucho || scene.informe_guardarailes || scene.palabras_conflictivas) && (
-                <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/5 p-2.5">
-                  <p className="text-[10px] uppercase tracking-wider text-emerald-400/70 font-semibold mb-2 flex items-center gap-1">
-                    <FileText className="w-3 h-3" /> Informe & Observaciones
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {scene.informe_resumen_emoticonos && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5">Resumen</p>
-                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-emerald-500/15 max-h-[80px] overflow-y-auto">
+                <div className="grid grid-cols-3 gap-1.5">
+                  {scene.informe_resumen_emoticonos && (() => {
+                    const c = OBS_COLORS[getWarningLevel(scene.informe_resumen_emoticonos)];
+                    return (
+                      <div className={cn("rounded border p-2", c.border, c.bg)}>
+                        <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Resumen</p>
+                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
                           {scene.informe_resumen_emoticonos}
                         </div>
                       </div>
-                    )}
-
-                    {scene.solo_observaciones && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
-                          Observaciones
-                          <span title="Lo ha creado el Agente Informe, revisando el copy y consultando decenas de fuentes externas para confirmar los datos.">
-                            <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
-                          </span>
-                        </p>
-                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-emerald-500/15 max-h-[80px] overflow-y-auto">
+                    );
+                  })()}
+                  {scene.solo_observaciones && (() => {
+                    const c = OBS_COLORS[getWarningLevel(scene.solo_observaciones)];
+                    return (
+                      <div className={cn("rounded border p-2", c.border, c.bg)} title="Lo ha creado el Agente Informe, revisando el copy y consultando decenas de fuentes externas para confirmar los datos.">
+                        <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Observaciones</p>
+                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
                           {scene.solo_observaciones}
                         </div>
                       </div>
-                    )}
-
-                    {scene.montaje_copy_con_observaciones && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
-                          Copy con Observaciones
-                          <span title="El texto combinado con el informe, para saber exactamente donde está.">
-                            <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
-                          </span>
-                        </p>
-                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-emerald-500/15 max-h-[80px] overflow-y-auto">
+                    );
+                  })()}
+                  {scene.montaje_copy_con_observaciones && (() => {
+                    const c = OBS_COLORS[getWarningLevel(scene.montaje_copy_con_observaciones)];
+                    return (
+                      <div className={cn("rounded border p-2", c.border, c.bg)} title="El texto combinado con el informe, para saber exactamente donde está.">
+                        <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Copy c/ Obs</p>
+                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
                           {scene.montaje_copy_con_observaciones}
                         </div>
                       </div>
-                    )}
-
-                    {scene.comparativa_transcript_original && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
-                          Comparativa Transcript
-                          <span title="Cuanto difiere de la fuente original. OK green es que no hay grandes diferencias.">
-                            <Info className="w-3 h-3 text-emerald-400/50 cursor-help" />
-                          </span>
-                        </p>
-                        <div className={cn(
-                          "text-[11px] whitespace-pre-wrap leading-relaxed rounded p-2 border max-h-[80px] overflow-y-auto",
-                          scene.comparativa_transcript_original.toLowerCase().startsWith("ok") || scene.comparativa_transcript_original.startsWith("✅")
-                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                            : "bg-background/40 border-emerald-500/15 text-foreground/70"
-                        )}>
+                    );
+                  })()}
+                  {scene.comparativa_transcript_original && (() => {
+                    const c = OBS_COLORS[getWarningLevel(scene.comparativa_transcript_original)];
+                    return (
+                      <div className={cn("rounded border p-2", c.border, c.bg)} title="Cuanto difiere de la fuente original.">
+                        <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Comparativa</p>
+                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
                           {scene.comparativa_transcript_original}
                         </div>
                       </div>
-                    )}
-
-                    {scene.conclusion_general_datos_difieren_mucho && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3 text-amber-400/60" /> Conclusión General
-                        </p>
-                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-amber-500/15 max-h-[80px] overflow-y-auto">
+                    );
+                  })()}
+                  {scene.conclusion_general_datos_difieren_mucho && (() => {
+                    const c = OBS_COLORS[getWarningLevel(scene.conclusion_general_datos_difieren_mucho)];
+                    return (
+                      <div className={cn("rounded border p-2", c.border, c.bg)}>
+                        <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Conclusión</p>
+                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
                           {scene.conclusion_general_datos_difieren_mucho}
                         </div>
                       </div>
-                    )}
-
-                    {scene.informe_guardarailes && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
-                          <Shield className="w-3 h-3 text-blue-400/60" /> Guardaraíles
-                        </p>
-                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-blue-500/15 max-h-[80px] overflow-y-auto">
+                    );
+                  })()}
+                  {scene.informe_guardarailes && (() => {
+                    const c = OBS_COLORS.info;
+                    return (
+                      <div className={cn("rounded border p-2", c.border, c.bg)}>
+                        <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Guardaraíles</p>
+                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
                           {scene.informe_guardarailes}
                         </div>
                       </div>
-                    )}
-
-                    {scene.palabras_conflictivas && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium mb-0.5 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3 text-red-400/60" /> Palabras Conflictivas
-                        </p>
-                        <div className="text-[11px] text-foreground/70 whitespace-pre-wrap leading-relaxed bg-background/40 rounded p-2 border border-red-500/15 max-h-[80px] overflow-y-auto">
+                    );
+                  })()}
+                  {scene.palabras_conflictivas && (() => {
+                    const c = OBS_COLORS.error;
+                    return (
+                      <div className={cn("rounded border p-2", c.border, c.bg)}>
+                        <p className={cn("text-[9px] uppercase tracking-wider font-semibold mb-0.5", c.label)}>Conflictivas</p>
+                        <div className={cn("text-[11px] whitespace-pre-wrap leading-relaxed max-h-[60px] overflow-y-auto", c.text)}>
                           {scene.palabras_conflictivas}
                         </div>
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </div>
               )}
 
