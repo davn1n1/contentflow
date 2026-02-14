@@ -795,8 +795,8 @@ function RenderSection({
 
         setProgress(Math.round((data.progress ?? 0) * 100));
         pollRef.current = setTimeout(check, 3000);
-      } catch {
-        setErrorMsg("Error al verificar progreso");
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : "Error al verificar progreso");
         setRenderState("error");
       }
     }

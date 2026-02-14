@@ -163,8 +163,6 @@ export async function POST(request: NextRequest) {
           codec: "h264",
           // High quality encoding: CRF 18 = visually lossless for H.264
           crf: 18,
-          // 1GB cache per Lambda for smooth video frame extraction (Lambda has 2GB total)
-          offthreadVideoCacheSizeInBytes: 1024 * 1024 * 1024,
           framesPerLambda,
           maxRetries: 1,
           privacy: "public",
