@@ -740,7 +740,7 @@ const ACTION_POLL_CONFIG: Record<string, {
     readyLabel: "Render completado!",
     maxTimeout: 900000, // 15 min
   },
-  ModificarScript: {
+  ModificaCopyEscena: {
     pollEndpoint: "video",
     detectReady: (d, b) => {
       const escenas = d.escenas_ids as string[] | undefined;
@@ -1342,7 +1342,7 @@ function ModificaScriptButton({ sceneId, currentScript, onStateChange }: { scene
         const res = await fetch("/api/webhooks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "ModificarScript", recordId: sceneId }),
+          body: JSON.stringify({ action: "ModificaCopyEscena", recordId: sceneId }),
         });
         setState(res.ok ? "generating" : "error");
       } catch {
