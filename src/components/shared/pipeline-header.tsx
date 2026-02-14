@@ -152,15 +152,21 @@ export function PipelineHeader({ activeTab, currentPhase, video: videoProp, onTa
                 {/* Phase Card — clickable when onTabChange provided */}
                 <button
                   onClick={isClickable ? () => onTabChange(phase.tabKey) : undefined}
+                  style={isActive ? {
+                    "--halo-color": isCompleted
+                      ? "rgba(16, 185, 129, 0.35)"   // emerald
+                      : "rgba(124, 131, 252, 0.35)",  // primary/indigo
+                  } as React.CSSProperties : undefined}
                   className={cn(
-                    "relative flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all flex-1 min-w-0 text-left",
+                    "relative flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all duration-300 flex-1 min-w-0 text-left",
                     isClickable && "hover:brightness-110 cursor-pointer",
                     !isClickable && "cursor-default",
-                    isActive && !isCompleted && "bg-primary/8 border-primary/30 ring-1 ring-primary/20",
-                    isActive && isCompleted && "bg-emerald-500/8 border-emerald-500/30 ring-1 ring-emerald-500/20",
+                    isActive && !isCompleted && "bg-primary/10 border-primary/40 ring-2 ring-primary/25",
+                    isActive && isCompleted && "bg-emerald-500/10 border-emerald-500/40 ring-2 ring-emerald-500/25",
                     !isActive && isCompleted && "bg-emerald-500/5 border-emerald-500/20",
                     !isActive && !isCompleted && "bg-card/50 border-border/50",
                     !isActive && !isCompleted && isClickable && "hover:border-border",
+                    isActive && "animate-[halo-pulse_2s_ease-in-out_infinite]",
                   )}
                 >
                   {/* Number Badge */}
