@@ -149,7 +149,7 @@ export async function airtableUpdate<T = Record<string, unknown>>(
   return res.json();
 }
 
-// Fetch specific records by their IDs
+// Fetch specific records by their IDs (batches large requests)
 export async function airtableFetchByIds<T = Record<string, unknown>>(
   tableId: string,
   recordIds: string[],
@@ -157,13 +157,26 @@ export async function airtableFetchByIds<T = Record<string, unknown>>(
 ): Promise<AirtableRecord<T>[]> {
   if (recordIds.length === 0) return [];
 
-  // Airtable formula: OR(RECORD_ID()='id1', RECORD_ID()='id2', ...)
-  const formula = `OR(${recordIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
+  // Batch into chunks of 20 to avoid long URL formulas
+  const BATCH_SIZE = 20;
+  const chunks: string[][] = [];
+  for (let i = 0; i < recordIds.length; i += BATCH_SIZE) {
+    chunks.push(recordIds.slice(i, i + BATCH_SIZE));
+  }
 
-  const result = await airtableFetch<T>(tableId, {
-    filterByFormula: formula,
-    fields,
-  });
+  const results = await Promise.all(
+    chunks.map(async (chunk) => {
+      const formula = chunk.length === 1
+        ? `RECORD_ID()='${chunk[0]}'`
+        : `OR(${chunk.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
 
-  return result.records;
+      const result = await airtableFetch<T>(tableId, {
+        filterByFormula: formula,
+        fields,
+      });
+      return result.records;
+    })
+  );
+
+  return results.flat();
 }
