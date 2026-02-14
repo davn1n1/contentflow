@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   GripVertical,
   Undo2,
+  Redo2,
   Save,
   Rocket,
   Download,
@@ -43,13 +44,15 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DynamicVideo } from "@/lib/remotion/compositions/DynamicVideo";
+import { InspectorPanel } from "@/components/editor/inspector/InspectorPanel";
+import { useTimelineShortcuts } from "@/lib/hooks/useTimelineShortcuts";
 import type {
   RemotionTimeline,
   RemotionTimelineRecord,
   RemotionTrack,
   RemotionClip,
 } from "@/lib/remotion/types";
-import { applyClipReorder, recalculateDuration } from "@/lib/remotion/editor-utils";
+import { useEditorStore } from "@/lib/stores/editor-store";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -245,25 +248,36 @@ export default function RemotionPreviewPage() {
   const rawTimeline = record?.remotion_timeline as RemotionTimeline | undefined;
   const playerRef = useRef<PlayerRef>(null);
 
-  // ─── Editor state (editable timeline) ─────────────────
-  const [editedTimeline, setEditedTimeline] = useState<RemotionTimeline | null>(null);
-  const isEdited = editedTimeline !== null;
+  // ─── Keyboard shortcuts ────────────────────────────────
+  useTimelineShortcuts(playerRef, rawTimeline?.fps ?? 30);
+
+  // ─── Editor state (Zustand store) ───────────────────────
+  const storeTimeline = useEditorStore((s) => s.timeline);
+  const isDirty = useEditorStore((s) => s.isDirty);
+  const selectedClipIds = useEditorStore((s) => s.selectedClipIds);
+  const initTimeline = useEditorStore((s) => s.initTimeline);
+  const reorderClips = useEditorStore((s) => s.reorderClips);
+  const markClean = useEditorStore((s) => s.markClean);
+
+  // Initialize store when raw timeline loads
+  useEffect(() => {
+    if (rawTimeline) initTimeline(rawTimeline);
+  }, [rawTimeline, initTimeline]);
+
+  const isEdited = isDirty;
 
   const handleClipReorder = useCallback((trackId: string, oldIndex: number, newIndex: number) => {
-    const base = editedTimeline ?? rawTimeline;
-    if (!base) return;
-    const updated = recalculateDuration(applyClipReorder(base, trackId, oldIndex, newIndex));
-    setEditedTimeline(updated);
-  }, [editedTimeline, rawTimeline]);
+    reorderClips(trackId, oldIndex, newIndex);
+  }, [reorderClips]);
 
   const discardEdits = useCallback(() => {
-    setEditedTimeline(null);
-  }, []);
+    if (rawTimeline) initTimeline(rawTimeline);
+  }, [rawTimeline, initTimeline]);
 
   const [saving, setSaving] = useState(false);
 
   const saveEdits = useCallback(async () => {
-    if (!editedTimeline || !record?.id) return;
+    if (!storeTimeline || !isDirty || !record?.id) return;
     setSaving(true);
     try {
       const res = await fetch("/api/remotion/convert", {
@@ -271,20 +285,19 @@ export default function RemotionPreviewPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: record.id,
-          remotion_timeline: editedTimeline,
+          remotion_timeline: storeTimeline,
         }),
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || "Error al guardar");
-      // Update local record with saved timeline
-      setRecord((prev) => prev ? { ...prev, remotion_timeline: editedTimeline, updated_at: new Date().toISOString() } : prev);
-      setEditedTimeline(null);
+      setRecord((prev) => prev ? { ...prev, remotion_timeline: storeTimeline, updated_at: new Date().toISOString() } : prev);
+      markClean();
     } catch (err) {
       console.error("Save error:", err);
     } finally {
       setSaving(false);
     }
-  }, [editedTimeline, record?.id]);
+  }, [storeTimeline, isDirty, record?.id, markClean]);
 
   // ─── CDN Proxy system (Cloudflare Stream) ─────────────
   const [proxyMap, setProxyMap] = useState<Record<string, string>>({});
@@ -294,9 +307,9 @@ export default function RemotionPreviewPage() {
     total: number;
   }>({ state: "idle", ready: 0, total: 0 });
 
-  // Apply proxy URLs to timeline clips (works on edited or raw timeline)
+  // Apply proxy URLs to timeline clips
   const timeline = useMemo(() => {
-    const base = editedTimeline ?? rawTimeline;
+    const base = storeTimeline;
     if (!base) return undefined;
     if (Object.keys(proxyMap).length === 0) return base;
 
@@ -310,12 +323,14 @@ export default function RemotionPreviewPage() {
         })),
       })),
     };
-  }, [rawTimeline, editedTimeline, proxyMap]);
+  }, [storeTimeline, proxyMap]);
 
   // Check proxy status on page load
+  const proxyRetryRef = useRef(false);
   useEffect(() => {
     if (!record?.id) return;
     let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
     async function checkProxies() {
       try {
@@ -335,7 +350,6 @@ export default function RemotionPreviewPage() {
         const map: Record<string, string> = {};
         for (const [url, info] of Object.entries(data.proxies)) {
           const p = info as { proxy_url: string | null; hls_url: string | null; status: string };
-          // Use proxy_url (MP4 download) or hls_url as fallback
           const proxyUrl = p.proxy_url || p.hls_url;
           if (proxyUrl && p.status === "ready") {
             map[url] = proxyUrl;
@@ -349,9 +363,20 @@ export default function RemotionPreviewPage() {
           total: data.total,
         });
 
-        // If some are still processing, poll again
+        // If some URLs were never uploaded (POST timed out), re-trigger POST once
+        if (proxiedCount > 0 && proxiedCount < data.total && !proxyRetryRef.current) {
+          proxyRetryRef.current = true;
+          console.log(`[CDN] ${proxiedCount}/${data.total} proxied — re-triggering upload for missing`);
+          fetch("/api/remotion/proxy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ timelineId: record!.id }),
+          }).catch(() => {});
+        }
+
+        // Keep polling if not all ready
         if (!data.allReady && proxiedCount > 0) {
-          setTimeout(checkProxies, 5000);
+          pollTimer = setTimeout(checkProxies, 5000);
         }
       } catch {
         if (!cancelled) setProxyStatus((s) => ({ ...s, state: "unavailable" }));
@@ -359,7 +384,10 @@ export default function RemotionPreviewPage() {
     }
 
     checkProxies();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
   }, [record?.id]);
 
   async function generateProxies() {
@@ -521,23 +549,26 @@ export default function RemotionPreviewPage() {
         </span>
       </div>
 
-      {/* Player — compact size, centered */}
-      <div className="rounded-lg overflow-hidden border border-border/50 bg-black max-w-2xl mx-auto">
-        <Player
-          ref={playerRef}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          component={DynamicVideo as any}
-          inputProps={inputProps}
-          durationInFrames={timeline.durationInFrames}
-          fps={timeline.fps}
-          compositionWidth={previewDimensions?.width ?? timeline.width}
-          compositionHeight={previewDimensions?.height ?? timeline.height}
-          style={{ width: "100%" }}
-          controls
-          autoPlay={false}
-          loop={false}
-          clickToPlay
-        />
+      {/* Player + Inspector layout */}
+      <div className="flex gap-4 items-start">
+        <div className="flex-1 min-w-0 rounded-lg overflow-hidden border border-border/50 bg-black">
+          <Player
+            ref={playerRef}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            component={DynamicVideo as any}
+            inputProps={inputProps}
+            durationInFrames={timeline.durationInFrames}
+            fps={timeline.fps}
+            compositionWidth={previewDimensions?.width ?? timeline.width}
+            compositionHeight={previewDimensions?.height ?? timeline.height}
+            style={{ width: "100%" }}
+            controls
+            autoPlay={false}
+            loop={false}
+            clickToPlay
+          />
+        </div>
+        <InspectorPanel />
       </div>
 
       {/* Lambda Render */}
@@ -545,6 +576,8 @@ export default function RemotionPreviewPage() {
         timelineId={record!.id}
         status={record!.status}
         renderUrl={record!.render_url}
+        renderId={record!.render_id}
+        renderBucket={record!.render_bucket}
         onStatusChange={(status, url) => {
           setRecord((prev) =>
             prev
@@ -588,6 +621,7 @@ export default function RemotionPreviewPage() {
         onDiscardEdits={discardEdits}
         onSaveEdits={saveEdits}
         saving={saving}
+        selectedClipIds={selectedClipIds}
       />
 
       {/* Track Explorer */}
@@ -609,18 +643,28 @@ function RenderSection({
   timelineId,
   status: initialStatus,
   renderUrl: initialRenderUrl,
+  renderId: savedRenderId,
+  renderBucket: savedRenderBucket,
   onStatusChange,
 }: {
   timelineId: string;
   status: string;
   renderUrl?: string;
+  renderId?: string;
+  renderBucket?: string;
   onStatusChange: (status: string, url?: string) => void;
 }) {
-  // Only show "done" if we actually have a render URL.
-  // "rendering" without a renderId means a previous render was stuck — treat as idle.
+  // Determine initial state: resume rendering if DB has render_id+bucket
+  const canResume = initialStatus === "rendering" && savedRenderId && savedRenderBucket;
   const [renderState, setRenderState] = useState<
     "idle" | "launching" | "rendering" | "done" | "error"
-  >(initialStatus === "rendered" && initialRenderUrl ? "done" : "idle");
+  >(
+    initialStatus === "rendered" && initialRenderUrl
+      ? "done"
+      : canResume
+        ? "rendering"
+        : "idle"
+  );
   const [progress, setProgress] = useState(0);
   const [renderUrl, setRenderUrl] = useState(initialRenderUrl);
   const [renderSize, setRenderSize] = useState<number | null>(null);
@@ -630,7 +674,7 @@ function RenderSection({
     bucketName: string;
     framesPerLambda?: number;
     estimatedChunks?: number;
-  } | null>(null);
+  } | null>(canResume ? { renderId: savedRenderId!, bucketName: savedRenderBucket! } : null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleanup polling on unmount
@@ -638,6 +682,14 @@ function RenderSection({
     return () => {
       if (pollRef.current) clearTimeout(pollRef.current);
     };
+  }, []);
+
+  // Resume polling if page loaded with an active render
+  useEffect(() => {
+    if (canResume && savedRenderId && savedRenderBucket) {
+      pollProgress(savedRenderId, savedRenderBucket);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function launchRender() {
@@ -946,6 +998,7 @@ function VisualTimeline({
   onDiscardEdits,
   onSaveEdits,
   saving,
+  selectedClipIds,
 }: {
   timeline: RemotionTimeline;
   playerRef: React.RefObject<PlayerRef | null>;
@@ -954,6 +1007,7 @@ function VisualTimeline({
   onDiscardEdits: () => void;
   onSaveEdits: () => void;
   saving: boolean;
+  selectedClipIds: string[];
 }) {
   const totalFrames = timeline.durationInFrames;
   const [hoveredClip, setHoveredClip] = useState<{ clip: RemotionClip; rect: DOMRect } | null>(null);
@@ -1019,6 +1073,9 @@ function VisualTimeline({
     const barRect = bar.getBoundingClientRect();
     if (e.clientX < barRect.left || e.clientX > barRect.right) return;
 
+    // Deselect clips when clicking on empty area (not on a clip)
+    useEditorStore.getState().deselectAll();
+
     isDraggingRef.current = true;
     seekFromMouseEvent(e);
     playerRef.current?.pause();
@@ -1045,6 +1102,8 @@ function VisualTimeline({
           Timeline
         </h2>
         <div className="flex items-center gap-2">
+          {/* Undo/Redo buttons */}
+          <UndoRedoButtons />
           {isEdited && (
             <>
               <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
@@ -1088,6 +1147,7 @@ function VisualTimeline({
             allTracks={timeline.tracks}
             trackBarRef={trackIndex === 0 ? trackBarRef : undefined}
             sensors={sensors}
+            selectedClipIds={selectedClipIds}
             onDragStart={() => {
               isSortingRef.current = true;
               setHoveredClip(null); // Clear tooltip during drag
@@ -1152,6 +1212,39 @@ function VisualTimeline({
   );
 }
 
+// ─── Undo/Redo Buttons ──────────────────────────────────
+
+function UndoRedoButtons() {
+  const temporalStore = useEditorStore.temporal.getState;
+  // Re-render on undo/redo by subscribing to isDirty changes
+  const isDirty = useEditorStore((s) => s.isDirty);
+
+  // Check lengths on each render (cheap operation)
+  const pastLen = useEditorStore.temporal.getState().pastStates.length;
+  const futureLen = useEditorStore.temporal.getState().futureStates.length;
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <button
+        onClick={() => useEditorStore.temporal.getState().undo()}
+        disabled={pastLen === 0}
+        className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        title="Deshacer (Ctrl+Z)"
+      >
+        <Undo2 className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => useEditorStore.temporal.getState().redo()}
+        disabled={futureLen === 0}
+        className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        title="Rehacer (Ctrl+Y)"
+      >
+        <Redo2 className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Timeline Track Row (with DnD) ──────────────────────
 
 function TimelineTrackRow({
@@ -1160,6 +1253,7 @@ function TimelineTrackRow({
   allTracks,
   trackBarRef,
   sensors,
+  selectedClipIds,
   onDragStart,
   onDragEnd,
   onDragCancel,
@@ -1170,6 +1264,7 @@ function TimelineTrackRow({
   allTracks: RemotionTrack[];
   trackBarRef?: React.RefObject<HTMLDivElement | null>;
   sensors: ReturnType<typeof useSensors>;
+  selectedClipIds: string[];
   onDragStart: () => void;
   onDragEnd: (event: DragEndEvent) => void;
   onDragCancel: () => void;
@@ -1190,6 +1285,7 @@ function TimelineTrackRow({
 
       <div
         ref={trackBarRef}
+        data-track-bar
         className="flex-1 relative h-6 bg-muted/30 rounded-sm min-w-0 cursor-col-resize"
       >
         <DndContext
@@ -1205,6 +1301,7 @@ function TimelineTrackRow({
                 key={clip.id}
                 clip={clip}
                 totalFrames={totalFrames}
+                isSelected={selectedClipIds.includes(clip.id)}
                 onHover={onHoverClip}
               />
             ))}
@@ -1220,12 +1317,18 @@ function TimelineTrackRow({
 function SortableClip({
   clip,
   totalFrames,
+  isSelected,
   onHover,
 }: {
   clip: RemotionClip;
   totalFrames: number;
+  isSelected: boolean;
   onHover: (data: { clip: RemotionClip; rect: DOMRect } | null) => void;
 }) {
+  const selectClip = useEditorStore((s) => s.selectClip);
+  const resizeClipStart = useEditorStore((s) => s.resizeClipStart);
+  const resizeClipEnd = useEditorStore((s) => s.resizeClipEnd);
+
   const {
     attributes,
     listeners,
@@ -1244,18 +1347,62 @@ function SortableClip({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 50 : undefined,
+    zIndex: isDragging ? 50 : isSelected ? 10 : undefined,
   };
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isDragging) return;
+    selectClip(clip.id, e.metaKey || e.ctrlKey);
+  }, [clip.id, isDragging, selectClip]);
+
+  // Resize handle logic: drag left/right edges to trim
+  const handleResizeStart = useCallback((edge: "start" | "end", e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const parentEl = (e.currentTarget as HTMLElement).closest("[data-track-bar]") as HTMLElement;
+    if (!parentEl) return;
+
+    // Pause undo tracking during drag
+    useEditorStore.temporal.getState().pause();
+
+    const barRect = parentEl.getBoundingClientRect();
+    const framesPerPx = totalFrames / barRect.width;
+
+    const handleMove = (ev: MouseEvent) => {
+      ev.preventDefault();
+      const x = ev.clientX - barRect.left;
+      const frameAtMouse = Math.round(x * framesPerPx);
+
+      if (edge === "start") {
+        resizeClipStart(clip.id, frameAtMouse);
+      } else {
+        const newDuration = frameAtMouse - clip.from;
+        resizeClipEnd(clip.id, newDuration);
+      }
+    };
+
+    const handleUp = () => {
+      useEditorStore.temporal.getState().resume();
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+    };
+
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+  }, [clip.id, clip.from, totalFrames, resizeClipStart, resizeClipEnd]);
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "absolute top-0.5 bottom-0.5 rounded-sm border text-[9px] flex items-center gap-0.5 px-0.5 overflow-hidden whitespace-nowrap hover:brightness-125 transition-all",
+        "group absolute top-0.5 bottom-0.5 rounded-sm border text-[9px] flex items-center gap-0.5 px-0.5 overflow-hidden whitespace-nowrap hover:brightness-125 transition-all",
         clipTypeColor(clip.type),
-        isDragging && "ring-2 ring-white/40 shadow-lg"
+        isDragging && "ring-2 ring-white/40 shadow-lg",
+        isSelected && !isDragging && "ring-2 ring-white/80 brightness-125 shadow-md"
       )}
       style={style}
+      onClick={handleClick}
       onMouseEnter={(e) => {
         if (!isDragging) {
           const rect = e.currentTarget.getBoundingClientRect();
@@ -1264,9 +1411,15 @@ function SortableClip({
       }}
       onMouseLeave={() => onHover(null)}
     >
-      {/* Drag handle — stopPropagation prevents playhead scrub from hijacking the drag */}
+      {/* Left resize handle */}
       <div
-        className="flex-shrink-0 cursor-grab active:cursor-grabbing p-0.5 hover:bg-white/10 rounded"
+        className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover:opacity-100 bg-white/20 hover:bg-white/40 transition-opacity z-10 rounded-l-sm"
+        onMouseDown={(e) => handleResizeStart("start", e)}
+      />
+
+      {/* Drag handle */}
+      <div
+        className="flex-shrink-0 cursor-grab active:cursor-grabbing p-0.5 hover:bg-white/10 rounded ml-1"
         {...attributes}
         {...listeners}
         onMouseDown={(e) => { e.stopPropagation(); }}
@@ -1278,6 +1431,12 @@ function SortableClip({
           {clipDisplayName(clip)}
         </span>
       )}
+
+      {/* Right resize handle */}
+      <div
+        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize opacity-0 group-hover:opacity-100 bg-white/20 hover:bg-white/40 transition-opacity z-10 rounded-r-sm"
+        onMouseDown={(e) => handleResizeStart("end", e)}
+      />
     </div>
   );
 }

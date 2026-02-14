@@ -114,88 +114,87 @@ export async function POST(request: NextRequest) {
       action: string;
     }> = [];
 
-    // Process each URL
+    // Separate URLs into: cached, need-poll, need-upload
+    const cached: typeof results = [];
+    const toPoll: Array<{ url: string; proxy: VideoProxy }> = [];
+    const toUpload: string[] = [];
+
     for (const url of videoUrls) {
       const existing = existingMap.get(url);
-
-      if (existing) {
-        // Already exists — check if we need to poll status
-        if (existing.status === "ready") {
-          results.push({
-            url,
-            status: "ready",
-            proxy_url: existing.proxy_url,
-            action: "cached",
-          });
-          continue;
-        }
-
-        if (existing.status === "error") {
-          // Retry: delete old record and re-upload
-          await supabase.from("video_proxies").delete().eq("id", existing.id);
-        } else {
-          // Still processing — check status with CF Stream
-          if (existing.stream_uid) {
-            const updated = await pollAndUpdate(
-              supabase,
-              existing.id,
-              existing.stream_uid
-            );
-            results.push({
-              url,
-              status: updated.status,
-              proxy_url: updated.proxy_url,
-              action: "polled",
-            });
-            continue;
-          }
-          results.push({
-            url,
-            status: existing.status,
-            proxy_url: null,
-            action: "waiting",
-          });
-          continue;
-        }
+      if (!existing) {
+        toUpload.push(url);
+        continue;
       }
+      if (existing.status === "ready") {
+        cached.push({ url, status: "ready", proxy_url: existing.proxy_url, action: "cached" });
+      } else if (existing.status === "error") {
+        await supabase.from("video_proxies").delete().eq("id", existing.id);
+        toUpload.push(url);
+      } else if (existing.stream_uid) {
+        toPoll.push({ url, proxy: existing });
+      } else {
+        cached.push({ url, status: existing.status, proxy_url: null, action: "waiting" });
+      }
+    }
 
-      // New upload: send to Cloudflare Stream (video only)
-      try {
-        console.log(`[CF Stream] Uploading: ${url.slice(0, 80)}...`);
-        const video = await uploadByUrl(url, { original_url: url });
-        console.log(`[CF Stream] Upload OK: uid=${video.uid}, status=${video.status.state}`);
+    results.push(...cached);
 
-        // Insert proxy record
-        await supabase.from("video_proxies").insert({
-          original_url: url,
-          stream_uid: video.uid,
-          status: "uploading",
-          hls_url: video.playback?.hls || null,
-        });
+    // Poll existing processing videos in parallel (max 5)
+    const pollBatches = [];
+    for (let i = 0; i < toPoll.length; i += 5) {
+      pollBatches.push(toPoll.slice(i, i + 5));
+    }
+    for (const batch of pollBatches) {
+      const pollResults = await Promise.allSettled(
+        batch.map(async ({ url, proxy }) => {
+          const updated = await pollAndUpdate(supabase, proxy.id, proxy.stream_uid!);
+          return { url, status: updated.status, proxy_url: updated.proxy_url, action: "polled" as const };
+        })
+      );
+      for (const r of pollResults) {
+        if (r.status === "fulfilled") results.push(r.value);
+      }
+    }
 
-        // Request MP4 download generation
-        try {
-          await createDownload(video.uid);
-        } catch {
-          // Download creation might fail if video is still processing — that's OK
+    // Upload new videos in parallel (max 5 concurrent)
+    const uploadBatches = [];
+    for (let i = 0; i < toUpload.length; i += 5) {
+      uploadBatches.push(toUpload.slice(i, i + 5));
+    }
+    for (const batch of uploadBatches) {
+      const uploadResults = await Promise.allSettled(
+        batch.map(async (url) => {
+          console.log(`[CF Stream] Uploading: ${url.slice(0, 80)}...`);
+          const video = await uploadByUrl(url, { original_url: url });
+          console.log(`[CF Stream] Upload OK: uid=${video.uid}, status=${video.status.state}`);
+
+          await supabase.from("video_proxies").insert({
+            original_url: url,
+            stream_uid: video.uid,
+            status: "uploading",
+            hls_url: video.playback?.hls || null,
+          });
+
+          try { await createDownload(video.uid); } catch { /* OK */ }
+
+          return { url, status: "uploading" as const, proxy_url: null, action: "uploaded" as const };
+        })
+      );
+      for (const r of uploadResults) {
+        if (r.status === "fulfilled") {
+          results.push(r.value);
+        } else {
+          const url = batch[uploadResults.indexOf(r)];
+          console.error(`[CF Stream] Upload FAILED: ${url?.slice(0, 80)}`, r.reason);
+          if (url) {
+            await supabase.from("video_proxies").insert({
+              original_url: url,
+              status: "error",
+              error_message: r.reason instanceof Error ? r.reason.message : "Upload failed",
+            });
+            results.push({ url, status: "error", proxy_url: null, action: "error" });
+          }
         }
-
-        results.push({
-          url,
-          status: "uploading",
-          proxy_url: null,
-          action: "uploaded",
-        });
-      } catch (err) {
-        console.error(`[CF Stream] Upload FAILED: ${url.slice(0, 80)}`, err instanceof Error ? err.message : err);
-        // Upload failed — record the error
-        await supabase.from("video_proxies").insert({
-          original_url: url,
-          status: "error",
-          error_message:
-            err instanceof Error ? err.message : "Upload failed",
-        });
-        results.push({ url, status: "error", proxy_url: null, action: "error" });
       }
     }
 
@@ -276,31 +275,47 @@ export async function GET(request: NextRequest) {
     .select("*")
     .in("original_url", videoUrls);
 
-  // Poll processing proxies for updated status
+  // Separate ready vs processing proxies
   const proxyMap: Record<
     string,
     { proxy_url: string | null; hls_url: string | null; status: string }
   > = {};
 
+  const needsPoll: VideoProxy[] = [];
   for (const proxy of proxies || []) {
     const p = proxy as VideoProxy;
-
-    if (
-      p.stream_uid &&
-      ["uploading", "processing"].includes(p.status)
-    ) {
-      const updated = await pollAndUpdate(supabase, p.id, p.stream_uid);
-      proxyMap[p.original_url] = {
-        proxy_url: updated.proxy_url,
-        hls_url: updated.hls_url,
-        status: updated.status,
-      };
+    if (p.stream_uid && ["uploading", "processing"].includes(p.status)) {
+      needsPoll.push(p);
     } else {
       proxyMap[p.original_url] = {
         proxy_url: p.proxy_url,
         hls_url: p.hls_url,
         status: p.status,
       };
+    }
+  }
+
+  // Poll CF Stream in parallel (max 5 concurrent) to avoid timeouts
+  for (let i = 0; i < needsPoll.length; i += 5) {
+    const batch = needsPoll.slice(i, i + 5);
+    const results = await Promise.allSettled(
+      batch.map((p) => pollAndUpdate(supabase, p.id, p.stream_uid!))
+    );
+    for (let j = 0; j < batch.length; j++) {
+      const r = results[j];
+      if (r.status === "fulfilled") {
+        proxyMap[batch[j].original_url] = {
+          proxy_url: r.value.proxy_url,
+          hls_url: r.value.hls_url,
+          status: r.value.status,
+        };
+      } else {
+        proxyMap[batch[j].original_url] = {
+          proxy_url: null,
+          hls_url: null,
+          status: "processing",
+        };
+      }
     }
   }
 

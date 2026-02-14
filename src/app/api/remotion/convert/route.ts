@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { shotstack2Remotion } from "@/lib/remotion/converter";
 import type { ShotstackPayload } from "@/lib/remotion/types";
 import { createClient } from "@/lib/supabase/server";
+import { airtableFetch, TABLES } from "@/lib/airtable/client";
 
 const N8N_API_KEY = process.env.N8N_WEBHOOK_AUTH_VALUE;
 
@@ -187,6 +188,38 @@ export async function GET(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Auto-fill missing video_name from Airtable for listing
+    const missingNames = (data || []).filter((d) => !d.video_name && d.video_id);
+    if (missingNames.length > 0) {
+      try {
+        const ids = missingNames.map((d) => `RECORD_ID()='${d.video_id}'`).join(",");
+        const atRes = await airtableFetch<{ Name?: number; "Titulo Youtube A"?: string }>(
+          TABLES.VIDEOS,
+          {
+            filterByFormula: `OR(${ids})`,
+            fields: ["Name", "Titulo Youtube A"],
+            maxRecords: missingNames.length,
+          }
+        );
+        const sb = await createClient();
+        for (const rec of atRes.records) {
+          const title = rec.fields["Titulo Youtube A"];
+          const num = rec.fields.Name;
+          const name = title || (num ? `Video #${num}` : null);
+          if (name) {
+            const entry = (data || []).find((d) => d.video_id === rec.id);
+            if (entry) {
+              entry.video_name = name;
+              sb.from("remotion_timelines").update({ video_name: name }).eq("id", entry.id).then(() => {});
+            }
+          }
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+
     return NextResponse.json(data || []);
   }
 
@@ -206,6 +239,34 @@ export async function GET(request: NextRequest) {
       { error: "Timeline not found" },
       { status: 404 }
     );
+  }
+
+  // Auto-fill video_name from Airtable if missing
+  if (!data.video_name && data.video_id) {
+    try {
+      const atRes = await airtableFetch<{ Name?: number; "Titulo Youtube A"?: string }>(
+        TABLES.VIDEOS,
+        {
+          filterByFormula: `RECORD_ID()='${data.video_id}'`,
+          fields: ["Name", "Titulo Youtube A"],
+          maxRecords: 1,
+        }
+      );
+      const rec = atRes.records[0];
+      if (rec) {
+        const title = rec.fields["Titulo Youtube A"];
+        const num = rec.fields.Name;
+        const name = title || (num ? `Video #${num}` : null);
+        if (name) {
+          data.video_name = name;
+          // Persist so we don't look it up again
+          const sb = await createClient();
+          sb.from("remotion_timelines").update({ video_name: name }).eq("id", data.id).then(() => {});
+        }
+      }
+    } catch {
+      // Non-critical — just use video_id as fallback
+    }
   }
 
   return NextResponse.json(data);

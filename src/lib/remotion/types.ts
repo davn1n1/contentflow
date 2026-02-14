@@ -114,6 +114,8 @@ export interface RemotionTimelineRecord {
   remotion_timeline: RemotionTimeline;
   status: "converted" | "previewing" | "rendering" | "rendered" | "failed";
   render_url?: string;
+  render_id?: string;
+  render_bucket?: string;
   created_at: string;
   updated_at: string;
 }

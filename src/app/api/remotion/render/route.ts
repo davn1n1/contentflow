@@ -101,12 +101,13 @@ export async function POST(request: NextRequest) {
       privacy: "public",
     });
 
-    // Update status in Supabase
+    // Update status in Supabase (persist for page reload)
     await supabase
       .from("remotion_timelines")
       .update({
         status: "rendering",
         render_id: renderId,
+        render_bucket: bucketName,
         updated_at: new Date().toISOString(),
       })
       .eq("id", timelineId);
