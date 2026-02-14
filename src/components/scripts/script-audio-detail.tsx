@@ -2180,11 +2180,22 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
           {generatingAudio ? <span className="text-blue-400/50">…</span> : scene.voice_length != null ? `${scene.voice_length.toFixed(1)}s` : "—"}
         </td>
         <td className="px-1 py-2.5 text-center">
-          {audioRevisado ? (
-            <span className="text-emerald-400 text-xs font-bold">✓</span>
-          ) : (
-            <span className="text-muted-foreground/30 text-xs">✗</span>
-          )}
+          <button
+            data-audio-revisado-toggle
+            onClick={toggleRevisado}
+            className={cn(
+              "inline-flex items-center justify-center w-6 h-6 rounded-md transition-all cursor-pointer",
+              audioRevisado
+                ? "bg-emerald-500/20 hover:bg-emerald-500/30"
+                : "bg-muted/30 hover:bg-red-500/10"
+            )}
+          >
+            {audioRevisado ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            ) : (
+              <XCircle className="w-3.5 h-3.5 text-muted-foreground/30 hover:text-red-400/60" />
+            )}
+          </button>
         </td>
         <td className="px-1 py-2.5 text-center text-sm" title={generatingAudio ? undefined : scene.analisis_voz_1 || undefined}>
           {generatingAudio ? <span className="text-blue-400/50 text-xs">…</span> : extractEmoji(scene.analisis_voz_1)}
