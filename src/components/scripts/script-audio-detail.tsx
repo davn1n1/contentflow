@@ -1244,11 +1244,12 @@ function ElevenLabsCollapsible({ text }: { text: string }) {
 // ─── Modifica Script Button (per-scene, same pattern as ModificaSlideButton) ──
 type ModificaScriptState = "idle" | "confirming" | "sending" | "generating" | "ready" | "error";
 
-function ModificaScriptButton({ sceneId, currentScript }: { sceneId: string; currentScript: string | null }) {
+function ModificaScriptButton({ sceneId, currentScript, onStateChange }: { sceneId: string; currentScript: string | null; onStateChange?: (state: ModificaScriptState) => void }) {
   const queryClient = useQueryClient();
   const [state, setState] = useState<ModificaScriptState>("idle");
   const stateRef = useRef<ModificaScriptState>(state);
   stateRef.current = state;
+  useEffect(() => { onStateChange?.(state); }, [state, onStateChange]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -1395,15 +1396,20 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   const { save: saveScript, saving, saved } = useSceneAutoSave(scene.id, "Script");
   const [feedbackCopyValue, setFeedbackCopyValue] = useState(scene.feedback_copy || "");
   const { save: saveFeedbackCopy, saving: savingFeedbackCopy, saved: savedFeedbackCopy } = useSceneAutoSave(scene.id, "Feedback Copy");
+  const [modificaState, setModificaState] = useState<ModificaScriptState>("idle");
+  const isModifying = modificaState === "generating" || modificaState === "sending";
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const feedbackCopyRef = useRef<HTMLTextAreaElement>(null);
+  const feedbackCopyFocusedRef = useRef(false);
 
-  // Sync local state when scene data changes from server
+  // Sync local state when scene data changes from server (skip if user is editing)
   useEffect(() => {
     setScriptValue(scene.script || "");
   }, [scene.script]);
   useEffect(() => {
-    setFeedbackCopyValue(scene.feedback_copy || "");
+    if (!feedbackCopyFocusedRef.current) {
+      setFeedbackCopyValue(scene.feedback_copy || "");
+    }
   }, [scene.feedback_copy]);
 
   // Auto-resize textareas
@@ -1551,7 +1557,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
         <tr className="bg-primary/5">
           <td colSpan={11} className="px-4 py-4">
             <div className="space-y-2">
-              {/* Editable script — full width */}
+              {/* Editable script — full width (or placeholder when modifying) */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
@@ -1559,7 +1565,11 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                     {scene.topic && <TopicTags topic={scene.topic} />}
                   </div>
                   <span className="text-[10px] text-muted-foreground/50">
-                    {saving ? (
+                    {isModifying ? (
+                      <span className="flex items-center gap-1 text-amber-400 animate-pulse">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Modificando script…
+                      </span>
+                    ) : saving ? (
                       <span className="flex items-center gap-1 text-amber-400">
                         <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
                       </span>
@@ -1572,6 +1582,13 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                     )}
                   </span>
                 </div>
+                {isModifying ? (
+                  <div className="w-full rounded-lg p-6 border border-amber-500/30 bg-amber-500/5 flex flex-col items-center justify-center gap-2 animate-pulse">
+                    <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
+                    <p className="text-xs text-amber-400 font-medium">Generando nuevo script…</p>
+                    <p className="text-[10px] text-muted-foreground/50">El script anterior será reemplazado</p>
+                  </div>
+                ) : (
                 <textarea
                   ref={textareaRef}
                   value={scriptValue}
@@ -1581,6 +1598,7 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                   className="w-full whitespace-pre-wrap leading-relaxed bg-muted/30 rounded-lg p-3 border border-transparent focus:border-primary/30 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none transition-colors text-xs"
                   rows={3}
                 />
+                )}
               </div>
 
               {/* ── All feedback fields in a single compact grid ── */}
@@ -1699,12 +1717,14 @@ function SceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                   ref={feedbackCopyRef}
                   value={feedbackCopyValue}
                   onChange={handleFeedbackCopyChange}
+                  onFocus={() => { feedbackCopyFocusedRef.current = true; }}
+                  onBlur={() => { feedbackCopyFocusedRef.current = false; }}
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); saveFeedbackCopy(feedbackCopyValue); e.currentTarget.blur(); } }}
                   placeholder="Instrucciones para modificar el script de esta escena..."
                   className="w-full bg-background/50 border border-emerald-500/15 rounded-lg px-3 py-2 text-xs text-foreground resize-none overflow-hidden focus:outline-none focus:border-emerald-500/40 focus:ring-1 focus:ring-emerald-500/20 min-h-[50px]"
                 />
-                <ModificaScriptButton sceneId={scene.id} currentScript={scene.script} />
+                <ModificaScriptButton sceneId={scene.id} currentScript={scene.script} onStateChange={setModificaState} />
               </div>
             </div>
           </td>
