@@ -740,6 +740,20 @@ const ACTION_POLL_CONFIG: Record<string, {
     readyLabel: "Render completado!",
     maxTimeout: 900000, // 15 min
   },
+  ModificarScript: {
+    pollEndpoint: "video",
+    detectReady: (d, b) => {
+      const escenas = d.escenas_ids as string[] | undefined;
+      const baseEscenas = b.escenas_ids as string[] | undefined;
+      return (
+        d.status_copy === true ||
+        (!!escenas && escenas.length > 0 && (!baseEscenas || escenas.length !== baseEscenas.length))
+      );
+    },
+    generatingLabel: "Modificando script…",
+    readyLabel: "Script modificado!",
+    maxTimeout: 600000,
+  },
 };
 
 export function ActionButton({

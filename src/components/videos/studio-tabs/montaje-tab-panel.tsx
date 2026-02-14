@@ -6,6 +6,7 @@ import {
   Play, Settings2, ChevronDown, Palette, Music, ImageIcon, Image as ImageLucide,
   ChevronRight, Loader2, CheckCircle2, XCircle, Wand2, Maximize2, X,
   Film, User2, Tag, Volume2, Star, Headphones, Info, FileText, Shield, AlertTriangle,
+  Save, Edit3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -1286,6 +1287,77 @@ function LinkedRecordCard({ label, icon, record, emptyText }: {
   );
 }
 
+// ─── Feedback Copy Section (video-level) ─────────────────
+function FeedbackCopySection({ videoId, initialFeedback }: { videoId: string; initialFeedback: string | null }) {
+  const [feedback, setFeedback] = useState(initialFeedback || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const queryClient = useQueryClient();
+
+  useEffect(() => { setFeedback(initialFeedback || ""); }, [initialFeedback]);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      await fetch("/api/data/videos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: videoId, fields: { Feedback: feedback } }),
+      });
+      setSaved(true);
+      queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      // Silent
+    } finally {
+      setSaving(false);
+    }
+  }, [feedback, videoId, queryClient]);
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.03] p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <FileText className="w-4 h-4 text-emerald-400" />
+            Feedback Copy
+          </h3>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+              saved
+                ? "bg-emerald-500/20 text-emerald-400"
+                : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20",
+              saving && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : saved ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />}
+            {saved ? "Guardado" : "Guardar"}
+          </button>
+        </div>
+        <textarea
+          value={feedback}
+          onChange={(e) => { setFeedback(e.target.value); setSaved(false); }}
+          rows={3}
+          placeholder="Escribe aquí el feedback para modificar el script..."
+          className="w-full bg-emerald-500/5 border border-emerald-500/15 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500/50 resize-y placeholder:text-muted-foreground/50"
+        />
+      </div>
+
+      <ActionButton
+        videoId={videoId}
+        action="ModificarScript"
+        label="Modificar Script"
+        confirmLabel="Confirmar modificación del script"
+        icon={<Edit3 className="w-5 h-5" />}
+        color="green"
+      />
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────
 export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -1317,6 +1389,9 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
         icon={<Play className="w-5 h-5" />}
         color="amber"
       />
+
+      {/* Feedback Copy + Modificar Script */}
+      <FeedbackCopySection videoId={video.id} initialFeedback={video.feedback_copy} />
 
       {/* Montaje Scene Table */}
       {video.scenes.length > 0 && (
