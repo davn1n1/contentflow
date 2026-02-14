@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Star, RotateCcw } from "lucide-react";
+import { Search, Star, RotateCcw, Smartphone, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface IdeaFiltersProps {
@@ -8,6 +8,8 @@ interface IdeaFiltersProps {
   onSearchChange: (value: string) => void;
   tipoIdea: string;
   onTipoIdeaChange: (value: string) => void;
+  shortLong: string;
+  onShortLongChange: (value: string) => void;
   favorita: boolean;
   onFavoritaChange: (value: boolean) => void;
 }
@@ -22,15 +24,23 @@ const tiposIdea = [
   { value: "Manual", label: "Manual" },
 ];
 
+const shortLongOptions = [
+  { value: "", label: "H / V" },
+  { value: "Short", label: "Vertical (Short)" },
+  { value: "Long", label: "Horizontal (Long)" },
+];
+
 export function IdeaFilters({
   search,
   onSearchChange,
   tipoIdea,
   onTipoIdeaChange,
+  shortLong,
+  onShortLongChange,
   favorita,
   onFavoritaChange,
 }: IdeaFiltersProps) {
-  const hasFilters = search || tipoIdea || favorita;
+  const hasFilters = search || tipoIdea || shortLong || favorita;
 
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -59,6 +69,19 @@ export function IdeaFilters({
         ))}
       </select>
 
+      {/* Short/Long (Horizontal/Vertical) filter */}
+      <select
+        value={shortLong}
+        onChange={(e) => onShortLongChange(e.target.value)}
+        className="px-3 py-2 bg-muted border border-border rounded-lg text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary appearance-none cursor-pointer"
+      >
+        {shortLongOptions.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+
       {/* Favorita toggle */}
       <button
         onClick={() => onFavoritaChange(!favorita)}
@@ -79,6 +102,7 @@ export function IdeaFilters({
           onClick={() => {
             onSearchChange("");
             onTipoIdeaChange("");
+            onShortLongChange("");
             onFavoritaChange(false);
           }}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
