@@ -1,7 +1,35 @@
 "use client";
 
 import type { DraftPublicacion } from "@/types/database";
-import { Star, ThumbsUp, ImageIcon } from "lucide-react";
+import { CheckCircle2, ImageIcon, User } from "lucide-react";
+
+// Airtable-style colors for SlideEngine tags
+const ENGINE_COLORS: Record<string, { text: string; bg: string }> = {
+  "Flux": { text: "text-violet-400", bg: "bg-violet-400/10" },
+  "Midjourney": { text: "text-blue-400", bg: "bg-blue-400/10" },
+  "DALL-E": { text: "text-emerald-400", bg: "bg-emerald-400/10" },
+  "Stable Diffusion": { text: "text-orange-400", bg: "bg-orange-400/10" },
+  "Ideogram": { text: "text-pink-400", bg: "bg-pink-400/10" },
+  "Leonardo": { text: "text-amber-400", bg: "bg-amber-400/10" },
+  "Recraft": { text: "text-teal-400", bg: "bg-teal-400/10" },
+  "GPT-Image": { text: "text-green-400", bg: "bg-green-400/10" },
+};
+
+const STATUS_COLORS: Record<string, { text: string; bg: string }> = {
+  "Aprobada": { text: "text-emerald-400", bg: "bg-emerald-400/10" },
+  "Pendiente": { text: "text-amber-400", bg: "bg-amber-400/10" },
+  "En proceso": { text: "text-blue-400", bg: "bg-blue-400/10" },
+  "Rechazada": { text: "text-red-400", bg: "bg-red-400/10" },
+  "Nueva": { text: "text-cyan-400", bg: "bg-cyan-400/10" },
+};
+
+function getEngineColor(engine: string) {
+  return ENGINE_COLORS[engine] || { text: "text-cyan-400", bg: "bg-cyan-400/10" };
+}
+
+function getStatusColor(status: string) {
+  return STATUS_COLORS[status] || { text: "text-muted-foreground", bg: "bg-muted" };
+}
 
 interface ThumbnailCardProps {
   draft: DraftPublicacion;
@@ -16,7 +44,7 @@ export function ThumbnailCard({ draft, onClick }: ThumbnailCardProps) {
       onClick={onClick}
       className="glass-card rounded-xl overflow-hidden hover:border-primary/30 transition-all group text-left w-full"
     >
-      {/* image_preview */}
+      {/* Image preview */}
       <div className="relative aspect-video bg-muted">
         {imageUrl ? (
           <img
@@ -30,59 +58,67 @@ export function ThumbnailCard({ draft, onClick }: ThumbnailCardProps) {
           </div>
         )}
 
-        {/* thumb_id */}
+        {/* Numero concepto - grande y destacado */}
         {draft.numero_concepto && (
-          <span className="absolute bottom-2 left-2 text-xs font-mono font-bold text-white bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded">
+          <span className="absolute bottom-2 left-2 text-sm font-bold text-white bg-black/70 backdrop-blur-sm px-3 py-1 rounded-lg shadow-lg">
             {draft.numero_concepto}
           </span>
         )}
 
-        {/* is_favorite */}
+        {/* Favorita - tick verde bonito */}
         {draft.favorita && (
-          <Star className="absolute top-2 right-2 w-5 h-5 text-amber-400 fill-amber-400 drop-shadow" />
+          <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-emerald-500/90 backdrop-blur-sm flex items-center justify-center shadow-lg">
+            <CheckCircle2 className="w-4.5 h-4.5 text-white" />
+          </div>
         )}
 
-        {/* category_code */}
+        {/* Portada ABC badge */}
         {draft.portada_youtube_abc && (
-          <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+          <span className="absolute top-2 left-2 w-7 h-7 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shadow-lg">
             {draft.portada_youtube_abc}
           </span>
         )}
       </div>
 
       {/* Content */}
-      <div className="p-3 space-y-2">
-        {/* description_text */}
-        <p className="text-sm text-foreground line-clamp-3 leading-snug">
-          {draft.descripcion || draft.titulo || "Sin descripcion"}
+      <div className="p-3 space-y-2.5">
+        {/* Titulo */}
+        <p className="text-sm font-medium text-foreground line-clamp-2 leading-snug">
+          {draft.titulo || draft.name || "Sin titulo"}
         </p>
+
+        {/* Status badge */}
+        {draft.status && (
+          <span className={`inline-block text-[10px] font-semibold rounded-full px-2 py-0.5 ${getStatusColor(draft.status).text} ${getStatusColor(draft.status).bg}`}>
+            {draft.status}
+          </span>
+        )}
 
         {/* Tags row */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* model_tag */}
-          {(draft.slideengine || draft.tipo_creatividad) && (
-            <span className="text-[10px] font-medium text-cyan-400 bg-cyan-400/10 rounded px-1.5 py-0.5">
-              {draft.slideengine || draft.tipo_creatividad}
+          {/* SlideEngine - colorful Airtable-style tag */}
+          {draft.slideengine && (
+            <span className={`text-[10px] font-semibold rounded px-1.5 py-0.5 ${getEngineColor(draft.slideengine).text} ${getEngineColor(draft.slideengine).bg}`}>
+              {draft.slideengine}
             </span>
           )}
 
-          {/* approved */}
-          {draft.portada && (
-            <span className="text-[10px] font-medium text-emerald-400 bg-emerald-400/10 rounded px-1.5 py-0.5">
-              Si
+          {/* Expresión tags */}
+          {draft.expresion_ids.map((expr) => (
+            <span
+              key={expr}
+              className="text-[10px] font-medium text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5"
+            >
+              {expr}
             </span>
-          )}
+          ))}
 
-          {/* tone_tag */}
+          {/* Pone Persona */}
           {draft.pone_persona && (
-            <span className="text-[10px] font-medium text-purple-400 bg-purple-400/10 rounded px-1.5 py-0.5">
+            <span className="text-[10px] font-medium text-purple-400 bg-purple-400/10 rounded px-1.5 py-0.5 inline-flex items-center gap-0.5">
+              <User className="w-2.5 h-2.5" />
               {draft.pone_persona}
             </span>
-          )}
-
-          {/* liked */}
-          {draft.status === "Aprobada" && (
-            <ThumbsUp className="w-3.5 h-3.5 text-emerald-400" />
           )}
         </div>
       </div>

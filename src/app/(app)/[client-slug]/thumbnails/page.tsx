@@ -30,9 +30,9 @@ export default function ThumbnailsPage() {
 
   const [selectedDraft, setSelectedDraft] = useState<DraftPublicacion | null>(null);
 
-  // Split into sections
-  const allDrafts = drafts;
-  const favoriteDrafts = drafts.filter((d) => d.favorita);
+  // Sort by most recent first, then split into sections
+  const allDrafts = [...drafts].sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+  const favoriteDrafts = allDrafts.filter((d) => d.favorita);
 
   if (!videoId) {
     return (
