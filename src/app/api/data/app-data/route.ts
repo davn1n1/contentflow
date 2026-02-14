@@ -23,6 +23,7 @@ const ALLOWED_TABLES: Record<string, string> = {
   "default-settings": TABLES.ACCOUNT_SETTINGS,
   campanas: TABLES.CAMPANAS,
   expresiones: TABLES.EXPRESIONES_MINIATURAS,
+  "montaje-video": TABLES.MONTAJE_VIDEO,
 };
 
 // Resolve account name from record ID (cached per request)
