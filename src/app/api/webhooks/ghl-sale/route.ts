@@ -50,6 +50,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
+    // Log full body for debugging GHL payload mapping
+    console.log("GHL webhook received body:", JSON.stringify(body));
+
     const contactEmail = body.contact_email || body.email;
     const contactName = body.contact_name || body.full_name || body.name || "";
     const companyName = body.company_name || body.business_name || contactName;
@@ -63,6 +66,7 @@ export async function POST(request: Request) {
         success: true,
         status: "skipped",
         reason: `Product "${plan}" does not require app user creation`,
+        _debug_received_body: body,
       });
     }
 
@@ -104,6 +108,7 @@ export async function POST(request: Request) {
         account_airtable_id: accountId,
         ...(plan && { plan }),
         ...(phone && { phone }),
+        _debug_received_body: body,
       });
     }
 
@@ -149,6 +154,7 @@ export async function POST(request: Request) {
       ...(plan && { plan }),
       ...(phone && { phone }),
       ...(warnings.length > 0 && { warnings }),
+      _debug_received_body: body,
     });
   } catch (error) {
     console.error("GHL sale webhook error:", error);
