@@ -261,7 +261,7 @@ export function RecordEditDrawer({ record, table, accountId, onClose, nested = f
     setExpandedLinked({ recordId, table: linkedTable });
     setExpandedLinkedData(null);
     setLoadingExpanded(true);
-    fetch(`/api/data/app-data?table=${encodeURIComponent(linkedTable)}&recordId=${encodeURIComponent(recordId)}`)
+    fetch(`/api/data/app-data?table=${encodeURIComponent(linkedTable)}&id=${encodeURIComponent(recordId)}`)
       .then((r) => {
         if (!r.ok) throw new Error("Failed to fetch");
         return r.json();
