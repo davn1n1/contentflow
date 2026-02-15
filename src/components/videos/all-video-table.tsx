@@ -10,6 +10,10 @@ interface AllVideoTableProps {
   videos: Video[];
   clientSlug: string;
   sponsorMap: Record<string, string>;
+  editMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleAll?: () => void;
 }
 
 function BooleanCell({ value }: { value: boolean | string | null }) {
@@ -117,20 +121,32 @@ const COLUMNS: { key: string; label: string; sticky?: boolean; width: string }[]
   { key: "record_id", label: "Record ID", width: "w-[120px]" },
 ];
 
-export function AllVideoTable({ videos, clientSlug, sponsorMap }: AllVideoTableProps) {
+export function AllVideoTable({ videos, clientSlug, sponsorMap, editMode, selectedIds, onToggleSelect, onToggleAll }: AllVideoTableProps) {
+  const allSelected = videos.length > 0 && selectedIds && videos.every((v) => selectedIds.has(v.id));
+
   return (
     <div className="glass-card rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-max min-w-full">
           <thead>
             <tr className="border-b border-border bg-muted/50">
+              {editMode && (
+                <th className="w-[40px] px-3 py-2.5 sticky left-0 z-10 bg-muted/50">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={onToggleAll}
+                    className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                  />
+                </th>
+              )}
               {COLUMNS.map((col) => (
                 <th
                   key={col.key}
                   className={cn(
                     "text-left text-[11px] font-semibold text-muted-foreground px-3 py-2.5 whitespace-nowrap",
                     col.width,
-                    col.sticky && "sticky left-0 z-10 bg-muted/50"
+                    col.sticky && (editMode ? "sticky left-[40px] z-10 bg-muted/50" : "sticky left-0 z-10 bg-muted/50")
                   )}
                 >
                   {col.label}
@@ -139,19 +155,41 @@ export function AllVideoTable({ videos, clientSlug, sponsorMap }: AllVideoTableP
             </tr>
           </thead>
           <tbody>
-            {videos.map((video) => (
+            {videos.map((video) => {
+              const isSelected = selectedIds?.has(video.id);
+              return (
               <tr
                 key={video.id}
-                className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                className={cn(
+                  "border-b border-border/50 hover:bg-muted/20 transition-colors",
+                  editMode && "cursor-pointer",
+                  isSelected && "bg-primary/[0.08]"
+                )}
+                onClick={editMode && onToggleSelect ? () => onToggleSelect(video.id) : undefined}
               >
+                {/* Checkbox */}
+                {editMode && (
+                  <td className="px-3 py-2 sticky left-0 z-10 bg-background" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={isSelected || false}
+                      onChange={() => onToggleSelect?.(video.id)}
+                      className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                    />
+                  </td>
+                )}
                 {/* 1. Name (sticky) */}
-                <td className="px-3 py-2 sticky left-0 z-10 bg-background">
-                  <Link
-                    href={`/${clientSlug}/videos/${video.id}`}
-                    className="text-xs font-mono font-bold text-primary hover:underline"
-                  >
-                    {video.name}
-                  </Link>
+                <td className={cn("px-3 py-2 z-10 bg-background", editMode ? "sticky left-[40px]" : "sticky left-0")}>
+                  {editMode ? (
+                    <span className="text-xs font-mono font-bold text-primary">{video.name}</span>
+                  ) : (
+                    <Link
+                      href={`/${clientSlug}/videos/${video.id}`}
+                      className="text-xs font-mono font-bold text-primary hover:underline"
+                    >
+                      {video.name}
+                    </Link>
+                  )}
                 </td>
 
                 {/* 2. Scheduled Date */}
@@ -304,7 +342,8 @@ export function AllVideoTable({ videos, clientSlug, sponsorMap }: AllVideoTableP
                   </span>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

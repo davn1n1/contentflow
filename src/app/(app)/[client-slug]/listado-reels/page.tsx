@@ -18,11 +18,11 @@ interface SponsorRecord {
   Name?: string;
 }
 
-export default function AllVideosPage() {
+export default function ListadoReelsPage() {
   const params = useParams();
   const clientSlug = params["client-slug"] as string;
   const { currentAccount } = useAccountStore();
-  const { allVideosViewMode, setAllVideosViewMode } = useUIStore();
+  const { listadoReelsViewMode, setListadoReelsViewMode } = useUIStore();
   const queryClient = useQueryClient();
 
   // Filter state
@@ -38,12 +38,20 @@ export default function AllVideosPage() {
 
   const deferredSearch = useDeferredValue(search);
 
-  // Fetch all videos (no estado filter at API level — we filter client-side for multi-filter)
-  const { data: videos = [], isLoading } = useVideos({
+  // Fetch all videos
+  const { data: allVideos = [], isLoading } = useVideos({
     accountId: currentAccount?.id,
     search: deferredSearch || undefined,
     limit: 500,
   });
+
+  // Pre-filter: only Vertical format
+  const videos = useMemo(() => {
+    return allVideos.filter((v) => {
+      const format = v.horizontalvertical || v.formato;
+      return format === "Vertical";
+    });
+  }, [allVideos]);
 
   // Fetch sponsors for this account to resolve IDs → names
   const sponsorIds = useMemo(() => {
@@ -57,7 +65,7 @@ export default function AllVideosPage() {
   }, [videos]);
 
   const { data: sponsors = [] } = useQuery({
-    queryKey: ["sponsors-resolve", sponsorIds.join(",")],
+    queryKey: ["sponsors-resolve-reels", sponsorIds.join(",")],
     queryFn: async (): Promise<SponsorRecord[]> => {
       if (sponsorIds.length === 0) return [];
       const res = await fetch(`/api/data/app-data?table=sponsors&ids=${sponsorIds.join(",")}`);
@@ -163,7 +171,6 @@ export default function AllVideosPage() {
     },
   });
 
-  // Fields to skip when duplicating (lookups, attachments, computed)
   const SKIP_KEYS = new Set([
     "id", "airtable_id", "created_time", "last_modified_time",
     "escenas_ids", "ae_render_ids", "ideas_ids", "voice_dna_ids",
@@ -180,7 +187,6 @@ export default function AllVideosPage() {
     "yt_video_id", "n_capitulo_podcast",
   ]);
 
-  // Map frontend keys → Airtable field names for duplication
   const KEY_TO_FIELD: Record<string, string> = {
     account_id: "🏢Account",
     titulo: "Titulo Youtube A",
@@ -242,9 +248,7 @@ export default function AllVideosPage() {
     }
   }
 
-  // Drag & drop: update Scheduled Date in Airtable with optimistic UI
   const handleVideoDateChange = useCallback(async (videoId: string, newDate: string) => {
-    // Optimistic update: patch local cache immediately
     queryClient.setQueryData<Video[]>(
       ["videos", currentAccount?.id, undefined, deferredSearch || undefined, 500],
       (old) => old?.map((v) => v.id === videoId ? { ...v, scheduled_date: newDate } : v)
@@ -261,7 +265,6 @@ export default function AllVideosPage() {
       });
       if (!res.ok) throw new Error("Failed to update");
     } catch {
-      // Revert on error: refetch from server
       queryClient.invalidateQueries({ queryKey: ["videos"] });
     }
   }, [queryClient, currentAccount?.id, deferredSearch]);
@@ -273,13 +276,12 @@ export default function AllVideosPage() {
     setSearch("");
   }
 
-  // Auto-disable edit mode when switching away from table view
   function handleViewModeChange(mode: "table" | "grid" | "calendar") {
     if (mode !== "table" && editMode) {
       setEditMode(false);
       setSelectedIds(new Set());
     }
-    setAllVideosViewMode(mode);
+    setListadoReelsViewMode(mode);
   }
 
   function handleEditModeChange(active: boolean) {
@@ -293,9 +295,9 @@ export default function AllVideosPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Listado Todos</h1>
+        <h1 className="text-2xl font-bold text-foreground">Listado Reels</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {filteredVideos.length} de {videos.length} videos
+          {filteredVideos.length} de {videos.length} reels (Vertical)
           {currentAccount?.name ? ` · ${currentAccount.name}` : ""}
         </p>
       </div>
@@ -310,7 +312,7 @@ export default function AllVideosPage() {
         onStatusYoutubeChange={setStatusYoutube}
         sponsor={sponsor}
         onSponsorChange={setSponsor}
-        viewMode={allVideosViewMode}
+        viewMode={listadoReelsViewMode}
         onViewModeChange={handleViewModeChange}
         estadoOptions={estadoOptions}
         statusYoutubeOptions={statusYoutubeOptions}
@@ -328,7 +330,7 @@ export default function AllVideosPage() {
             <div key={i} className="glass-card rounded-xl h-16 animate-pulse" />
           ))}
         </div>
-      ) : allVideosViewMode === "table" ? (
+      ) : listadoReelsViewMode === "table" ? (
         <AllVideoTable
           videos={filteredVideos}
           clientSlug={clientSlug}
@@ -338,7 +340,7 @@ export default function AllVideosPage() {
           onToggleSelect={toggleSelectId}
           onToggleAll={toggleSelectAll}
         />
-      ) : allVideosViewMode === "calendar" ? (
+      ) : listadoReelsViewMode === "calendar" ? (
         <VideoCalendar videos={filteredVideos} clientSlug={clientSlug} onVideoDateChange={handleVideoDateChange} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -348,7 +350,7 @@ export default function AllVideosPage() {
           {filteredVideos.length === 0 && (
             <div className="col-span-full text-center py-16">
               <p className="text-muted-foreground text-sm">
-                {hasActiveFilters ? "No se encontraron videos con estos filtros" : "No hay videos"}
+                {hasActiveFilters ? "No se encontraron reels con estos filtros" : "No hay reels"}
               </p>
             </div>
           )}

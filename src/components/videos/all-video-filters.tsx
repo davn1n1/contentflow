@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, LayoutGrid, LayoutList, Calendar, ChevronDown, X } from "lucide-react";
+import { Search, LayoutGrid, LayoutList, Calendar, ChevronDown, X, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
 
@@ -27,6 +27,8 @@ interface AllVideoFiltersProps {
   sponsorOptions: FilterOption[];
   onReset: () => void;
   hasActiveFilters: boolean;
+  editMode?: boolean;
+  onEditModeChange?: (active: boolean) => void;
 }
 
 function FilterDropdown({
@@ -112,6 +114,8 @@ export function AllVideoFilters({
   sponsorOptions,
   onReset,
   hasActiveFilters,
+  editMode,
+  onEditModeChange,
 }: AllVideoFiltersProps) {
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -164,6 +168,22 @@ export function AllVideoFilters({
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Edit mode toggle (only in table view) */}
+      {viewMode === "table" && onEditModeChange && (
+        <button
+          onClick={() => onEditModeChange(!editMode)}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+            editMode
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-muted text-muted-foreground border-border hover:text-foreground hover:border-border/80"
+          )}
+        >
+          <Pencil className="w-3.5 h-3.5" />
+          Editar
+        </button>
+      )}
 
       {/* View mode toggle */}
       <div className="flex items-center gap-1 bg-muted rounded-lg p-1">

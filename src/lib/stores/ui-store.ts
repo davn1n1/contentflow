@@ -1,16 +1,18 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-type AllVideosViewMode = "table" | "grid" | "calendar";
+type ViewMode = "table" | "grid" | "calendar";
 
 interface UIState {
   sidebarCollapsed: boolean;
   collapsedSections: Record<string, boolean>;
-  allVideosViewMode: AllVideosViewMode;
+  allVideosViewMode: ViewMode;
+  listadoReelsViewMode: ViewMode;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSection: (key: string, allCollapsibleKeys?: string[]) => void;
-  setAllVideosViewMode: (mode: AllVideosViewMode) => void;
+  setAllVideosViewMode: (mode: ViewMode) => void;
+  setListadoReelsViewMode: (mode: ViewMode) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -19,6 +21,7 @@ export const useUIStore = create<UIState>()(
       sidebarCollapsed: false,
       collapsedSections: {},
       allVideosViewMode: "grid",
+      listadoReelsViewMode: "grid",
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       toggleSection: (key, allCollapsibleKeys) =>
@@ -40,16 +43,18 @@ export const useUIStore = create<UIState>()(
           };
         }),
       setAllVideosViewMode: (mode) => set({ allVideosViewMode: mode }),
+      setListadoReelsViewMode: (mode) => set({ listadoReelsViewMode: mode }),
     }),
     {
       name: "cf365-ui",
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown>;
         const base = {
           sidebarCollapsed: (state?.sidebarCollapsed as boolean) ?? false,
           collapsedSections: (state?.collapsedSections as Record<string, boolean>) ?? {},
-          allVideosViewMode: (state?.allVideosViewMode as AllVideosViewMode) ?? "grid",
+          allVideosViewMode: (state?.allVideosViewMode as ViewMode) ?? "grid",
+          listadoReelsViewMode: (state?.listadoReelsViewMode as ViewMode) ?? "grid",
         };
         return base;
       },
@@ -57,6 +62,7 @@ export const useUIStore = create<UIState>()(
         sidebarCollapsed: state.sidebarCollapsed,
         collapsedSections: state.collapsedSections,
         allVideosViewMode: state.allVideosViewMode,
+        listadoReelsViewMode: state.listadoReelsViewMode,
       }),
     }
   )
