@@ -17,6 +17,7 @@ interface ResolvedRecord {
   id: string;
   name: string;
   image: string | null;
+  extras?: Record<string, unknown>;
 }
 
 interface LinkedRecordSelectorProps {
@@ -25,6 +26,61 @@ interface LinkedRecordSelectorProps {
   config: LinkedFieldDef;
   accountId: string | undefined;
   onChange: (newIds: string[]) => void;
+}
+
+// Tag color palette for detail tags
+const TAG_COLORS = [
+  "bg-amber-500/15 text-amber-400 border-amber-500/20",
+  "bg-sky-500/15 text-sky-400 border-sky-500/20",
+  "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
+  "bg-violet-500/15 text-violet-400 border-violet-500/20",
+  "bg-rose-500/15 text-rose-400 border-rose-500/20",
+];
+
+function DetailExtras({ record, config }: { record: ResolvedRecord; config: LinkedFieldDef }) {
+  if (!config.detailFields || config.detailFields.length === 0 || !record.extras) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+      {config.detailFields.map((df, idx) => {
+        const val = record.extras?.[df.field];
+        if (val === undefined || val === null || val === "") return null;
+
+        if (df.type === "tag") {
+          const strVal = String(val);
+          const color = TAG_COLORS[idx % TAG_COLORS.length];
+          return (
+            <span
+              key={df.field}
+              className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border", color)}
+            >
+              {strVal}
+            </span>
+          );
+        }
+
+        if (df.type === "tags") {
+          const tags = Array.isArray(val) ? val : [val];
+          return tags.map((tag, tagIdx) => (
+            <span
+              key={`${df.field}-${tagIdx}`}
+              className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border", TAG_COLORS[(idx + tagIdx) % TAG_COLORS.length])}
+            >
+              {String(tag)}
+            </span>
+          ));
+        }
+
+        // type === "text"
+        const strVal = String(val);
+        return (
+          <span key={df.field} className="text-[11px] text-muted-foreground truncate max-w-[200px]" title={strVal}>
+            <span className="font-medium text-muted-foreground/70">{df.field}:</span> {strVal.length > 60 ? strVal.slice(0, 60) + "..." : strVal}
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 export function LinkedRecordSelector({
@@ -45,7 +101,7 @@ export function LinkedRecordSelector({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Build API params with account + image + hasAccount info
+  // Build API params with account + image + hasAccount + detailFields
   const buildParams = useCallback(
     (extra?: Record<string, string>) => {
       const params = new URLSearchParams({ table: config.table });
@@ -54,6 +110,9 @@ export function LinkedRecordSelector({
       if (config.hasAccount === false) params.set("hasAccount", "false");
       if (config.filter) params.set("filter", config.filter);
       if (config.imageField) params.set("imageField", config.imageField);
+      if (config.detailFields && config.detailFields.length > 0) {
+        params.set("detailFields", config.detailFields.map((d) => d.field).join(","));
+      }
       if (extra) {
         for (const [k, v] of Object.entries(extra)) params.set(k, v);
       }
@@ -62,7 +121,7 @@ export function LinkedRecordSelector({
     [config, accountId]
   );
 
-  // Resolve current linked record names + images
+  // Resolve current linked record names + images + extras
   useEffect(() => {
     if (recordIds.length === 0) return;
     const idsToResolve = recordIds.filter((id) => !resolvedRecords[id]);
@@ -242,10 +301,13 @@ export function LinkedRecordSelector({
                 })}
               </div>
             ) : (
-              <p className="text-sm font-medium text-foreground truncate mt-0.5">
-                {currentRecord?.name ||
-                  recordIds[0]?.slice(0, 12) + "..."}
-              </p>
+              <>
+                <p className="text-sm font-medium text-foreground truncate mt-0.5">
+                  {currentRecord?.name ||
+                    recordIds[0]?.slice(0, 12) + "..."}
+                </p>
+                {currentRecord && <DetailExtras record={currentRecord} config={config} />}
+              </>
             )}
           </div>
           <ChevronDown
@@ -336,9 +398,12 @@ export function LinkedRecordSelector({
                         )}
                       </div>
                     )}
-                    <span className="text-sm font-medium truncate">
-                      {option.name}
-                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-medium truncate block">
+                        {option.name}
+                      </span>
+                      <DetailExtras record={option} config={config} />
+                    </div>
                   </button>
                 );
               })

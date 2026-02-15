@@ -40,6 +40,8 @@ const IMAGE_FIELDS: Record<string, string> = {
   "avatares-set": "Attachments (from Avatar)",
   broll: "Broll Thumb",
   "comentario-pineado": "Attachments",
+  "formato-diseno-slides": "Muestra",
+  "estilos-musicales": "Muestra",
 };
 
 // Which tables have 🏢Account for filtering
@@ -120,6 +122,7 @@ async function resolveAccountName(
  *   search      - Client-side text search
  *   imageField  - Override image field name (from linked-fields config)
  *   hasAccount  - "false" to skip account filtering (for global tables)
+ *   detailFields - Comma-separated extra field names to include in response extras
  */
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest();
@@ -134,6 +137,7 @@ export async function GET(request: NextRequest) {
     const filter = searchParams.get("filter");
     const imageFieldOverride = searchParams.get("imageField");
     const hasAccountParam = searchParams.get("hasAccount");
+    const detailFieldsParam = searchParams.get("detailFields");
     const limit = parseInt(searchParams.get("limit") || "100");
 
     if (!table || !LINKABLE_TABLES[table]) {
@@ -150,13 +154,34 @@ export async function GET(request: NextRequest) {
     const imageField =
       imageFieldOverride || IMAGE_FIELDS[table] || undefined;
 
+    // Parse detail fields to include
+    const detailFieldNames = detailFieldsParam
+      ? detailFieldsParam.split(",").filter(Boolean)
+      : [];
+
     // Determine which fields to fetch
     const fetchFields = [...nameFields];
     if (imageField) fetchFields.push(imageField);
+    for (const df of detailFieldNames) {
+      if (!fetchFields.includes(df)) fetchFields.push(df);
+    }
 
     // Determine if this table should be filtered by account
     const shouldFilterByAccount =
       hasAccountParam !== "false" && TABLES_WITH_ACCOUNT.has(table);
+
+    // Helper to extract detail field values
+    function getExtras(fields: Record<string, unknown>): Record<string, unknown> | undefined {
+      if (detailFieldNames.length === 0) return undefined;
+      const extras: Record<string, unknown> = {};
+      for (const df of detailFieldNames) {
+        const val = fields[df];
+        if (val !== undefined && val !== null && val !== "") {
+          extras[df] = val;
+        }
+      }
+      return Object.keys(extras).length > 0 ? extras : undefined;
+    }
 
     // Helper to map records to response format
     function mapRecord(r: { id: string; fields: Record<string, unknown> }) {
@@ -164,6 +189,7 @@ export async function GET(request: NextRequest) {
         id: r.id,
         name: getPrimaryName(r.fields, nameFields),
         image: getImageUrl(r.fields, imageField),
+        ...(getExtras(r.fields) ? { extras: getExtras(r.fields) } : {}),
       };
     }
 

@@ -1,6 +1,13 @@
 // Configuration for linked record fields across all App Data tables
 // Maps: (parent table key, field name) → linked table key + primary field name + optional filter
 
+export interface DetailFieldDef {
+  /** Airtable field name */
+  field: string;
+  /** Display type: "text" = truncated text, "tag" = colored badge, "tags" = multiple badges */
+  type: "text" | "tag" | "tags";
+}
+
 export interface LinkedFieldDef {
   /** Table key in ALLOWED_TABLES (used for API calls) */
   table: string;
@@ -14,6 +21,8 @@ export interface LinkedFieldDef {
   multiple?: boolean;
   /** Whether this table has 🏢Account for filtering (false = global/shared table) */
   hasAccount?: boolean;
+  /** Extra fields to fetch and display as detail info below the name */
+  detailFields?: DetailFieldDef[];
 }
 
 /**
@@ -47,42 +56,63 @@ export const LINKED_FIELD_CONFIG: Record<string, Record<string, LinkedFieldDef>>
     },
     Intro: {
       table: "ctas",
-      nameFields: ["Name", "Texto CTA"],
+      nameFields: ["Name"],
       filter: "OR({CTA/Intro}='Intro',{CTA/Intro}='')",
       hasAccount: true,
+      detailFields: [
+        { field: "Texto CTA", type: "text" },
+        { field: "Post", type: "tag" },
+      ],
     },
     CTA: {
       table: "ctas",
-      nameFields: ["Name", "Texto CTA"],
+      nameFields: ["Name"],
       filter: "OR({CTA/Intro}='CTA',{CTA/Intro}='')",
       hasAccount: true,
+      detailFields: [
+        { field: "Texto CTA", type: "text" },
+        { field: "Post", type: "tag" },
+      ],
     },
     "Intro Broll": {
       table: "broll",
       nameFields: ["Id And Tags Summary"],
       imageField: "Broll Thumb",
       hasAccount: true,
+      detailFields: [
+        { field: "Tags", type: "tags" },
+      ],
     },
     "CTA Broll": {
       table: "broll",
       nameFields: ["Id And Tags Summary"],
       imageField: "Broll Thumb",
       hasAccount: true,
+      detailFields: [
+        { field: "Tags", type: "tags" },
+      ],
     },
     "Formato Diseño Slides": {
       table: "formato-diseno-slides",
       nameFields: ["Formato Diseño"],
-      hasAccount: false, // Global table, no account filter
+      imageField: "Muestra",
+      hasAccount: false,
     },
     "Estilos Musicales": {
       table: "estilos-musicales",
       nameFields: ["style_en", "Descripción Principal"],
-      hasAccount: false, // Global table, no account filter
+      imageField: "Muestra",
+      hasAccount: false,
     },
     "Cometario Pineado": {
       table: "comentario-pineado",
-      nameFields: ["Name", "Texto"],
+      nameFields: ["Name"],
+      imageField: "Attachments",
       hasAccount: true,
+      detailFields: [
+        { field: "Texto", type: "text" },
+        { field: "Descripción Video", type: "text" },
+      ],
     },
   },
 };
