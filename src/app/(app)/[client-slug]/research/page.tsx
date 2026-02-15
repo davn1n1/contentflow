@@ -216,22 +216,23 @@ function ResearchCard({ item, isSelected, onSelect }: { item: Research; isSelect
         isSelected
           ? "border-primary/40 bg-primary/[0.06] shadow-sm shadow-primary/10"
           : "border-border bg-card hover:border-primary/20 hover:bg-muted/30",
-        today && !isSelected && "border-emerald-500/30 bg-emerald-500/[0.04]"
+        today && !isSelected && "border-emerald-500/40 bg-emerald-500/[0.06] shadow-md shadow-emerald-500/20",
+        today && isSelected && "border-emerald-500/50 shadow-md shadow-emerald-500/25"
       )}
     >
-      {/* Animated glow for today */}
+      {/* Animated glow for today — intense */}
       {today && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-lg">
-          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/0 via-emerald-500/15 to-emerald-500/0 animate-shimmer" />
-          <div className="absolute inset-[1px] rounded-lg bg-card" />
+          <div className="absolute -inset-2 bg-gradient-to-r from-emerald-500/0 via-emerald-500/30 to-emerald-500/0 animate-shimmer" />
+          <div className="absolute inset-[1px] rounded-lg bg-card/95" />
         </div>
       )}
 
       <div className="relative z-10 flex items-center gap-2 min-w-0 w-full">
         {today ? (
-          <span className="relative flex h-2 w-2 flex-shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+          <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-sm shadow-emerald-400/50" />
           </span>
         ) : (
           <CalendarDays className="w-3.5 h-3.5 text-muted-foreground/60 flex-shrink-0" />
