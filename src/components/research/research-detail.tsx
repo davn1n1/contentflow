@@ -13,10 +13,10 @@ interface ResearchDetailProps {
   isLoading: boolean;
 }
 
-const TABS: { key: string; label: string; icon: LucideIcon; activeColor: string }[] = [
-  { key: "seleccionadas", label: "Ideas Seleccionadas", icon: Sparkles, activeColor: "text-amber-400" },
-  { key: "research24h", label: "Research 24h", icon: Brain, activeColor: "text-blue-400" },
-  { key: "conclusion", label: "Conclusión", icon: FileText, activeColor: "text-emerald-400" },
+const TABS: { key: string; label: string; icon: LucideIcon; activeColor: string; activeBg: string; activeBorder: string }[] = [
+  { key: "seleccionadas", label: "Ideas Seleccionadas", icon: Sparkles, activeColor: "text-amber-400", activeBg: "bg-amber-500/10", activeBorder: "border-amber-500/30" },
+  { key: "research24h", label: "Research 24h", icon: Brain, activeColor: "text-blue-400", activeBg: "bg-blue-500/10", activeBorder: "border-blue-500/30" },
+  { key: "conclusion", label: "Conclusión", icon: FileText, activeColor: "text-emerald-400", activeBg: "bg-emerald-500/10", activeBorder: "border-emerald-500/30" },
 ];
 
 type TabKey = string;
@@ -63,8 +63,8 @@ export function ResearchDetailPanel({ research, isLoading }: ResearchDetailProps
           {research.titulo || "Research"}
         </h1>
 
-        {/* Tabs — pill style */}
-        <div className="flex gap-1 p-1 bg-muted/40 rounded-xl">
+        {/* Tabs — bordered pill style */}
+        <div className="flex gap-2">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -73,13 +73,13 @@ export function ResearchDetailPanel({ research, isLoading }: ResearchDetailProps
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium whitespace-nowrap rounded-lg transition-all duration-200",
+                  "flex items-center gap-1.5 px-4 py-2 text-xs font-semibold whitespace-nowrap rounded-lg border transition-all duration-200",
                   isActive
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                    ? cn("shadow-sm", tab.activeBg, tab.activeBorder, tab.activeColor)
+                    : "border-border/60 text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted/30"
                 )}
               >
-                <Icon className={cn("w-3.5 h-3.5", isActive && tab.activeColor)} />
+                <Icon className="w-3.5 h-3.5" />
                 {tab.label}
               </button>
             );

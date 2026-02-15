@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useAccountStore } from "@/lib/stores/account-store";
 import { useResearchList, useResearchDetail } from "@/lib/hooks/use-research";
 import { ResearchDetailPanel } from "@/components/research/research-detail";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { Bot, CalendarDays, Plus, Loader2 } from "lucide-react";
+import { Bot, CalendarDays, Plus, Loader2, Shield, CheckCircle2, XCircle } from "lucide-react";
 import type { Research } from "@/types/database";
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -41,7 +42,15 @@ function formatTime(dateStr: string | null): string {
 export default function ResearchPage() {
   const { currentAccount } = useAccountStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [triggerState, setTriggerState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  type BtnState = "idle" | "confirming" | "sending" | "sent" | "error";
+  const [btnState, setBtnState] = useState<BtnState>("idle");
+  const [polling, setPolling] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stateRef = useRef<BtnState>("idle");
+  const prevCountRef = useRef<number>(0);
+  const queryClient = useQueryClient();
+  stateRef.current = btnState;
 
   const { data: researchList = [], isLoading: listLoading } = useResearchList({
     accountId: currentAccount?.id,
@@ -55,26 +64,66 @@ export default function ResearchPage() {
     setSelectedId(researchList[0].id);
   }
 
+  // Polling: refetch list every 5s after webhook sent, detect new record
+  useEffect(() => {
+    if (!polling) return;
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["research", "list"] });
+    }, 5000);
+    // Stop polling after 2 minutes
+    pollTimerRef.current = setTimeout(() => setPolling(false), 120_000);
+    return () => {
+      clearInterval(interval);
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, [polling, queryClient]);
+
+  // Detect new record appearing and auto-select it
+  useEffect(() => {
+    if (polling && researchList.length > prevCountRef.current && researchList.length > 0) {
+      setSelectedId(researchList[0].id);
+    }
+    prevCountRef.current = researchList.length;
+  }, [researchList, polling]);
+
   // Show only last 3 research entries
   const recentItems = useMemo(() => researchList.slice(0, 3), [researchList]);
 
-  const handleTriggerResearch = useCallback(async () => {
-    const recordId = currentAccount?.airtable_id;
-    if (!recordId) return;
+  // Auto-dismiss confirming after 5s
+  useEffect(() => {
+    if (btnState === "confirming") {
+      timerRef.current = setTimeout(() => setBtnState("idle"), 5000);
+      return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    }
+  }, [btnState]);
 
-    setTriggerState("sending");
-    try {
-      const res = await fetch("/api/webhooks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "ActualizaResearch", recordId }),
-      });
-      if (!res.ok) throw new Error("Webhook failed");
-      setTriggerState("sent");
-      setTimeout(() => setTriggerState("idle"), 4000);
-    } catch {
-      setTriggerState("error");
-      setTimeout(() => setTriggerState("idle"), 3000);
+  // Cleanup on unmount
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  const handleClick = useCallback(async () => {
+    const cur = stateRef.current;
+    if (cur === "sent" || cur === "error") { setBtnState("idle"); return; }
+    if (cur === "idle") { setBtnState("confirming"); return; }
+    if (cur === "confirming") {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      const recordId = currentAccount?.airtable_id;
+      if (!recordId) return;
+
+      setBtnState("sending");
+      try {
+        const res = await fetch("/api/webhooks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "ActualizaResearch", recordId }),
+        });
+        if (!res.ok) throw new Error("Webhook failed");
+        setBtnState("sent");
+        setPolling(true);
+        setTimeout(() => setBtnState("idle"), 4000);
+      } catch {
+        setBtnState("error");
+        setTimeout(() => setBtnState("idle"), 3000);
+      }
     }
   }, [currentAccount?.airtable_id]);
 
@@ -115,23 +164,32 @@ export default function ResearchPage() {
             )}
           </div>
 
-          {/* Nuevo Research button */}
-          <button
-            onClick={handleTriggerResearch}
-            disabled={triggerState !== "idle" || !currentAccount?.airtable_id}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex-shrink-0",
-              triggerState === "idle" && "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
-              triggerState === "sending" && "bg-primary/60 text-primary-foreground cursor-wait",
-              triggerState === "sent" && "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
-              triggerState === "error" && "bg-red-500/15 text-red-400 border border-red-500/30"
+          {/* Nuevo Research button — double-confirm pattern */}
+          <div className="flex flex-col items-center flex-shrink-0">
+            <button
+              onClick={handleClick}
+              disabled={btnState === "sending" || !currentAccount?.airtable_id}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 border shadow-sm",
+                btnState === "idle" && "bg-blue-600 hover:bg-blue-500 border-blue-500 text-white cursor-pointer",
+                btnState === "confirming" && "bg-amber-500 hover:bg-amber-400 border-amber-400 text-black cursor-pointer animate-pulse",
+                btnState === "sending" && "bg-blue-600/50 border-blue-500/50 text-white/70 cursor-wait",
+                btnState === "sent" && "bg-emerald-600 border-emerald-500 text-white cursor-pointer",
+                btnState === "error" && "bg-red-600 border-red-500 text-white cursor-pointer"
+              )}
+            >
+              {btnState === "idle" && <><Plus className="w-3.5 h-3.5" /> Nuevo Research</>}
+              {btnState === "confirming" && <><Shield className="w-3.5 h-3.5" /> Confirmar — Click para ejecutar</>}
+              {btnState === "sending" && <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Lanzando...</>}
+              {btnState === "sent" && <><CheckCircle2 className="w-3.5 h-3.5" /> Research lanzado</>}
+              {btnState === "error" && <><XCircle className="w-3.5 h-3.5" /> Error</>}
+            </button>
+            {btnState === "confirming" && (
+              <p className="text-[10px] text-center text-amber-400/80 animate-pulse mt-1">
+                Se reiniciará en 5s si no confirmas
+              </p>
             )}
-          >
-            {triggerState === "idle" && <><Plus className="w-3.5 h-3.5" /> Nuevo Research</>}
-            {triggerState === "sending" && <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Lanzando...</>}
-            {triggerState === "sent" && "Research lanzado"}
-            {triggerState === "error" && "Error"}
-          </button>
+          </div>
         </div>
       </div>
 
