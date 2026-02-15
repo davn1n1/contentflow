@@ -35,7 +35,7 @@ export const ImageClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
       }}
     >
       <Img
-        src={clip.src}
+        src={clip.proxySrc || clip.src}
         pauseWhenLoading
         style={{
           width: "100%",
