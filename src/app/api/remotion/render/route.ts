@@ -6,6 +6,9 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import type { RemotionTimeline } from "@/lib/remotion/types";
 
+// Allow up to 120s for Lambda cold start + renderMediaOnLambda invocation (Vercel Pro)
+export const maxDuration = 120;
+
 const AWS_REGION = process.env.REMOTION_AWS_REGION as
   | "eu-central-1"
   | "us-east-1"
