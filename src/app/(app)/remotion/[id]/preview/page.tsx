@@ -77,7 +77,8 @@ function createProxyTimeline(
         }
       } else if (clip.type === "image") {
         stats.images.total++;
-        clip.proxySrc = `/api/proxy/media?url=${encodeURIComponent(clip.src)}`;
+        // Use Next.js Image Optimization: auto WebP/AVIF + resize to 720p
+        clip.proxySrc = `/_next/image?url=${encodeURIComponent(clip.src)}&w=720&q=75`;
         stats.images.proxied++;
       } else if (clip.type === "audio") {
         stats.audios.total++;
