@@ -1,4 +1,6 @@
-import { TEMPLATES } from "./templates";
+// Uses server-safe metadata (no React imports) so this file
+// can be imported from API routes without triggering React context errors.
+import { TEMPLATE_META } from "./templates/template-meta";
 
 // ─── Airtable ↔ Remotion Props Mapper ──────────────────
 //
@@ -18,7 +20,7 @@ const PARAM_GROUPS_TO_MAP: Set<string> = new Set(["content", "colors"]);
 export function getParamNamesForTemplate(
   templateId: string
 ): Record<string, string> {
-  const tpl = TEMPLATES[templateId];
+  const tpl = TEMPLATE_META[templateId];
   if (!tpl) throw new Error(`Template "${templateId}" not found in registry`);
 
   const mappable = tpl.propsMeta.filter((m) => PARAM_GROUPS_TO_MAP.has(m.group));
@@ -46,7 +48,7 @@ export function airtableParamsToRemotionProps(
   paramNames: (string | null)[],
   paramValues: (string | null)[]
 ): Record<string, unknown> {
-  const tpl = TEMPLATES[templateId];
+  const tpl = TEMPLATE_META[templateId];
   if (!tpl) throw new Error(`Template "${templateId}" not found in registry`);
 
   // Start with all defaults (including timing/audio)
@@ -111,5 +113,5 @@ export function remotionPropsToAirtableParams(
  * Returns the template definition if it exists in the registry.
  */
 export function getTemplateInfo(templateId: string) {
-  return TEMPLATES[templateId] || null;
+  return TEMPLATE_META[templateId] || null;
 }

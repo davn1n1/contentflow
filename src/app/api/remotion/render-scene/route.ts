@@ -10,7 +10,7 @@ import {
   TABLES,
 } from "@/lib/airtable/client";
 import { airtableParamsToRemotionProps } from "@/lib/remotion/param-mapper";
-import { TEMPLATES } from "@/lib/remotion/templates";
+import { TEMPLATE_META } from "@/lib/remotion/templates/template-meta";
 
 export const maxDuration = 120;
 
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify template exists in registry
-    const tpl = TEMPLATES[remotionTemplateId];
+    const tpl = TEMPLATE_META[remotionTemplateId];
     if (!tpl) {
       return NextResponse.json(
         { error: `Remotion template "${remotionTemplateId}" not found in registry` },
