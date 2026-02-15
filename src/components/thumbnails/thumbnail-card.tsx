@@ -43,13 +43,6 @@ export function ThumbnailCard({ draft, onClick }: ThumbnailCardProps) {
           </div>
         )}
 
-        {/* Numero concepto - grande y destacado */}
-        {draft.numero_concepto && (
-          <span className="absolute bottom-2 left-2 text-sm font-bold text-white bg-black/70 backdrop-blur-sm px-3 py-1 rounded-lg shadow-lg">
-            {draft.numero_concepto}
-          </span>
-        )}
-
         {/* Favorita - tick verde bonito */}
         {draft.favorita && (
           <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-emerald-500/90 backdrop-blur-sm flex items-center justify-center shadow-lg">
@@ -67,10 +60,17 @@ export function ThumbnailCard({ draft, onClick }: ThumbnailCardProps) {
 
       {/* Content */}
       <div className="p-3 space-y-2.5">
-        {/* Titulo */}
-        <p className="text-sm font-medium text-foreground line-clamp-2 leading-snug">
-          {draft.titulo || draft.name || "Sin titulo"}
-        </p>
+        {/* Numero concepto + Titulo */}
+        <div className="flex items-start gap-2">
+          {draft.numero_concepto && (
+            <span className="flex-shrink-0 text-[11px] font-bold font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+              {draft.numero_concepto}
+            </span>
+          )}
+          <p className="text-sm font-medium text-foreground line-clamp-2 leading-snug">
+            {draft.titulo || draft.name || "Sin titulo"}
+          </p>
+        </div>
 
         {/* Status badge */}
         {draft.status && (

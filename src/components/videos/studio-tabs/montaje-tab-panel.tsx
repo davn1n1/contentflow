@@ -1142,6 +1142,41 @@ function LinkedRecordCard({ label, icon, record, emptyText }: {
 // ─── Main Component ───────────────────────────────────────
 export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountedRef = useRef(false);
+
+  // On mount: immediately fetch fresh data
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+    }
+  }, [queryClient]);
+
+  // Smart polling: refresh while active scenes are missing slides/broll/avatars/audio
+  const totalScenes = video.scenes.length;
+  const needsPolling = totalScenes > 0 && (
+    video.scenes.some(s => s.slide_activa && !s.slide) ||
+    video.scenes.some(s => s.broll_activa && !s.broll_thumb) ||
+    video.scenes.some(s => !s.camera_s3_url && !s.photo_avatar) ||
+    video.scenes.some(s => !s.audio_attachment)
+  );
+
+  useEffect(() => {
+    if (!needsPolling) {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      return;
+    }
+
+    pollRef.current = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["video-detail"] });
+    }, 10_000);
+
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
+  }, [needsPolling, queryClient]);
 
   return (
     <div
