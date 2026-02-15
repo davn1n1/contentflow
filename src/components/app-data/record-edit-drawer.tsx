@@ -766,7 +766,6 @@ export function RecordEditDrawer({ record, table, accountId, onClose, nested = f
           <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
             <div className="min-w-0 flex-1">
               <h2 className="text-xl font-bold text-foreground truncate">{recordName}</h2>
-              <p className="text-xs text-muted-foreground mt-0.5 font-mono">{record.id}</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 ml-4">
               {saveStatus === "success" && (
