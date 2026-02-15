@@ -4,7 +4,7 @@ import { authenticateApiRequest } from "@/lib/auth/api-guard";
 
 const ACCOUNT_FIELDS = [
   "Name", "Status", "Industria", "Product", "Logo", "NameApp",
-  "Research Diario", "Framework GuardaRails", "Canal YouTube",
+  "Research Diario", "Framework GuardaRails", "Social Profiles",
 ];
 
 interface AccountFields {
@@ -16,7 +16,13 @@ interface AccountFields {
   NameApp?: string;
   "Research Diario"?: string;
   "Framework GuardaRails"?: string;
-  "Canal YouTube"?: string;
+  "Social Profiles"?: string[];
+}
+
+interface SocialProfileFields {
+  Network1?: string;
+  Handle?: string;
+  "🏢Account"?: string[];
 }
 
 export async function GET() {
@@ -28,6 +34,27 @@ export async function GET() {
       fields: ACCOUNT_FIELDS,
       sort: [{ field: "Name", direction: "asc" }],
     });
+
+    // Fetch YouTube handles from Social Profiles (Network1 = "youtube")
+    const { records: socialProfiles } = await airtableFetch<SocialProfileFields>(
+      TABLES.SOCIAL_PROFILES,
+      {
+        fields: ["Network1", "Handle", "🏢Account"],
+        filterByFormula: '{Network1} = "youtube"',
+      }
+    );
+
+    // Map: account record ID → YouTube handle
+    const ytHandleByAccount: Record<string, string> = {};
+    for (const sp of socialProfiles) {
+      const accountIds = sp.fields["🏢Account"];
+      const handle = sp.fields.Handle;
+      if (accountIds && handle) {
+        for (const accId of accountIds) {
+          ytHandleByAccount[accId] = handle;
+        }
+      }
+    }
 
     const accounts = records.map((r) => ({
       id: r.id,
@@ -42,7 +69,7 @@ export async function GET() {
       research_diario: r.fields["Research Diario"] || null,
       framework_guardarails: r.fields["Framework GuardaRails"] || null,
       cf_plans_id: null,
-      youtube_channel: r.fields["Canal YouTube"] || null,
+      youtube_channel: ytHandleByAccount[r.id] || null,
     }));
 
     return NextResponse.json(accounts);

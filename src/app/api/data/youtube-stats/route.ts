@@ -13,7 +13,13 @@ async function ytApiFetch(
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
-  const resp = await fetch(url.toString());
+  const referer =
+    process.env.NODE_ENV === "development"
+      ? "http://localhost:3000/"
+      : "https://app.contentflow365.com/";
+  const resp = await fetch(url.toString(), {
+    headers: { Referer: referer },
+  });
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
     throw new Error(

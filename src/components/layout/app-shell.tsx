@@ -77,8 +77,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setAccounts(filteredAccounts);
 
     // Select first account if none selected or current not in list
-    let selectedAccount = currentAccount;
-    if (!filteredAccounts.find((a) => a.id === currentAccount?.id)) {
+    // Always refresh currentAccount from API data to pick up new fields
+    const freshMatch = filteredAccounts.find((a) => a.id === currentAccount?.id);
+    let selectedAccount: typeof currentAccount;
+    if (freshMatch) {
+      selectedAccount = freshMatch;
+      setCurrentAccount(freshMatch);
+    } else {
       selectedAccount = filteredAccounts[0];
       setCurrentAccount(selectedAccount);
     }
