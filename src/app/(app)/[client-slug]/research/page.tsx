@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useAccountStore } from "@/lib/stores/account-store";
 import { useResearchList, useResearchDetail } from "@/lib/hooks/use-research";
 import { ResearchDetailPanel } from "@/components/research/research-detail";
 import { cn } from "@/lib/utils";
-import { Bot, CalendarDays } from "lucide-react";
+import { Bot, CalendarDays, Plus, Loader2 } from "lucide-react";
 import type { Research } from "@/types/database";
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -41,6 +41,7 @@ function formatTime(dateStr: string | null): string {
 export default function ResearchPage() {
   const { currentAccount } = useAccountStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [triggerState, setTriggerState] = useState<"idle" | "sending" | "sent" | "error">("idle");
 
   const { data: researchList = [], isLoading: listLoading } = useResearchList({
     accountId: currentAccount?.id,
@@ -56,6 +57,26 @@ export default function ResearchPage() {
 
   // Show only last 3 research entries
   const recentItems = useMemo(() => researchList.slice(0, 3), [researchList]);
+
+  const handleTriggerResearch = useCallback(async () => {
+    const recordId = currentAccount?.airtable_id;
+    if (!recordId) return;
+
+    setTriggerState("sending");
+    try {
+      const res = await fetch("/api/webhooks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "ActualizaResearch", recordId }),
+      });
+      if (!res.ok) throw new Error("Webhook failed");
+      setTriggerState("sent");
+      setTimeout(() => setTriggerState("idle"), 4000);
+    } catch {
+      setTriggerState("error");
+      setTimeout(() => setTriggerState("idle"), 3000);
+    }
+  }, [currentAccount?.airtable_id]);
 
   return (
     <div className="flex flex-col min-h-0">
@@ -93,6 +114,24 @@ export default function ResearchPage() {
               </div>
             )}
           </div>
+
+          {/* Nuevo Research button */}
+          <button
+            onClick={handleTriggerResearch}
+            disabled={triggerState !== "idle" || !currentAccount?.airtable_id}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex-shrink-0",
+              triggerState === "idle" && "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
+              triggerState === "sending" && "bg-primary/60 text-primary-foreground cursor-wait",
+              triggerState === "sent" && "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
+              triggerState === "error" && "bg-red-500/15 text-red-400 border border-red-500/30"
+            )}
+          >
+            {triggerState === "idle" && <><Plus className="w-3.5 h-3.5" /> Nuevo Research</>}
+            {triggerState === "sending" && <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Lanzando...</>}
+            {triggerState === "sent" && "Research lanzado"}
+            {triggerState === "error" && "Error"}
+          </button>
         </div>
       </div>
 
