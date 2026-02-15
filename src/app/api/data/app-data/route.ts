@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { airtableFetch, airtableFetchByIds, airtableUpdate, TABLES } from "@/lib/airtable/client";
+import { airtableFetch, airtableFetchByIds, airtableUpdate, airtableCreate, airtableDelete, TABLES } from "@/lib/airtable/client";
 import { authenticateApiRequest } from "@/lib/auth/api-guard";
 
 // Allowed table keys for App Data (prevents arbitrary table access)
@@ -245,5 +245,68 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     console.error("App Data update error:", error);
     return NextResponse.json({ error: "Failed to update record" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const auth = await authenticateApiRequest();
+  if ("error" in auth) return auth.error;
+
+  try {
+    const body = await request.json();
+    const { table, recordIds } = body;
+
+    if (!table || !ALLOWED_TABLES[table]) {
+      return NextResponse.json({ error: "Invalid table" }, { status: 400 });
+    }
+    if (!Array.isArray(recordIds) || recordIds.length === 0) {
+      return NextResponse.json({ error: "recordIds array required" }, { status: 400 });
+    }
+    if (recordIds.length > 100) {
+      return NextResponse.json({ error: "Max 100 records per request" }, { status: 400 });
+    }
+
+    const tableId = ALLOWED_TABLES[table];
+    const result = await airtableDelete(tableId, recordIds);
+
+    return NextResponse.json({ deleted: result });
+  } catch (error) {
+    console.error("App Data delete error:", error);
+    return NextResponse.json({ error: "Failed to delete records" }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const auth = await authenticateApiRequest();
+  if ("error" in auth) return auth.error;
+
+  try {
+    const body = await request.json();
+    const { table, records: recordsToCreate } = body;
+
+    if (!table || !ALLOWED_TABLES[table]) {
+      return NextResponse.json({ error: "Invalid table" }, { status: 400 });
+    }
+    if (!Array.isArray(recordsToCreate) || recordsToCreate.length === 0) {
+      return NextResponse.json({ error: "records array required" }, { status: 400 });
+    }
+
+    const tableId = ALLOWED_TABLES[table];
+    const results = await Promise.all(
+      recordsToCreate.map((fields: Record<string, unknown>) =>
+        airtableCreate(tableId, fields)
+      )
+    );
+
+    return NextResponse.json({
+      created: results.map((r) => ({
+        id: r.id,
+        createdTime: r.createdTime,
+        ...r.fields,
+      })),
+    });
+  } catch (error) {
+    console.error("App Data create error:", error);
+    return NextResponse.json({ error: "Failed to create records" }, { status: 500 });
   }
 }

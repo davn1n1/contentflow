@@ -3,6 +3,8 @@
 import { useState, useDeferredValue, useMemo, useCallback, type DragEvent } from "react";
 import { useAppData, type AppDataRecord } from "@/lib/hooks/use-app-data";
 import { useAccountStore } from "@/lib/stores/account-store";
+import { useBulkDelete, useBulkDuplicate } from "@/lib/hooks/use-bulk-actions";
+import { useQueryClient } from "@tanstack/react-query";
 import { RecordEditDrawer } from "@/components/app-data/record-edit-drawer";
 import { cn } from "@/lib/utils";
 import {
@@ -20,6 +22,12 @@ import {
   ExternalLink,
   Film,
   Scissors,
+  Pencil,
+  Trash2,
+  Copy,
+  Plus,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────
@@ -222,7 +230,15 @@ export function MontajeVideoPage() {
   const [selectedRecord, setSelectedRecord] = useState<AppDataRecord | null>(null);
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [calDate, setCalDate] = useState(new Date());
+  const [editMode, setEditMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const deferredSearch = useDeferredValue(search);
+
+  const bulkDelete = useBulkDelete();
+  const bulkDuplicate = useBulkDuplicate();
+  const queryClient = useQueryClient();
 
   const { data: allRecords = [], isLoading, error } = useAppData({
     table: "montaje-video",
@@ -309,6 +325,67 @@ export function MontajeVideoPage() {
 
   const activeFilterCount = Object.keys(activeFilters).length;
 
+  // ─── Bulk handlers ─────────────────────────────────────
+  const handleDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      await bulkDelete.mutateAsync({
+        table: "montaje-video",
+        recordIds: Array.from(selectedIds),
+      });
+      setSelectedIds(new Set());
+      setShowDeleteConfirm(false);
+    } catch (err) {
+      console.error("Bulk delete failed:", err);
+    }
+  }, [selectedIds, bulkDelete]);
+
+  const handleDuplicate = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    const EXCLUDE_FIELDS = new Set(["id", "createdTime"]);
+    const recordsToDuplicate = allRecords.filter((r) => selectedIds.has(r.id));
+    const clonedFields = recordsToDuplicate.map((record) => {
+      const fields: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(record)) {
+        if (EXCLUDE_FIELDS.has(key)) continue;
+        if (key.includes("(from ")) continue;
+        if (value == null || value === "") continue;
+        if (Array.isArray(value) && value.length > 0 && typeof value[0] === "object" && value[0] !== null && "url" in value[0]) continue;
+        fields[key] = value;
+      }
+      if (fields.Name && typeof fields.Name === "string") {
+        fields.Name = `Copia de ${fields.Name}`;
+      }
+      return fields;
+    });
+
+    try {
+      await bulkDuplicate.mutateAsync({
+        table: "montaje-video",
+        records: clonedFields,
+      });
+      setSelectedIds(new Set());
+    } catch (err) {
+      console.error("Bulk duplicate failed:", err);
+    }
+  }, [selectedIds, allRecords, bulkDuplicate]);
+
+  const toggleSelectId = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback((ids: string[]) => {
+    setSelectedIds((prev) => {
+      const allSelected = ids.every((id) => prev.has(id));
+      return allSelected ? new Set() : new Set(ids);
+    });
+  }, []);
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -335,7 +412,7 @@ export function MontajeVideoPage() {
             ]).map(({ mode, icon: Icon, label }) => (
               <button
                 key={mode}
-                onClick={() => { setViewMode(mode); setPage(0); }}
+                onClick={() => { setViewMode(mode); setPage(0); if (mode !== "table") { setEditMode(false); setSelectedIds(new Set()); } }}
                 className={cn(
                   "p-1.5 rounded-md transition-all",
                   viewMode === mode
@@ -351,6 +428,28 @@ export function MontajeVideoPage() {
           <span className="px-3.5 py-1.5 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl text-sm font-semibold text-primary border border-primary/10">
             {records.length}
           </span>
+          {viewMode === "table" && (
+            <button
+              onClick={() => { setEditMode((prev) => !prev); if (editMode) setSelectedIds(new Set()); }}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border",
+                editMode
+                  ? "bg-primary/10 text-primary border-primary/30"
+                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted/70 hover:text-foreground"
+              )}
+              title={editMode ? "Salir de edicion" : "Modo edicion"}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              {editMode ? "Salir" : "Editar"}
+            </button>
+          )}
+          <button
+            onClick={() => setShowCreateDialog(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Nuevo
+          </button>
         </div>
       </div>
 
@@ -417,7 +516,7 @@ export function MontajeVideoPage() {
         </>
       ) : viewMode === "table" ? (
         <>
-          <TableView records={paginated} columns={columns} sortField={sortField} sortDir={sortDir} onSort={handleSort} onSelect={setSelectedRecord} />
+          <TableView records={paginated} columns={columns} sortField={sortField} sortDir={sortDir} onSort={handleSort} onSelect={setSelectedRecord} editMode={editMode} selectedIds={selectedIds} onToggleSelect={toggleSelectId} onToggleAll={toggleSelectAll} />
           {totalPages > 1 && <Pagination page={page} totalPages={totalPages} total={sorted.length} perPage={ROWS_PER_PAGE} onChange={setPage} />}
         </>
       ) : (
@@ -431,6 +530,89 @@ export function MontajeVideoPage() {
 
       {/* Record detail drawer */}
       <RecordEditDrawer record={selectedRecord} table="montaje-video" onClose={() => setSelectedRecord(null)} />
+
+      {/* ─── Floating bulk action bar ──────────────────────── */}
+      {editMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 bg-background/95 backdrop-blur-md border border-border rounded-2xl shadow-2xl shadow-black/20">
+          <span className="text-sm font-semibold text-foreground">
+            {selectedIds.size} seleccionado{selectedIds.size > 1 ? "s" : ""}
+          </span>
+          <div className="w-px h-6 bg-border" />
+          <button
+            onClick={handleDuplicate}
+            disabled={bulkDuplicate.isPending}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all disabled:opacity-50"
+          >
+            {bulkDuplicate.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+            Duplicar
+          </button>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={bulkDelete.isPending}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 transition-all disabled:opacity-50"
+          >
+            {bulkDelete.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            Eliminar
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+            title="Deseleccionar todo"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ─── Delete confirmation dialog ────────────────────── */}
+      {showDeleteConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={() => setShowDeleteConfirm(false)} />
+          <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+            <div className="bg-background rounded-xl border border-border shadow-2xl p-6 max-w-sm w-full space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-destructive/10 text-destructive flex-shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Eliminar registros</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Se eliminar{selectedIds.size > 1 ? "an" : "a"} {selectedIds.size} registro{selectedIds.size > 1 ? "s" : ""} de Airtable permanentemente. Esta accion no se puede deshacer.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 justify-end">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 text-sm font-medium text-foreground hover:bg-muted rounded-lg transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={bulkDelete.isPending}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-all disabled:opacity-50"
+                >
+                  {bulkDelete.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ─── Create new dialog ─────────────────────────────── */}
+      {showCreateDialog && (
+        <CreateMontajeDialog
+          accountId={currentAccount?.id || ""}
+          onClose={() => setShowCreateDialog(false)}
+          onCreated={() => {
+            setShowCreateDialog(false);
+            queryClient.invalidateQueries({ queryKey: ["app-data", "montaje-video"] });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -505,20 +687,37 @@ function GalleryView({ records, columns, onSelect }: { records: AppDataRecord[];
 
 // ─── Table View ───────────────────────────────────────────
 
-function TableView({ records, columns, sortField, sortDir, onSort, onSelect }: {
+function TableView({ records, columns, sortField, sortDir, onSort, onSelect, editMode, selectedIds, onToggleSelect, onToggleAll }: {
   records: AppDataRecord[];
   columns: string[];
   sortField: string | null;
   sortDir: "asc" | "desc";
   onSort: (f: string) => void;
   onSelect: (r: AppDataRecord) => void;
+  editMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleAll?: (ids: string[]) => void;
 }) {
+  const allIds = records.map((r) => r.id);
+  const allSelected = editMode && selectedIds && allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
+
   return (
     <div className="rounded-xl border border-border overflow-hidden bg-card shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40">
+              {editMode && (
+                <th className="w-10 px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={!!allSelected}
+                    onChange={() => onToggleAll?.(allIds)}
+                    className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                  />
+                </th>
+              )}
               {columns.map((col) => (
                 <th
                   key={col}
@@ -538,7 +737,26 @@ function TableView({ records, columns, sortField, sortDir, onSort, onSelect }: {
           </thead>
           <tbody className="divide-y divide-border/50">
             {records.map((record) => (
-              <tr key={record.id} onClick={() => onSelect(record)} className="group/row hover:bg-primary/[0.03] cursor-pointer transition-all duration-150">
+              <tr
+                key={record.id}
+                onClick={() => editMode ? onToggleSelect?.(record.id) : onSelect(record)}
+                className={cn(
+                  "group/row cursor-pointer transition-all duration-150",
+                  editMode && selectedIds?.has(record.id)
+                    ? "bg-primary/[0.08] hover:bg-primary/[0.12]"
+                    : "hover:bg-primary/[0.03]"
+                )}
+              >
+                {editMode && (
+                  <td className="w-10 px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds?.has(record.id) || false}
+                      onChange={() => onToggleSelect?.(record.id)}
+                      className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                    />
+                  </td>
+                )}
                 {columns.map((col) => (
                   <td key={col} className="px-3 py-1.5 max-w-[250px] whitespace-nowrap overflow-hidden text-ellipsis">
                     <CellValue value={record[col]} />
@@ -694,5 +912,132 @@ function Pagination({ page, totalPages, total, perPage, onChange }: {
         </button>
       </div>
     </div>
+  );
+}
+
+// ─── Create Montaje Dialog ───────────────────────────────
+
+function CreateMontajeDialog({ accountId, onClose, onCreated }: {
+  accountId: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [elevenLabsText, setElevenLabsText] = useState("");
+  const [format, setFormat] = useState<"Horizontal" | "Vertical">("Horizontal");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCreate() {
+    if (!name.trim() || !accountId) return;
+    setCreating(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/data/montaje-video/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          elevenLabsText: elevenLabsText.trim() || undefined,
+          format,
+          accountId,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Error al crear");
+      }
+
+      onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50" onClick={onClose} />
+      <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+        <div className="bg-background rounded-xl border border-border shadow-2xl p-6 max-w-md w-full space-y-5" onClick={(e) => e.stopPropagation()}>
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">Nuevo Montaje Video</h3>
+            <p className="text-sm text-muted-foreground mt-1">Crea un nuevo registro y se inicializara con los defaults de la cuenta.</p>
+          </div>
+
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium text-foreground/80 mb-1.5">Nombre *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nombre del clip..."
+              className="w-full px-3 py-2 bg-muted/40 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"
+              autoFocus
+            />
+          </div>
+
+          {/* ElevenLabs Text */}
+          <div>
+            <label className="block text-sm font-medium text-foreground/80 mb-1.5">ElevenLabs Text</label>
+            <textarea
+              value={elevenLabsText}
+              onChange={(e) => setElevenLabsText(e.target.value)}
+              placeholder="Texto de venta / copy para el audio..."
+              rows={4}
+              className="w-full px-3 py-2 bg-muted/40 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none"
+            />
+          </div>
+
+          {/* Format */}
+          <div>
+            <label className="block text-sm font-medium text-foreground/80 mb-1.5">Formato</label>
+            <div className="flex gap-2">
+              {(["Horizontal", "Vertical"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFormat(f)}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-sm font-medium border transition-all",
+                    format === f
+                      ? "bg-primary/15 border-primary/40 text-primary"
+                      : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 justify-end pt-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-foreground hover:bg-muted rounded-lg transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={creating || !name.trim()}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50"
+            >
+              {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              Crear
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

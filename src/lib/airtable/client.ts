@@ -181,6 +181,49 @@ export async function airtableUpdate<T = Record<string, unknown>>(
   return res.json();
 }
 
+// Delete records from a table (batches into groups of 10, Airtable API limit)
+export async function airtableDelete(
+  tableId: string,
+  recordIds: string[]
+): Promise<{ id: string; deleted: boolean }[]> {
+  const baseId = process.env.AIRTABLE_BASE_ID;
+  const pat = process.env.AIRTABLE_PAT;
+
+  if (!baseId || !pat) {
+    throw new Error("Airtable credentials not configured");
+  }
+
+  if (recordIds.length === 0) return [];
+
+  const BATCH_SIZE = 10;
+  const chunks: string[][] = [];
+  for (let i = 0; i < recordIds.length; i += BATCH_SIZE) {
+    chunks.push(recordIds.slice(i, i + BATCH_SIZE));
+  }
+
+  const results = await Promise.all(
+    chunks.map(async (chunk) => {
+      const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableId}`);
+      chunk.forEach((id) => url.searchParams.append("records[]", id));
+
+      const res = await fetch(url.toString(), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${pat}` },
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(`Airtable delete error: ${res.status} ${JSON.stringify(err)}`);
+      }
+
+      const data = await res.json();
+      return data.records as { id: string; deleted: boolean }[];
+    })
+  );
+
+  return results.flat();
+}
+
 // Fetch specific records by their IDs (batches large requests)
 export async function airtableFetchByIds<T = Record<string, unknown>>(
   tableId: string,
