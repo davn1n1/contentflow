@@ -186,11 +186,12 @@ export function WaveformAudioPlayer({
             )}
             style={{ width: `${progress}%` }}
           />
-          {/* 5-second tick marks */}
+          {/* 5-second tick marks — turn green once passed */}
           {duration > 0 && Array.from({ length: Math.floor(duration / 5) }, (_, i) => {
             const sec = (i + 1) * 5;
             const pct = (sec / duration) * 100;
             if (pct >= 99) return null;
+            const passed = progress >= pct;
             return (
               <div
                 key={sec}
@@ -198,11 +199,13 @@ export function WaveformAudioPlayer({
                 style={{ left: `${pct}%` }}
               >
                 <div className={cn(
-                  "w-px bg-muted-foreground/50",
+                  "w-px transition-colors duration-300",
+                  passed ? "bg-emerald-400/70" : "bg-muted-foreground/50",
                   compact ? "h-2.5" : "h-3.5",
                 )} />
                 <span className={cn(
-                  "font-mono text-muted-foreground/60 leading-none select-none",
+                  "font-mono leading-none select-none transition-colors duration-300",
+                  passed ? "text-emerald-400/80" : "text-muted-foreground/60",
                   compact ? "text-[8px]" : "text-[9px]",
                 )}>
                   {sec}s
