@@ -186,6 +186,30 @@ export function WaveformAudioPlayer({
             )}
             style={{ width: `${progress}%` }}
           />
+          {/* 5-second tick marks */}
+          {duration > 0 && Array.from({ length: Math.floor(duration / 5) }, (_, i) => {
+            const sec = (i + 1) * 5;
+            const pct = (sec / duration) * 100;
+            if (pct >= 99) return null;
+            return (
+              <div
+                key={sec}
+                className="absolute top-0 bottom-0 flex flex-col items-center justify-end pointer-events-none"
+                style={{ left: `${pct}%` }}
+              >
+                <div className={cn(
+                  "w-px bg-muted-foreground/20",
+                  compact ? "h-2" : "h-3",
+                )} />
+                <span className={cn(
+                  "font-mono text-muted-foreground/30 leading-none select-none",
+                  compact ? "text-[7px]" : "text-[8px]",
+                )}>
+                  {sec}s
+                </span>
+              </div>
+            );
+          })}
           {/* Thumb indicator */}
           <div
             className={cn(
