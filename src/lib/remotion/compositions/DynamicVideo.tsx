@@ -1,13 +1,10 @@
 import React from "react";
-import { AbsoluteFill, Sequence } from "remotion";
+import { AbsoluteFill, Sequence, useVideoConfig } from "remotion";
 import type { RemotionTimeline, RemotionTrack, RemotionClip } from "../types";
 import { VideoClip } from "./VideoClip";
 import { ImageClip } from "./ImageClip";
 import { AudioClip } from "./AudioClip";
 import { TemplateClip } from "./TemplateClip";
-
-/** Premount clips 3 seconds before they appear (at 30fps = 90 frames) */
-const PREMOUNT_FRAMES = 90;
 
 function clipLabel(clip: RemotionClip): string {
   return clip.name || clip.src.split("/").pop() || clip.id;
@@ -20,6 +17,10 @@ function clipLabel(clip: RemotionClip): string {
  */
 export const DynamicVideo: React.FC<RemotionTimeline> = (props) => {
   const { tracks, backgroundColor } = props;
+  const { fps } = useVideoConfig();
+
+  /** Premount clips 3 seconds before they appear */
+  const premountFrames = fps * 3;
 
   // Separate visual and audio tracks
   const visualTracks = tracks
@@ -32,17 +33,17 @@ export const DynamicVideo: React.FC<RemotionTimeline> = (props) => {
     <AbsoluteFill style={{ backgroundColor }}>
       {/* Visual tracks: render in zIndex order (lowest = background, highest = foreground) */}
       {visualTracks.map((track) => (
-        <TrackLayer key={track.id} track={track} />
+        <TrackLayer key={track.id} track={track} premountFrames={premountFrames} />
       ))}
 
-      {/* Audio tracks: no visual rendering needed */}
+      {/* Audio tracks: layout="none" since audio has no visual rendering */}
       {audioTracks.map((track) =>
         track.clips.map((clip) => (
           <Sequence
             key={clip.id}
             from={clip.from}
             durationInFrames={clip.durationInFrames}
-            premountFor={PREMOUNT_FRAMES}
+            layout="none"
             name={`${track.id}: ${clipLabel(clip)}`}
           >
             <AudioClip clip={clip} />
@@ -53,7 +54,7 @@ export const DynamicVideo: React.FC<RemotionTimeline> = (props) => {
   );
 };
 
-const TrackLayer: React.FC<{ track: RemotionTrack }> = ({ track }) => {
+const TrackLayer: React.FC<{ track: RemotionTrack; premountFrames: number }> = ({ track, premountFrames }) => {
   return (
     <>
       {track.clips.map((clip) => (
@@ -61,7 +62,7 @@ const TrackLayer: React.FC<{ track: RemotionTrack }> = ({ track }) => {
           key={clip.id}
           from={clip.from}
           durationInFrames={clip.durationInFrames}
-          premountFor={PREMOUNT_FRAMES}
+          premountFor={premountFrames}
           name={`${track.id}: ${clipLabel(clip)}`}
           style={{ zIndex: track.zIndex }}
         >

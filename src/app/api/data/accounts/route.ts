@@ -4,7 +4,7 @@ import { authenticateApiRequest } from "@/lib/auth/api-guard";
 
 const ACCOUNT_FIELDS = [
   "Name", "Status", "Industria", "Product", "Logo", "NameApp",
-  "Research Diario", "Framework GuardaRails",
+  "Research Diario", "Framework GuardaRails", "Canal YouTube",
 ];
 
 interface AccountFields {
@@ -16,6 +16,7 @@ interface AccountFields {
   NameApp?: string;
   "Research Diario"?: string;
   "Framework GuardaRails"?: string;
+  "Canal YouTube"?: string;
 }
 
 export async function GET() {
@@ -41,6 +42,7 @@ export async function GET() {
       research_diario: r.fields["Research Diario"] || null,
       framework_guardarails: r.fields["Framework GuardaRails"] || null,
       cf_plans_id: null,
+      youtube_channel: r.fields["Canal YouTube"] || null,
     }));
 
     return NextResponse.json(accounts);

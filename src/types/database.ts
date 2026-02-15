@@ -11,6 +11,7 @@ export interface Account {
   research_diario: boolean;
   framework_guardarails: string | null;
   cf_plans_id: string | null;
+  youtube_channel: string | null;
 }
 
 export interface Video {

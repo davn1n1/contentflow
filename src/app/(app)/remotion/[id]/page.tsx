@@ -51,7 +51,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DynamicVideo } from "@/lib/remotion/compositions/DynamicVideo";
-import { RenderModeContext } from "@/lib/remotion/RenderModeContext";
+
 import { InspectorPanel } from "@/components/editor/inspector/InspectorPanel";
 import { AudioWaveform, VideoThumbnail } from "@/components/editor/ClipVisuals";
 import { useTimelineShortcuts } from "@/lib/hooks/useTimelineShortcuts";
@@ -2222,18 +2222,10 @@ function BrowserRenderSection({ timeline }: { timeline: RemotionTimeline }) {
       setState("rendering");
       setProgress(0);
 
-      // Wrap DynamicVideo with web-render context so VideoClip uses @remotion/media
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const WebDynamicVideo: React.FC<any> = (props) => (
-        <RenderModeContext.Provider value={true}>
-          <DynamicVideo {...props} />
-        </RenderModeContext.Provider>
-      );
-
       const { getBlob } = await renderMediaOnWeb({
         composition: {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          component: WebDynamicVideo as any,
+          component: DynamicVideo as any,
           durationInFrames: browserTimeline.durationInFrames,
           fps: browserTimeline.fps,
           width: browserTimeline.width,
