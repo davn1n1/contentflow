@@ -8,11 +8,12 @@ import {
 
 export function useYouTubeAnalytics(
   accessToken: string | null,
-  channelCreatedDate?: string
+  startDate: string,
+  endDate: string
 ) {
   return useQuery<YouTubeAnalyticsData>({
-    queryKey: ["youtube-analytics", accessToken, channelCreatedDate],
-    queryFn: () => fetchAllAnalytics(accessToken!, channelCreatedDate),
+    queryKey: ["youtube-analytics", accessToken, startDate, endDate],
+    queryFn: () => fetchAllAnalytics(accessToken!, startDate, endDate),
     enabled: !!accessToken,
     staleTime: 15 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
