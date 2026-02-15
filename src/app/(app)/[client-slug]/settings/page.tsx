@@ -1,10 +1,18 @@
 "use client";
 
 import { useAccountStore } from "@/lib/stores/account-store";
-import { Mic, User, Image, Music, Shield } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Mic, User, Image, Music, Shield, Sun, Moon, Monitor } from "lucide-react";
+
+const themeOptions = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: Monitor },
+] as const;
 
 export default function SettingsPage() {
   const { currentAccount } = useAccountStore();
+  const { theme, setTheme } = useTheme();
   const settings = null; // TODO: fetch from Airtable when needed
 
   const settingSections = [
@@ -65,6 +73,33 @@ export default function SettingsPage() {
               {currentAccount?.industria?.join(", ") || "General"}
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Theme / Appearance */}
+      <div className="glass-card rounded-xl p-6">
+        <h3 className="text-sm font-semibold text-foreground mb-1">Apariencia</h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          Elige el tema de la interfaz
+        </p>
+        <div className="flex gap-2">
+          {themeOptions.map((opt) => {
+            const active = theme === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => setTheme(opt.value)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+                  active
+                    ? "bg-primary/15 border-primary/40 text-primary"
+                    : "bg-muted/30 border-border/50 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                }`}
+              >
+                <opt.icon className="w-4 h-4" />
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
