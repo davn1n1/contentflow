@@ -82,6 +82,54 @@ function describeCurrentPage(pathname: string): string {
   return `la pagina ${basePath}`;
 }
 
+/** Get contextual keyboard tips relevant to the current page */
+function getKeyboardTipsForPage(pathname: string): string | null {
+  const [basePath, queryString] = pathname.split("?");
+  const tab = queryString ? new URLSearchParams(queryString).get("tab") : null;
+
+  // Remotion preview page
+  if (/\/remotion\//.test(basePath)) {
+    return `El usuario esta en el editor Remotion. Atajos clave:
+- **Espacio** = Play/Pausa, **← →** = navegar frames, **Shift+← →** = navegar segundos
+- **S** = dividir clip, **Delete** = eliminar, **Ctrl/Cmd+Z/Y** = deshacer/rehacer
+- **Ctrl/Cmd+C/V** = copiar/pegar clips, **M** = marcador, **R** = ripple edit
+- **Ctrl/Cmd+=/-/0** = zoom in/out/reset`;
+  }
+
+  // Video Studio — Montaje tab
+  if (tab === "montaje") {
+    return `El usuario esta en la tabla de Montaje. Atajos clave:
+- **↑ ↓ (flechas)** = navegar entre escenas rapidamente (se desactivan al escribir)
+- **Escape** = cerrar lightbox de imagen a pantalla completa
+- Los campos son editables: click directo para editar, auto-guardado cada 800ms`;
+  }
+
+  // Video Studio — Copy tab
+  if (tab === "copy") {
+    return `El usuario esta en la pestana de Copy/Script. Tips clave:
+- Los campos de script son editables inline — click y escribir directamente
+- Auto-guardado cada 800ms (no hay boton de guardar)
+- Los campos son case-sensitive en Airtable ("Script Elevenlabs" con L minuscula)`;
+  }
+
+  // Video Studio — Audio tab
+  if (tab === "audio") {
+    return `El usuario esta en la pestana de Audio. Tips clave:
+- Los campos de la tabla son editables inline
+- Auto-guardado cada 800ms
+- Se puede ver duracion y estado por escena individual`;
+  }
+
+  // Video Studio — Render tab (has Remotion preview)
+  if (tab === "render") {
+    return `El usuario esta en la pestana de Render. Si usa el preview de Remotion:
+- **Espacio** = Play/Pausa, **← →** = navegar frames
+- **S** = dividir clip, **M** = marcador`;
+  }
+
+  return null;
+}
+
 export function buildSystemPrompt(
   user: { email: string },
   context: {
@@ -140,6 +188,34 @@ Los videos pasan por estos estados en cada fase:
 - **Render falla**: JSON de Shotstack malformado o URLs de assets expiradas. Reintentar.
 - **YouTube no publica**: API quota excedida o credenciales invalidas. Verificar configuracion.
 
+### Atajos de Teclado (Tips de Productividad)
+
+**Timeline / Editor Remotion:**
+- **Espacio** → Play/Pausa
+- **← →** → Retroceder/Avanzar 1 frame | **Shift+← →** → 1 segundo
+- **Ctrl/Cmd+Z** → Deshacer | **Ctrl/Cmd+Y** o **Ctrl/Cmd+Shift+Z** → Rehacer
+- **S** → Dividir clip en el playhead
+- **Delete/Backspace** → Eliminar clips seleccionados
+- **Ctrl/Cmd+C / V** → Copiar/Pegar clips
+- **Ctrl/Cmd+=/-/0** → Zoom in/out/reset
+- **M** → Anadir marcador | **R** → Activar modo ripple edit
+- **Escape** → Deseleccionar todo
+
+**Tabla de Montaje Video (tab Montaje):**
+- **↑ ↓ (flechas)** → Navegar entre escenas de la tabla rapidamente
+- Se desactivan al escribir en un campo de texto
+
+**Tablas de Copy y Audio:**
+- Los campos son editables inline — haz click y escribe directamente
+- Los cambios se guardan automaticamente cada 800ms (auto-save)
+
+**General:**
+- **Enter** → Enviar mensaje en el chat
+- **Shift+Enter** → Nueva linea en el chat
+- **Escape** → Cerrar modales (lightbox de imagenes, etc.)
+
+> IMPORTANTE: Ofrece estos tips de teclado proactivamente cuando el usuario pregunte como hacer algo mas rapido, como navegar la app, o cuando estes explicando una funcionalidad que tiene atajos.
+
 ### Integraciones
 - **HeyGen**: Avatares IA para video
 - **ElevenLabs**: Generacion de voz (TTS)
@@ -156,9 +232,13 @@ Los videos pasan por estos estados en cada fase:
   // Dynamic section: current page awareness
   if (pathname) {
     const pageDesc = describeCurrentPage(pathname);
+    const keyboardTips = getKeyboardTipsForPage(pathname);
     prompt += `\n\n## Pagina Actual del Usuario
 El usuario esta viendo **${pageDesc}** (ruta: \`${pathname}\`).
 Cuando pregunte "como hago esto", "que es esto", "ayuda" u otra pregunta generica sin contexto especifico, asume que se refiere a la pagina en la que esta. Busca articulos de ayuda relacionados con esta seccion.`;
+    if (keyboardTips) {
+      prompt += `\n\n### Tips de Teclado para Esta Pagina\n${keyboardTips}\n> 💡 Ofrece estos atajos como tip cuando sea relevante para lo que pregunte el usuario.`;
+    }
   }
 
   // Dynamic section: enriched account context

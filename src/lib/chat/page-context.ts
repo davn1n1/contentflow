@@ -96,22 +96,22 @@ const PAGE_SUGGESTIONS: Record<string, PageSuggestion[]> = {
   copy: [
     { text: "¿Como funciona la generacion de copy?", icon: "help", accent: "primary" },
     { text: "¿Puedo editar el guion despues de generarlo?", icon: "help", accent: "success" },
-    { text: "El copy no se ha generado, ¿que hago?", icon: "tool", accent: "warning" },
+    { text: "¿Que atajos de teclado puedo usar aqui?", icon: "tool", accent: "warning" },
   ],
   audio: [
     { text: "¿Como se genera el audio con ElevenLabs?", icon: "help", accent: "primary" },
     { text: "¿Puedo cambiar la voz del narrador?", icon: "help", accent: "success" },
-    { text: "El audio tarda mucho, ¿es normal?", icon: "tool", accent: "warning" },
+    { text: "¿Que atajos de teclado puedo usar aqui?", icon: "tool", accent: "warning" },
   ],
   montaje: [
-    { text: "¿Como funciona el montaje con avatares?", icon: "help", accent: "primary" },
+    { text: "¿Como navego rapido entre escenas?", icon: "help", accent: "primary" },
     { text: "¿Puedo cambiar el avatar de una escena?", icon: "help", accent: "success" },
-    { text: "El video de avatar no se genera, ¿que hago?", icon: "tool", accent: "warning" },
+    { text: "¿Que atajos de teclado puedo usar aqui?", icon: "tool", accent: "warning" },
   ],
   render: [
     { text: "¿Cuanto tarda el render final?", icon: "help", accent: "primary" },
     { text: "¿Donde se publica el video?", icon: "help", accent: "success" },
-    { text: "El render ha fallado, ¿como lo reintento?", icon: "tool", accent: "warning" },
+    { text: "¿Que atajos de teclado puedo usar aqui?", icon: "tool", accent: "warning" },
   ],
   miniaturas: [
     { text: "¿Como se generan las miniaturas?", icon: "help", accent: "primary" },
@@ -132,6 +132,11 @@ const PAGE_SUGGESTIONS: Record<string, PageSuggestion[]> = {
     { text: "¿Como funciona la galeria de montaje?", icon: "help", accent: "primary" },
     { text: "¿Puedo reordenar las escenas?", icon: "help", accent: "success" },
     { text: "Un clip tiene error, ¿como lo regenero?", icon: "tool", accent: "warning" },
+  ],
+  "/remotion": [
+    { text: "¿Que atajos de teclado tiene el editor?", icon: "tool", accent: "primary" },
+    { text: "¿Como hago zoom en la timeline?", icon: "help", accent: "success" },
+    { text: "¿Puedo dividir un clip en dos?", icon: "help", accent: "warning" },
   ],
 };
 
