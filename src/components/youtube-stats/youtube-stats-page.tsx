@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccountStore } from "@/lib/stores/account-store";
 import { useYouTubeStats } from "@/lib/hooks/use-youtube-stats";
 import { useYouTubeOAuth } from "@/lib/youtube/oauth";
@@ -53,13 +53,15 @@ export function YouTubeStatsPage() {
   } = useYouTubeAnalytics(oauth.accessToken, dateRange.startDate, dateRange.endDate);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
-  // Log OAuth state changes
-  if (oauth.isAuthenticated) {
-    debugLog("success", "OAuth", "Token activo — tabs analytics habilitados");
-  }
-  if (oauth.error) {
-    debugLog("error", "OAuth", `Error OAuth: ${oauth.error}`);
-  }
+  // Log OAuth state changes (in useEffect to avoid setState during render)
+  useEffect(() => {
+    if (oauth.isAuthenticated) {
+      debugLog("success", "OAuth", "Token activo — tabs analytics habilitados");
+    }
+    if (oauth.error) {
+      debugLog("error", "OAuth", `Error OAuth: ${oauth.error}`);
+    }
+  }, [oauth.isAuthenticated, oauth.error]);
 
   // No channel configured
   if (!channelHandle) {

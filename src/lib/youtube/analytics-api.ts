@@ -70,6 +70,21 @@ export interface YouTubeAnalyticsData {
   impressions: AnalyticsResponse | null;
 }
 
+// Align endDate to last day of a complete month (required for dimensions=month)
+function alignEndToMonth(endDate: string): string {
+  const d = new Date(endDate + "T12:00:00");
+  const lastOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  if (d.getDate() === lastOfMonth.getDate()) return endDate; // already end of month
+  // Go to end of previous month
+  const prev = new Date(d.getFullYear(), d.getMonth(), 0);
+  return prev.toISOString().split("T")[0];
+}
+
+function alignStartToMonth(startDate: string): string {
+  const d = new Date(startDate + "T12:00:00");
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
 export async function fetchAllAnalytics(
   accessToken: string,
   startDate: string,
@@ -77,15 +92,22 @@ export async function fetchAllAnalytics(
 ): Promise<YouTubeAnalyticsData> {
   debugLog("info", "OAuth", `Fetching analytics: ${startDate} → ${endDate}`);
 
-  const [demographics, geography, traffic, devices, revenue, monthly, impressions] =
+  // For month-dimension queries, dates must align to month boundaries
+  const monthStart = alignStartToMonth(startDate);
+  const monthEnd = alignEndToMonth(endDate);
+  const monthRangeValid = monthStart < monthEnd;
+
+  debugLog("info", "YT-API", `Month-aligned range: ${monthStart} → ${monthEnd} (valid: ${monthRangeValid})`);
+
+  const [demographics, geography, traffic, devices, revenue, monthly] =
     await Promise.all([
+      // Demographics: requires viewerPercentage metric (not views)
       ytAnalytics("Demographics", {
         ids: "channel==MINE",
         startDate,
         endDate,
-        metrics: "views,estimatedMinutesWatched",
+        metrics: "viewerPercentage",
         dimensions: "ageGroup,gender",
-        sort: "-views",
       }, accessToken).catch((e) => { debugLog("error", "YT-API", `Demographics catch: ${e.message}`); return null; }),
 
       ytAnalytics("Geography", {
@@ -116,38 +138,38 @@ export async function fetchAllAnalytics(
         sort: "-views",
       }, accessToken).catch((e) => { debugLog("error", "YT-API", `Devices catch: ${e.message}`); return null; }),
 
-      ytAnalytics("Revenue", {
-        ids: "channel==MINE",
-        startDate,
-        endDate,
-        metrics: "estimatedRevenue,estimatedAdRevenue,grossRevenue",
-        dimensions: "month",
-        sort: "month",
-      }, accessToken).catch((e) => { debugLog("error", "YT-API", `Revenue catch: ${e.message}`); return null; }),
+      // Revenue: month dimension requires aligned dates
+      monthRangeValid
+        ? ytAnalytics("Revenue", {
+            ids: "channel==MINE",
+            startDate: monthStart,
+            endDate: monthEnd,
+            metrics: "estimatedRevenue,estimatedAdRevenue,grossRevenue",
+            dimensions: "month",
+            sort: "month",
+          }, accessToken).catch((e) => { debugLog("error", "YT-API", `Revenue catch: ${e.message}`); return null; })
+        : Promise.resolve(null),
 
-      ytAnalytics("Monthly", {
-        ids: "channel==MINE",
-        startDate,
-        endDate,
-        metrics: "views,estimatedMinutesWatched,subscribersGained,subscribersLost",
-        dimensions: "month",
-        sort: "month",
-      }, accessToken).catch((e) => { debugLog("error", "YT-API", `Monthly catch: ${e.message}`); return null; }),
-
-      ytAnalytics("Impressions", {
-        ids: "channel==MINE",
-        startDate,
-        endDate,
-        metrics: "views,impressions,impressionClickThroughRate,estimatedMinutesWatched",
-        dimensions: "month",
-        sort: "month",
-      }, accessToken).catch((e) => { debugLog("error", "YT-API", `Impressions catch: ${e.message}`); return null; }),
+      // Monthly: month dimension requires aligned dates
+      monthRangeValid
+        ? ytAnalytics("Monthly", {
+            ids: "channel==MINE",
+            startDate: monthStart,
+            endDate: monthEnd,
+            metrics: "views,estimatedMinutesWatched,subscribersGained,subscribersLost",
+            dimensions: "month",
+            sort: "month",
+          }, accessToken).catch((e) => { debugLog("error", "YT-API", `Monthly catch: ${e.message}`); return null; })
+        : Promise.resolve(null),
     ]);
 
-  const successCount = [demographics, geography, traffic, devices, revenue, monthly, impressions]
+  // impressions/impressionClickThroughRate not available in Analytics API v2
+  const impressions = null;
+
+  const successCount = [demographics, geography, traffic, devices, revenue, monthly]
     .filter(Boolean).length;
-  debugLog(successCount === 7 ? "success" : "warn", "OAuth",
-    `Analytics completado: ${successCount}/7 queries OK`);
+  debugLog(successCount === 6 ? "success" : "warn", "OAuth",
+    `Analytics completado: ${successCount}/6 queries OK`);
 
   return { demographics, geography, traffic, devices, revenue, monthly, impressions };
 }

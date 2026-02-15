@@ -4,7 +4,6 @@ import "@/lib/chartjs-setup";
 import { Doughnut, Bar } from "react-chartjs-2";
 import { ChartCard } from "../chart-card";
 import { KpiCard } from "../kpi-card";
-import { formatNumber } from "../utils";
 import { GENDER_LABELS } from "@/lib/youtube/label-maps";
 import type { AnalyticsResponse } from "@/lib/youtube/analytics-api";
 
@@ -43,7 +42,7 @@ export function DemographicsTab({ data, isLoading, error }: DemographicsTabProps
     );
   }
 
-  // Process data: rows = [ageGroup, gender, views, estimatedMinutesWatched]
+  // Process data: rows = [ageGroup, gender, viewerPercentage]
   const genderMap: Record<string, number> = {};
   const ageMap: Record<string, number> = {};
   const ageGenderMap: Record<string, Record<string, number>> = {};
@@ -51,15 +50,14 @@ export function DemographicsTab({ data, isLoading, error }: DemographicsTabProps
   data.rows.forEach((r) => {
     const age = r[0] as string;
     const gender = r[1] as string;
-    const views = r[2] as number;
+    const pct = r[2] as number;
 
-    genderMap[gender] = (genderMap[gender] || 0) + views;
-    ageMap[age] = (ageMap[age] || 0) + views;
+    genderMap[gender] = (genderMap[gender] || 0) + pct;
+    ageMap[age] = (ageMap[age] || 0) + pct;
     if (!ageGenderMap[age]) ageGenderMap[age] = {};
-    ageGenderMap[age][gender] = (ageGenderMap[age][gender] || 0) + views;
+    ageGenderMap[age][gender] = (ageGenderMap[age][gender] || 0) + pct;
   });
 
-  const totalViews = Object.values(genderMap).reduce((a, b) => a + b, 0);
   const ages = Object.keys(ageMap).sort();
   const genders = Object.keys(genderMap);
   const genderColors = ["#0a84ff", "#ff6482", "#bf5af2"];
@@ -72,13 +70,13 @@ export function DemographicsTab({ data, isLoading, error }: DemographicsTabProps
           <KpiCard
             key={g}
             label={GENDER_LABELS[g] || g}
-            value={`${((v / totalViews) * 100).toFixed(1)}%`}
+            value={`${v.toFixed(1)}%`}
             color={genderColors[i]}
           />
         ))}
         <KpiCard
-          label="Views totales"
-          value={formatNumber(totalViews)}
+          label="Grupos de Edad"
+          value={String(ages.length)}
           color="#8e8ea0"
         />
       </div>
@@ -129,7 +127,7 @@ export function DemographicsTab({ data, isLoading, error }: DemographicsTabProps
               maintainAspectRatio: false,
               plugins: { legend: { display: false } },
               scales: {
-                y: { ticks: { callback: (v) => formatNumber(v as number) } },
+                y: { ticks: { callback: (v) => v + "%" } },
               },
             }}
           />
@@ -157,7 +155,7 @@ export function DemographicsTab({ data, isLoading, error }: DemographicsTabProps
             maintainAspectRatio: false,
             plugins: { legend: { labels: { boxWidth: 10 } } },
             scales: {
-              y: { ticks: { callback: (v) => formatNumber(v as number) } },
+              y: { ticks: { callback: (v) => v + "%" } },
             },
           }}
         />
