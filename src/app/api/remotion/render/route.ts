@@ -166,6 +166,8 @@ export async function POST(request: NextRequest) {
           framesPerLambda,
           maxRetries: 1,
           privacy: "public",
+          // Allow 120s per delayRender (default 30s too short for Shotstack S3 in Australia)
+          timeoutInMilliseconds: 120000,
         });
 
         // Success — update Supabase and return
