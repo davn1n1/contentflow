@@ -133,13 +133,14 @@ export interface Scene {
 
 export interface AeRender {
   id: string;
-  account_id: string;
+  account_id: string | null;
   n_render: number | null;
   status: string | null;
-  slide: Record<string, unknown> | null;
+  slide: string | null;
   start: number | null;
   end: number | null;
   duration_total_escena: number | null;
+  actual_duration: number | null;
   activa: boolean;
   url_s3_plainly: string | null;
   url_slide_s3: string | null;
@@ -148,6 +149,11 @@ export interface AeRender {
   shotstackurl: string | null;
   status_timeline: string | null;
   feedback_render: string | null;
+  estado_render: string | null;
+  copy_es: string | null;
+  ae_template_ids: string[];
+  ae_template_estilo: string[];
+  muestra_ae: string | null;
 }
 
 export interface Timeline {

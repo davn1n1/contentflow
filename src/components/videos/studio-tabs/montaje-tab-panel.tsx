@@ -13,6 +13,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getEngineColor } from "@/lib/constants/engine-colors";
 import { ActionButton } from "@/components/scripts/script-audio-detail";
 import { WaveformAudioPlayer } from "@/components/shared/waveform-audio-player";
+import { useRenders } from "@/lib/hooks/use-renders";
+import type { AeRender } from "@/types/database";
 import type { VideoWithScenes, SceneDetail, LinkedRecord } from "@/lib/hooks/use-video-detail";
 
 // ─── Slide Engine Options ─────────────────────────────────
@@ -1103,6 +1105,231 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
   );
 }
 
+// ─── AE Render Status colors ─────────────────────────────
+function renderStatusStyle(status: string | null) {
+  const s = (status || "").toLowerCase();
+  if (s.includes("done") || s.includes("complete") || s.includes("publicad")) return { text: "text-emerald-400", bg: "bg-emerald-400/10" };
+  if (s.includes("render") || s.includes("process") || s.includes("progress")) return { text: "text-amber-400", bg: "bg-amber-400/10" };
+  if (s.includes("error") || s.includes("fail")) return { text: "text-red-400", bg: "bg-red-400/10" };
+  if (s.includes("pendi") || s.includes("wait")) return { text: "text-blue-400", bg: "bg-blue-400/10" };
+  return { text: "text-gray-400", bg: "bg-gray-400/10" };
+}
+
+// ─── AE Render Row ───────────────────────────────────────
+function AeRenderRow({ render, isExpanded, onToggle }: {
+  render: AeRender;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const estilo = renderStatusStyle(render.estado_render);
+  const previewImg = render.slide || render.muestra_ae;
+
+  return (
+    <>
+      <tr
+        onClick={onToggle}
+        className={cn(
+          "border-b border-border/40 cursor-pointer transition-colors",
+          "sticky top-[41px] z-10 bg-background",
+          isExpanded ? "shadow-md shadow-black/10" : "hover:bg-muted/30"
+        )}
+      >
+        {/* # */}
+        <td className="px-2 py-3 text-center">
+          <span className={cn(
+            "inline-flex items-center justify-center rounded-md text-[11px] font-bold",
+            isExpanded ? "w-8 h-8 text-sm bg-teal-500/20 text-teal-400 shadow-lg ring-2 ring-teal-500/30" : "w-6 h-6 bg-teal-500/15 text-teal-400"
+          )}>
+            {render.n_render}
+          </span>
+        </td>
+        {/* Start */}
+        <td className="px-2 py-3 text-right text-xs text-muted-foreground font-mono">
+          {render.start != null ? `${render.start.toFixed(1)}s` : "—"}
+        </td>
+        {/* Actual Duration */}
+        <td className="px-2 py-3 text-right text-xs text-muted-foreground font-mono">
+          {render.actual_duration != null ? `${render.actual_duration.toFixed(1)}s` : render.duration_total_escena != null ? `${render.duration_total_escena.toFixed(1)}s` : "—"}
+        </td>
+        {/* Activa */}
+        <td className="px-2 py-3 text-center">
+          {render.activa ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 inline-block" />
+          ) : (
+            <XCircle className="w-4 h-4 text-muted-foreground/30 inline-block" />
+          )}
+        </td>
+        {/* Estado Render */}
+        <td className="px-2 py-3">
+          {render.estado_render && (
+            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", estilo.bg, estilo.text)}>
+              {render.estado_render}
+            </span>
+          )}
+        </td>
+        {/* Copy_ES (truncated) */}
+        <td className="px-2 py-3 max-w-[180px]">
+          {render.copy_es && (
+            <p className="text-[10px] text-muted-foreground truncate">{render.copy_es}</p>
+          )}
+        </td>
+        {/* AE Template Estilo */}
+        <td className="px-2 py-3">
+          {render.ae_template_estilo?.length > 0 && (
+            <div className="flex flex-wrap gap-0.5">
+              {render.ae_template_estilo.map((e, i) => (
+                <span key={i} className="text-[9px] px-1 py-0.5 rounded font-medium bg-teal-400/10 text-teal-400 truncate max-w-[80px] inline-block">
+                  {e}
+                </span>
+              ))}
+            </div>
+          )}
+        </td>
+        {/* Preview image (Slide or Muestra) */}
+        <td className="px-0.5 py-1.5">
+          {previewImg ? (
+            <div className="w-16 h-10 rounded overflow-hidden bg-muted border border-teal-500/30">
+              <img src={previewImg} alt={`Render ${render.n_render}`} className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className="w-16 h-10 rounded bg-muted/30 border border-border/20 flex items-center justify-center">
+              <ImageIcon className="w-3 h-3 text-muted-foreground/20" />
+            </div>
+          )}
+        </td>
+        {/* Expand */}
+        <td className="w-4 pr-2">
+          <ChevronRight className={cn("w-3.5 h-3.5 text-muted-foreground/40 transition-transform", isExpanded && "rotate-90")} />
+        </td>
+      </tr>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <tr className="border-b border-border/40 bg-muted/10">
+          <td colSpan={9} className="px-4 py-4">
+            <div className="space-y-4">
+              {/* Preview large */}
+              {previewImg && (
+                <div className="w-[480px] h-[270px] rounded-xl overflow-hidden bg-muted border border-border/30">
+                  <img src={previewImg} alt={`Render ${render.n_render}`} className="w-full h-full object-contain bg-black/20" />
+                </div>
+              )}
+
+              {/* Copy_ES full */}
+              {render.copy_es && (
+                <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 p-4">
+                  <p className="text-[10px] uppercase tracking-wider text-teal-400 font-semibold mb-2">Copy ES</p>
+                  <p className="text-xs text-foreground/80 whitespace-pre-wrap leading-relaxed">{render.copy_es}</p>
+                </div>
+              )}
+
+              {/* Metadata grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">Start</p>
+                  <p className="text-xs font-mono text-foreground">{render.start != null ? `${render.start.toFixed(2)}s` : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">Duración</p>
+                  <p className="text-xs font-mono text-foreground">{render.actual_duration != null ? `${render.actual_duration.toFixed(2)}s` : render.duration_total_escena != null ? `${render.duration_total_escena.toFixed(2)}s` : "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">Estado</p>
+                  {render.estado_render ? (
+                    <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", estilo.bg, estilo.text)}>{render.estado_render}</span>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">—</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">Status</p>
+                  <p className="text-xs text-foreground">{render.status || "—"}</p>
+                </div>
+              </div>
+
+              {/* AE Template info */}
+              {render.ae_template_estilo?.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">After Effects Template — Estilo</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {render.ae_template_estilo.map((e, i) => (
+                      <span key={i} className="text-[10px] px-2 py-1 rounded-md font-medium bg-teal-400/10 text-teal-400 border border-teal-500/20">
+                        {e}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Feedback */}
+              {render.feedback_render && (
+                <div className="rounded-lg border border-border/30 bg-muted/20 p-3">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Feedback Render</p>
+                  <p className="text-xs text-foreground/70 whitespace-pre-wrap">{render.feedback_render}</p>
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+// ─── AE Render Table ─────────────────────────────────────
+function AeRenderTable({ renders }: { renders: AeRender[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const withSlide = renders.filter((r) => r.slide).length;
+  const withMuestra = renders.filter((r) => r.muestra_ae).length;
+  const activeCount = renders.filter((r) => r.activa).length;
+
+  return (
+    <div className="-mx-6 border-y border-border/40 bg-background/30">
+      <div className="sticky top-0 z-20 px-5 py-3 border-b border-border bg-background/95 backdrop-blur-sm flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Film className="w-4 h-4 text-teal-400" />
+          AE Renders
+          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full font-medium text-muted-foreground">
+            {renders.length}
+          </span>
+        </h3>
+        <div className="flex items-center gap-4">
+          <span className="text-[10px] text-teal-400/80">{activeCount} activos</span>
+          <span className="text-[10px] text-violet-400/80">{withSlide} slides</span>
+          <span className="text-[10px] text-pink-400/80">{withMuestra} muestras</span>
+        </div>
+      </div>
+
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-center px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-8 bg-muted/30">#</th>
+            <th className="text-right px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-14 bg-muted/30">Start</th>
+            <th className="text-right px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-14 bg-muted/30">Dur.</th>
+            <th className="text-center px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-10 bg-muted/30">Act</th>
+            <th className="text-left px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-24 bg-muted/30">Estado</th>
+            <th className="text-left px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold bg-muted/30">Copy ES</th>
+            <th className="text-left px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-24 bg-muted/30">Estilo AE</th>
+            <th className="text-left px-2 py-2 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold w-16 bg-muted/30">Img</th>
+            <th className="w-4 bg-muted/30"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {renders.map((render) => (
+            <AeRenderRow
+              key={render.id}
+              render={render}
+              isExpanded={expandedId === render.id}
+              onToggle={() => setExpandedId(expandedId === render.id ? null : render.id)}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ─── Linked Record Card ───────────────────────────────────
 function LinkedRecordCard({ label, icon, record, emptyText }: {
   label: string; icon: React.ReactNode; record: LinkedRecord | null; emptyText: string;
@@ -1142,6 +1369,7 @@ function LinkedRecordCard({ label, icon, record, emptyText }: {
 export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { data: renders = [] } = useRenders(video.id);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(false);
 
@@ -1211,6 +1439,11 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
       {/* Montaje Scene Table */}
       {video.scenes.length > 0 && (
         <MontajeSceneTable scenes={video.scenes} />
+      )}
+
+      {/* AE Render Table */}
+      {renders.length > 0 && (
+        <AeRenderTable renders={renders} />
       )}
 
       {/* Advanced Editing Menu */}
