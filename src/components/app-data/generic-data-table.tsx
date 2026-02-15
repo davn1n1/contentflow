@@ -633,6 +633,7 @@ export function GenericDataTable({ table, title, icon, description, preferredIma
       <RecordEditDrawer
         record={selectedRecord}
         table={table}
+        accountId={currentAccount?.id}
         onClose={() => setSelectedRecord(null)}
       />
     </div>

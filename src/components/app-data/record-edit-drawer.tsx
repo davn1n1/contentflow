@@ -23,6 +23,8 @@ import {
   Info,
   Paperclip,
 } from "lucide-react";
+import { getLinkedFieldDef } from "@/lib/constants/linked-fields";
+import { LinkedRecordSelector } from "@/components/app-data/linked-record-selector";
 
 // Tag color palette
 const TAG_COLORS = [
@@ -115,9 +117,13 @@ function classifyField(key: string, value: unknown): FieldType {
   return "short_text";
 }
 
-function isReadOnly(key: string, value: unknown): boolean {
+function isReadOnly(key: string, value: unknown, parentTable?: string): boolean {
   if (HIDDEN_FIELDS.has(key)) return true;
-  if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string" && value[0].startsWith("rec")) return true;
+  if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string" && value[0].startsWith("rec")) {
+    // Allow editing if field has a linked field config
+    if (parentTable && getLinkedFieldDef(parentTable, key)) return false;
+    return true;
+  }
   if (isAttachmentArray(value)) return true;
   if (key.includes("(from ")) return true;
   return false;
@@ -188,10 +194,11 @@ function groupFields(record: AppDataRecord): FieldGroups {
 interface RecordEditDrawerProps {
   record: AppDataRecord | null;
   table: string;
+  accountId?: string;
   onClose: () => void;
 }
 
-export function RecordEditDrawer({ record, table, onClose }: RecordEditDrawerProps) {
+export function RecordEditDrawer({ record, table, accountId, onClose }: RecordEditDrawerProps) {
   const queryClient = useQueryClient();
   const [editedFields, setEditedFields] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
@@ -314,7 +321,7 @@ export function RecordEditDrawer({ record, table, onClose }: RecordEditDrawerPro
         content: (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
             {infoFields.map(([key, originalValue]) => {
-              const readOnly = isReadOnly(key, originalValue);
+              const readOnly = isReadOnly(key, originalValue, table);
               const currentValue = key in editedFields ? editedFields[key] : originalValue;
               const ft = classifyField(key, originalValue);
               return (
@@ -353,7 +360,7 @@ export function RecordEditDrawer({ record, table, onClose }: RecordEditDrawerPro
         content: (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {fieldGroups.numbers.map(([key, originalValue]) => {
-              const readOnly = isReadOnly(key, originalValue);
+              const readOnly = isReadOnly(key, originalValue, table);
               const currentValue = key in editedFields ? editedFields[key] : originalValue;
               return (
                 <div key={key} className="rounded-xl border border-border bg-muted/20 p-3 space-y-1">
@@ -385,7 +392,7 @@ export function RecordEditDrawer({ record, table, onClose }: RecordEditDrawerPro
         content: (
           <div className="space-y-3">
             {fieldGroups.urls.map(([key, originalValue]) => {
-              const readOnly = isReadOnly(key, originalValue);
+              const readOnly = isReadOnly(key, originalValue, table);
               const currentValue = key in editedFields ? editedFields[key] : originalValue;
               const strVal = currentValue != null ? String(currentValue) : "";
               const isImageUrl = /\.(jpg|jpeg|png|gif|webp|svg|avif|bmp)/i.test(strVal) ||
@@ -447,7 +454,7 @@ export function RecordEditDrawer({ record, table, onClose }: RecordEditDrawerPro
         content: (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {fieldGroups.booleans.map(([key, originalValue]) => {
-              const readOnly = isReadOnly(key, originalValue);
+              const readOnly = isReadOnly(key, originalValue, table);
               const currentValue = key in editedFields ? editedFields[key] : originalValue;
               const isOn = !!currentValue;
               return (
@@ -486,15 +493,35 @@ export function RecordEditDrawer({ record, table, onClose }: RecordEditDrawerPro
         title: "Registros vinculados",
         content: (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {fieldGroups.linkedRecords.map(([key, value]) => (
-              <LinkedRecordCard
-                key={key}
-                fieldName={key}
-                values={value as unknown[]}
-                lookupImageUrl={findLookupImage(key, record)}
-                lookupName={findLookupName(key, record)}
-              />
-            ))}
+            {fieldGroups.linkedRecords.map(([key, value]) => {
+              const linkedConfig = getLinkedFieldDef(table, key);
+              const ids = (value as string[]).filter(
+                (v) => typeof v === "string" && v.startsWith("rec")
+              );
+
+              if (linkedConfig) {
+                return (
+                  <LinkedRecordSelector
+                    key={key}
+                    fieldName={key}
+                    recordIds={key in editedFields ? (editedFields[key] as string[]) : ids}
+                    config={linkedConfig}
+                    accountId={accountId}
+                    onChange={(newIds) => handleFieldChange(key, newIds)}
+                  />
+                );
+              }
+
+              return (
+                <LinkedRecordCard
+                  key={key}
+                  fieldName={key}
+                  values={value as unknown[]}
+                  lookupImageUrl={findLookupImage(key, record)}
+                  lookupName={findLookupName(key, record)}
+                />
+              );
+            })}
           </div>
         ),
       });
@@ -541,7 +568,7 @@ export function RecordEditDrawer({ record, table, onClose }: RecordEditDrawerPro
         content: (
           <div className="space-y-4">
             {fieldGroups.longText.map(([key, originalValue]) => {
-              const readOnly = isReadOnly(key, originalValue);
+              const readOnly = isReadOnly(key, originalValue, table);
               const currentValue = key in editedFields ? editedFields[key] : originalValue;
               const strVal = currentValue != null ? String(currentValue) : "";
               return (
