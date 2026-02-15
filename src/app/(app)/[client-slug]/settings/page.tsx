@@ -70,7 +70,7 @@ export default function SettingsPage() {
             </h2>
             <p className="text-sm text-muted-foreground">
               {currentAccount?.status || "Active"} &middot;{" "}
-              {currentAccount?.industria?.join(", ") || "General"}
+              {Array.isArray(currentAccount?.industria) ? currentAccount.industria.join(", ") : currentAccount?.industria || "General"}
             </p>
           </div>
         </div>
