@@ -271,6 +271,18 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => a.n_escena - b.n_escena);
 
+    // Resolve Estilos Musicales record IDs → names
+    const allEstiloIds = [...new Set(scenes.flatMap(s => s.estilos_musicales).filter(id => typeof id === "string" && id.startsWith("rec")))];
+    if (allEstiloIds.length > 0) {
+      try {
+        const estiloRecords = await airtableFetchByIds(TABLES.ESTILOS_MUSICALES, allEstiloIds, ["Name"]);
+        const idToName = new Map(estiloRecords.map(r => [r.id, (r.fields as { Name?: string }).Name || r.id]));
+        for (const scene of scenes) {
+          scene.estilos_musicales = scene.estilos_musicales.map(id => idToName.get(id) || id);
+        }
+      } catch { /* If resolution fails, keep IDs as fallback */ }
+    }
+
     return NextResponse.json(scenes);
   } catch (error) {
     console.error("Airtable scenes error:", error);
