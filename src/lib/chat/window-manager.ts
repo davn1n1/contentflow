@@ -52,7 +52,7 @@ async function summarizeOlderMessages(messages: ModelMessage[]): Promise<string>
     if (!transcript.trim()) return "";
 
     const { text } = await generateText({
-      model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4-5"),
+      model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5"),
       system: `Resume la conversacion anterior de forma concisa en 3-5 oraciones en espanol.
 Incluye: temas discutidos, decisiones tomadas, problemas resueltos o pendientes.
 Responde SOLO con el resumen, sin formato adicional.`,

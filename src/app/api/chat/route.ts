@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
 
     // 13. Stream AI response
     const result = streamText({
-      model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4-5"),
+      model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5"),
       system: systemPrompt,
       messages: windowed.messages,
       tools,

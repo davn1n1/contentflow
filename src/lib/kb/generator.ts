@@ -69,7 +69,7 @@ export async function generateArticle(
     : "";
 
   const { text } = await generateText({
-    model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4-5"),
+    model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5"),
     system: `Eres un escritor tecnico para ContentFlow365, una plataforma SaaS de produccion automatizada de video para YouTube.
 
 Tu tarea es generar un articulo de ayuda para la Knowledge Base de la app.

@@ -105,7 +105,7 @@ export async function analyzeCallTranscript(
   companyName?: string
 ): Promise<CallAnalysis> {
   const { object } = await generateObject({
-    model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4-5"),
+    model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5"),
     schema: CallAnalysisSchema,
     system: SYSTEM_PROMPT,
     prompt: `Prospecto: ${prospectName}${companyName ? ` (${companyName})` : ""}\n\nTranscripción:\n${transcript}`,

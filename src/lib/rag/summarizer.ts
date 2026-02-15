@@ -97,7 +97,7 @@ export async function summarizeAndStoreConversation(
 
 async function generateSummary(transcript: string): Promise<SummaryResult> {
   const { text } = await generateText({
-    model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4-5"),
+    model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5"),
     system: `Eres un asistente que resume conversaciones de soporte tecnico.
 Analiza la conversacion y genera un JSON con:
 1. "summary": Resumen de 2-3 oraciones en espanol de lo que se discutio y resolvio
