@@ -180,6 +180,7 @@ const sections: NavSection[] = [
     key: "gestion-mc",
     collapsible: true,
     items: [
+      { name: "IA Templates Remotion", href: "/gestion/ia-templates-remotion", icon: PlaySquare },
       { name: "Elementos", href: "/gestion/elementos", icon: Contact },
       { name: "Empresarial", href: "/gestion/empresarial", icon: Building2 },
       { name: "Ofertas", href: "/gestion/ofertas", icon: BadgeDollarSign },
