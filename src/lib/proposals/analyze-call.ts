@@ -2,10 +2,12 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 
-const openrouter = createOpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
+function getOpenRouter() {
+  return createOpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY!,
+  });
+}
 
 const SERVICE_SLUGS = [
   "video-short",
@@ -105,7 +107,7 @@ export async function analyzeCallTranscript(
   companyName?: string
 ): Promise<CallAnalysis> {
   const { object } = await generateObject({
-    model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5"),
+    model: getOpenRouter().chat("anthropic/claude-sonnet-4.5"),
     schema: CallAnalysisSchema,
     system: SYSTEM_PROMPT,
     prompt: `Prospecto: ${prospectName}${companyName ? ` (${companyName})` : ""}\n\nTranscripción:\n${transcript}`,

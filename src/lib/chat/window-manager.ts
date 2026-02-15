@@ -2,10 +2,12 @@ import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { ModelMessage } from "ai";
 
-const openrouter = createOpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
+function getOpenRouter() {
+  return createOpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY!,
+  });
+}
 
 /**
  * Window long conversations to prevent unbounded context growth.
@@ -52,7 +54,7 @@ async function summarizeOlderMessages(messages: ModelMessage[]): Promise<string>
     if (!transcript.trim()) return "";
 
     const { text } = await generateText({
-      model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5"),
+      model: getOpenRouter().chat("anthropic/claude-sonnet-4.5"),
       system: `Resume la conversacion anterior de forma concisa en 3-5 oraciones en espanol.
 Incluye: temas discutidos, decisiones tomadas, problemas resueltos o pendientes.
 Responde SOLO con el resumen, sin formato adicional.`,

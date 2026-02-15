@@ -3,10 +3,12 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createClient } from "@/lib/supabase/server";
 import { embedText } from "./embeddings";
 
-const openrouter = createOpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
+function getOpenRouter() {
+  return createOpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY!,
+  });
+}
 
 interface SummaryResult {
   summary: string;
@@ -97,7 +99,7 @@ export async function summarizeAndStoreConversation(
 
 async function generateSummary(transcript: string): Promise<SummaryResult> {
   const { text } = await generateText({
-    model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5"),
+    model: getOpenRouter().chat("anthropic/claude-sonnet-4.5"),
     system: `Eres un asistente que resume conversaciones de soporte tecnico.
 Analiza la conversacion y genera un JSON con:
 1. "summary": Resumen de 2-3 oraciones en espanol de lo que se discutio y resolvio

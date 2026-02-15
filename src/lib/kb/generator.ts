@@ -5,10 +5,12 @@ import { join, relative } from "path";
 import type { KBSource, KBSourceFile } from "./source-map";
 import { KB_SOURCES } from "./source-map";
 
-const openrouter = createOpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
+function getOpenRouter() {
+  return createOpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY!,
+  });
+}
 
 export interface GeneratedArticle {
   slug: string;
@@ -69,7 +71,7 @@ export async function generateArticle(
     : "";
 
   const { text } = await generateText({
-    model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5"),
+    model: getOpenRouter().chat("anthropic/claude-sonnet-4.5"),
     system: `Eres un escritor tecnico para ContentFlow365, una plataforma SaaS de produccion automatizada de video para YouTube.
 
 Tu tarea es generar un articulo de ayuda para la Knowledge Base de la app.

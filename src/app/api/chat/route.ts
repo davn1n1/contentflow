@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { streamText, convertToModelMessages, type UIMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 
-// OpenRouter: unified API for Claude, GPT, Gemini, etc.
-const openrouter = createOpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
+// OpenRouter provider — created per-request to ensure runtime env var reading
+function getOpenRouter() {
+  return createOpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY!,
+  });
+}
 import { authenticateApiRequest } from "@/lib/auth/api-guard";
 import { createChatTools } from "@/lib/chat/tools";
 import { buildSystemPrompt } from "@/lib/chat/system-prompt";
@@ -172,10 +174,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 13. Stream AI response
-    const chatModel = process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5";
-    console.log("[Chat] Using model:", chatModel, "| OPENROUTER_API_KEY set:", !!process.env.OPENROUTER_API_KEY);
+    const openrouter = getOpenRouter();
     const result = streamText({
-      model: openrouter.chat(chatModel),
+      model: openrouter.chat("anthropic/claude-sonnet-4.5"),
       system: systemPrompt,
       messages: windowed.messages,
       tools,
