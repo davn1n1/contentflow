@@ -198,12 +198,12 @@ export function WaveformAudioPlayer({
                 style={{ left: `${pct}%` }}
               >
                 <div className={cn(
-                  "w-px bg-muted-foreground/20",
-                  compact ? "h-2" : "h-3",
+                  "w-px bg-muted-foreground/50",
+                  compact ? "h-2.5" : "h-3.5",
                 )} />
                 <span className={cn(
-                  "font-mono text-muted-foreground/30 leading-none select-none",
-                  compact ? "text-[7px]" : "text-[8px]",
+                  "font-mono text-muted-foreground/60 leading-none select-none",
+                  compact ? "text-[8px]" : "text-[9px]",
                 )}>
                   {sec}s
                 </span>

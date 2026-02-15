@@ -2218,7 +2218,7 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSi
             {audioRevisado ? (
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             ) : (
-              <XCircle className="w-3.5 h-3.5 text-muted-foreground/30 hover:text-red-400/60" />
+              <XCircle className="w-3.5 h-3.5 text-amber-400/60 hover:text-amber-400" />
             )}
           </button>
         </td>
@@ -2718,9 +2718,9 @@ function StatusIndicator({ active }: { active: boolean }) {
   return (
     <span className={cn(
       "inline-flex items-center gap-1.5 text-xs font-medium",
-      active ? "text-emerald-400" : "text-muted-foreground"
+      active ? "text-emerald-400" : "text-amber-400/70"
     )}>
-      {active ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5 opacity-40" />}
+      {active ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
       {active ? "Completado" : "Pendiente"}
     </span>
   );
