@@ -6,10 +6,24 @@ import { Bot, User, Sparkles, MessageSquare, HelpCircle, Wrench } from "lucide-r
 import { MarkdownRenderer } from "./markdown-renderer";
 import { ChatToolResult } from "./chat-tool-result";
 
+interface PageSuggestion {
+  text: string;
+  icon: "message" | "help" | "tool";
+  accent: "primary" | "success" | "warning";
+}
+
 interface ChatMessagesProps {
   messages: UIMessage[];
   isLoading: boolean;
+  suggestions?: PageSuggestion[];
+  onSuggestionClick?: (text: string) => void;
 }
+
+const SUGGESTION_ICONS = {
+  message: <MessageSquare className="w-3 h-3" />,
+  help: <HelpCircle className="w-3 h-3" />,
+  tool: <Wrench className="w-3 h-3" />,
+};
 
 function getMessageText(message: UIMessage): string {
   return message.parts
@@ -18,7 +32,7 @@ function getMessageText(message: UIMessage): string {
     .join("");
 }
 
-export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
+export function ChatMessages({ messages, isLoading, suggestions, onSuggestionClick }: ChatMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,6 +40,8 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
   }, [messages, isLoading]);
 
   if (messages.length === 0) {
+    const chips = suggestions || [];
+
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 relative overflow-hidden">
         {/* Subtle background glow */}
@@ -50,11 +66,17 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
             </p>
           </div>
 
-          {/* Suggestion chips with icons */}
+          {/* Dynamic suggestion chips — change per page */}
           <div className="space-y-2 pt-1">
-            <SuggestionChip icon={<MessageSquare className="w-3 h-3" />} text="¿Cual es el estado de mi ultimo video?" accent="primary" />
-            <SuggestionChip icon={<HelpCircle className="w-3 h-3" />} text="¿Como creo un nuevo video?" accent="success" />
-            <SuggestionChip icon={<Wrench className="w-3 h-3" />} text="¿Que hago si el audio falla?" accent="warning" />
+            {chips.map((chip, i) => (
+              <SuggestionChip
+                key={i}
+                icon={SUGGESTION_ICONS[chip.icon]}
+                text={chip.text}
+                accent={chip.accent}
+                onClick={() => onSuggestionClick?.(chip.text)}
+              />
+            ))}
           </div>
         </div>
       </div>
@@ -158,17 +180,21 @@ function SuggestionChip({
   text,
   icon,
   accent = "primary",
+  onClick,
 }: {
   text: string;
   icon?: React.ReactNode;
   accent?: keyof typeof ACCENT_STYLES;
+  onClick?: () => void;
 }) {
   return (
-    <div
-      className={`flex items-center gap-2 text-xs text-muted-foreground bg-card border border-border rounded-lg px-3 py-2.5 cursor-default transition-all duration-200 ${ACCENT_STYLES[accent]}`}
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-2 text-xs text-muted-foreground bg-card border border-border rounded-lg px-3 py-2.5 cursor-pointer transition-all duration-200 w-full text-left ${ACCENT_STYLES[accent]}`}
     >
       {icon && <span className="flex-shrink-0 opacity-60">{icon}</span>}
       <span>{text}</span>
-    </div>
+    </button>
   );
 }

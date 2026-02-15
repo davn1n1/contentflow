@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
-import { MessageCircle, X, Minus } from "lucide-react";
+import { MessageCircle, X, Minus, MapPin } from "lucide-react";
 import { useChatStore } from "@/lib/stores/chat-store";
 import { useAccountStore } from "@/lib/stores/account-store";
 import { ChatMessages } from "./chat-messages";
 import { ChatInput } from "./chat-input";
 import { ChatConversationPicker } from "./chat-conversation-picker";
+import { getPageLabel, getPageSuggestions } from "@/lib/chat/page-context";
 
 export function ChatWidget() {
   const { isOpen, toggleChat, setOpen, conversationId, setConversationId, addRecentConversation } =
@@ -28,6 +29,16 @@ export function ChatWidget() {
     }
     return pathname;
   }, [pathname, searchParams]);
+
+  // Keep a ref to the latest pageContext so the transport always reads the freshest value
+  const pageContextRef = useRef(pageContext);
+  pageContextRef.current = pageContext;
+
+  // Human-readable page label for the UI indicator
+  const pageLabel = useMemo(() => getPageLabel(pageContext), [pageContext]);
+
+  // Page-specific suggestions for the welcome screen
+  const suggestions = useMemo(() => getPageSuggestions(pageContext), [pageContext]);
 
   const transport = useMemo(
     () =>
@@ -160,8 +171,27 @@ export function ChatWidget() {
             </div>
           </div>
 
+          {/* Page context indicator — updates live on navigation */}
+          {pageLabel && (
+            <div className="flex items-center gap-1.5 px-4 py-1.5 bg-primary/5 border-b border-border text-[11px] text-muted-foreground transition-all duration-300">
+              <MapPin className="w-3 h-3 text-primary/60 flex-shrink-0" />
+              <span>
+                Viendo: <span className="font-medium text-foreground/80">{pageLabel}</span>
+              </span>
+            </div>
+          )}
+
           {/* Messages */}
-          <ChatMessages messages={messages} isLoading={isLoading} />
+          <ChatMessages
+            messages={messages}
+            isLoading={isLoading}
+            suggestions={suggestions}
+            onSuggestionClick={(text) => {
+              if (!isLoading) {
+                sendMessage({ text });
+              }
+            }}
+          />
 
           {/* Error banner */}
           {error && (
