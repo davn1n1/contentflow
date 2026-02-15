@@ -3,6 +3,7 @@
 import { useState, useDeferredValue, useMemo } from "react";
 import { useAppData, type AppDataRecord } from "@/lib/hooks/use-app-data";
 import { useAccountStore } from "@/lib/stores/account-store";
+import { useVideoContextStore } from "@/lib/stores/video-context-store";
 import { RecordEditDrawer } from "@/components/app-data/record-edit-drawer";
 import { cn } from "@/lib/utils";
 import {
@@ -200,6 +201,7 @@ function CellValue({ value }: { value: unknown }) {
 
 export function ClipsOpusPage() {
   const { currentAccount } = useAccountStore();
+  const { activeVideoId, activeVideoName, activeVideoTitle } = useVideoContextStore();
   const [viewMode, setViewMode] = useState<ViewMode>("gallery");
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<string | null>(null);
@@ -208,6 +210,7 @@ export function ClipsOpusPage() {
   const [selectedRecord, setSelectedRecord] = useState<AppDataRecord | null>(null);
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [calDate, setCalDate] = useState(new Date());
+  const [showAll, setShowAll] = useState(false);
   const deferredSearch = useDeferredValue(search);
 
   const { data: allRecords = [], isLoading, error } = useAppData({
@@ -215,12 +218,31 @@ export function ClipsOpusPage() {
     accountId: currentAccount?.id,
   });
 
+  // Filter by active video (linked via "Youtube 365 Full Post" field)
+  const videoFiltered = useMemo(() => {
+    if (showAll || !activeVideoId) return allRecords;
+    return allRecords.filter((r) => {
+      const linked = r["Youtube 365 Full Post"];
+      // Linked record field: array of record IDs
+      if (Array.isArray(linked)) {
+        if (linked.some((v) => String(v) === activeVideoId)) return true;
+        // Also match by video number
+        if (activeVideoName && linked.some((v) => String(v) === String(activeVideoName))) return true;
+      }
+      // Lookup/number value
+      if (linked != null && activeVideoName && String(linked) === String(activeVideoName)) return true;
+      // Also check Name field contains video number
+      if (activeVideoName && typeof r.Name === "string" && r.Name.includes(String(activeVideoName))) return true;
+      return false;
+    });
+  }, [allRecords, activeVideoId, activeVideoName, showAll]);
+
   // Search
   const searchFiltered = useMemo(() => {
-    if (!deferredSearch) return allRecords;
+    if (!deferredSearch) return videoFiltered;
     const q = deferredSearch.toLowerCase();
-    return allRecords.filter((r) => Object.values(r).some((v) => v != null && String(v).toLowerCase().includes(q)));
-  }, [allRecords, deferredSearch]);
+    return videoFiltered.filter((r) => Object.values(r).some((v) => v != null && String(v).toLowerCase().includes(q)));
+  }, [videoFiltered, deferredSearch]);
 
   // Filters
   const records = useMemo(() => {
@@ -259,8 +281,8 @@ export function ClipsOpusPage() {
     }).slice(0, 9);
   }, [allRecords]);
 
-  // Filterable fields
-  const filterableColumns = useMemo(() => getFilterableFields(allRecords), [allRecords]);
+  // Filterable fields (based on video-filtered records)
+  const filterableColumns = useMemo(() => getFilterableFields(videoFiltered), [videoFiltered]);
 
   // Pagination
   const perPage = viewMode === "gallery" ? GALLERY_PER_PAGE : ROWS_PER_PAGE;
@@ -305,8 +327,17 @@ export function ClipsOpusPage() {
           <div className="min-w-0">
             <h1 className="text-2xl font-bold text-foreground truncate">Clips Opus</h1>
             <p className="text-sm text-muted-foreground mt-0.5 truncate">
-              Montajes y clips de video para redes sociales
-              {records.length > 0 ? <span className="ml-1 text-foreground/60"> · {records.length} clips</span> : null}
+              {!showAll && activeVideoId ? (
+                <>
+                  Video #{activeVideoName}{activeVideoTitle ? ` — ${activeVideoTitle}` : ""}
+                  {records.length > 0 ? <span className="ml-1 text-foreground/60"> · {records.length} clips</span> : null}
+                </>
+              ) : (
+                <>
+                  Todos los montajes y clips de video
+                  {records.length > 0 ? <span className="ml-1 text-foreground/60"> · {records.length} clips</span> : null}
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -331,6 +362,20 @@ export function ClipsOpusPage() {
               </button>
             ))}
           </div>
+          {/* Toggle: filter by video / show all */}
+          {activeVideoId ? (
+            <button
+              onClick={() => { setShowAll((v) => !v); setPage(0); }}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
+                showAll
+                  ? "bg-muted/50 text-muted-foreground border-border hover:bg-muted/70"
+                  : "bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500/20"
+              )}
+            >
+              {showAll ? `Filtrar por #${activeVideoName}` : "Mostrar todos"}
+            </button>
+          ) : null}
           <span className="px-3.5 py-1.5 bg-gradient-to-r from-red-500/10 to-red-500/5 rounded-xl text-sm font-semibold text-red-500 border border-red-500/10">
             {records.length}
           </span>
