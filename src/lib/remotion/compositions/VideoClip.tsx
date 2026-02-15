@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useState, useCallback } from "react";
 import { Video as RemotionVideo } from "remotion";
 import { Video as MediaVideo } from "@remotion/media";
 import type { RemotionClip } from "../types";
@@ -7,9 +7,32 @@ import { useZoomInSlow, useTransitionIn, useTransitionOut } from "./effects";
 
 export const VideoClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
   const isWebRender = useContext(RenderModeContext);
+  const [useFallback, setUseFallback] = useState(false);
   const scale = useZoomInSlow(clip.effect, clip.durationInFrames);
   const transIn = useTransitionIn(clip.transition, clip.durationInFrames);
   const transOut = useTransitionOut(clip.transition, clip.durationInFrames);
+
+  // If proxy fails, fall back to original src
+  const src = useFallback
+    ? clip.src
+    : clip.proxySrc || clip.src;
+
+  const onMediaError = useCallback((error: Error) => {
+    if (clip.proxySrc && !useFallback) {
+      console.warn(`[VideoClip] Proxy failed for "${clip.name}", falling back to original src:`, error.message);
+      setUseFallback(true);
+    }
+    // Return "fallback" so @remotion/media uses OffthreadVideo instead of crashing
+    return "fallback" as const;
+  }, [clip.proxySrc, clip.name, useFallback]);
+
+  // For standard <Video>, onError is a plain event handler
+  const onVideoError = useCallback(() => {
+    if (clip.proxySrc && !useFallback) {
+      console.warn(`[VideoClip] Proxy failed for "${clip.name}", falling back to original src`);
+      setUseFallback(true);
+    }
+  }, [clip.proxySrc, clip.name, useFallback]);
 
   // Build transform string
   const transforms: string[] = [];
@@ -47,18 +70,20 @@ export const VideoClip: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
     >
       {isWebRender ? (
         <MediaVideo
-          src={clip.proxySrc || clip.src}
+          src={src}
           trimBefore={clip.startFrom}
           volume={clip.volume ?? 1}
           fallbackOffthreadVideoProps={{ pauseWhenBuffering: true }}
+          onError={onMediaError}
           style={videoStyle}
         />
       ) : (
         <RemotionVideo
-          src={clip.proxySrc || clip.src}
+          src={src}
           startFrom={clip.startFrom}
           volume={clip.volume ?? 1}
           pauseWhenBuffering
+          onError={onVideoError}
           style={videoStyle}
         />
       )}
