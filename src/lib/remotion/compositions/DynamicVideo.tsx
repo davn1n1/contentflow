@@ -4,6 +4,7 @@ import type { RemotionTimeline, RemotionTrack, RemotionClip } from "../types";
 import { VideoClip } from "./VideoClip";
 import { ImageClip } from "./ImageClip";
 import { AudioClip } from "./AudioClip";
+import { TemplateClip } from "./TemplateClip";
 
 /** Premount clips 3 seconds before they appear (at 30fps = 90 frames) */
 const PREMOUNT_FRAMES = 90;
@@ -79,6 +80,8 @@ const ClipRenderer: React.FC<{ clip: RemotionClip }> = ({ clip }) => {
       return <ImageClip clip={clip} />;
     case "audio":
       return <AudioClip clip={clip} />;
+    case "template":
+      return <TemplateClip clip={clip} />;
     default:
       return null;
   }

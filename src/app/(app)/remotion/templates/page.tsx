@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Player, type PlayerRef } from "@remotion/player";
 import {
   templateList,
   type TemplateDefinition,
   type PropMeta,
 } from "@/lib/remotion/templates";
+import { templateToTimeline } from "@/lib/remotion/template-converter";
+import { createClient } from "@/lib/supabase/client";
 import {
   Play,
   Tag,
@@ -17,6 +20,9 @@ import {
   Timer,
   Volume2,
   RotateCcw,
+  Pencil,
+  Save,
+  Loader2,
 } from "lucide-react";
 
 // Group labels + icons
@@ -50,6 +56,63 @@ export default function TemplatesPage() {
   const updateProp = useCallback((key: string, value: number | string) => {
     setCustomProps((prev) => ({ ...prev, [key]: value }));
   }, []);
+
+  const [openingEditor, setOpeningEditor] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const router = useRouter();
+
+  async function openInEditor() {
+    setOpeningEditor(true);
+    try {
+      // Convert template to RemotionTimeline
+      const timeline = templateToTimeline(selected.id, customProps);
+
+      // Upsert into remotion_timelines so the editor can load it
+      const supabase = createClient();
+      const timelineId = `template-${selected.id}`;
+
+      await supabase.from("remotion_timelines").upsert({
+        id: timelineId,
+        video_id: `tpl-${selected.id}`,
+        video_name: `[Template] ${selected.name}`,
+        shotstack_json: { timeline: { tracks: [] }, output: {} },
+        remotion_timeline: timeline,
+        status: "converted",
+      }, { onConflict: "video_id" });
+
+      // Navigate to editor
+      router.push(`/remotion/${timelineId}`);
+    } catch (err) {
+      console.error("Error opening template in editor:", err);
+      setOpeningEditor(false);
+    }
+  }
+
+  async function saveTemplate() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const res = await fetch("/api/remotion/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateId: selected.id,
+          name: selected.name,
+          description: selected.description,
+          props: customProps,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      console.error("Save error:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const duration = (selected.durationInFrames / selected.fps).toFixed(1);
 
@@ -185,6 +248,39 @@ export default function TemplatesPage() {
               </div>
             );
           })}
+
+          {/* Action buttons */}
+          <div className="space-y-2">
+            <button
+              onClick={openInEditor}
+              disabled={openingEditor}
+              className="flex items-center justify-center gap-2 w-full text-sm px-4 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-50"
+            >
+              {openingEditor ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Pencil className="h-4 w-4" />
+              )}
+              {openingEditor ? "Abriendo editor..." : "Abrir en Editor Timeline"}
+            </button>
+
+            <button
+              onClick={saveTemplate}
+              disabled={saving}
+              className={`flex items-center justify-center gap-2 w-full text-sm px-4 py-2.5 rounded-lg border transition-colors font-medium disabled:opacity-50 ${
+                saved
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : "bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
+              }`}
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {saved ? "Guardado" : saving ? "Guardando..." : "Guardar Template"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

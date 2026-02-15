@@ -84,7 +84,7 @@ export interface RemotionTrack {
 export interface RemotionClip {
   id: string;
   name: string; // human-readable label derived from URL/context
-  type: "video" | "image" | "audio";
+  type: "video" | "image" | "audio" | "template";
   src: string;
   proxySrc?: string; // CDN-optimized URL (Cloudflare Stream) for preview playback
   from: number; // frame number
@@ -98,6 +98,9 @@ export interface RemotionClip {
   transition?: ClipTransition;
   filter?: string;
   audioEffect?: AudioEffect;
+  // Template clip fields (only when type === "template")
+  templateId?: string; // registry key, e.g. "text-reveal"
+  templateProps?: Record<string, unknown>; // content + color props (timing comes from audio clips)
 }
 
 export type ClipEffect = "zoomInSlow" | "none";
