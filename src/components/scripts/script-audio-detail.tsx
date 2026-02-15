@@ -2050,7 +2050,6 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   const feedbackRef = useRef<HTMLTextAreaElement>(null);
   const feedbackFocusedRef = useRef(false);
   const [audioRevisado, setAudioRevisado] = useState(scene.audio_revisado_ok);
-  const [showExtra, setShowExtra] = useState(false);
   // Audio playback state for synced captions
   const [audioTime, setAudioTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
@@ -2314,48 +2313,45 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                 })}
               </div>
 
-              {/* ── Tags entonación + Feedback (colapsable) ── */}
-              {(scene.elevenlabs_text_v3_enhanced || scene.feedback_audio) && (
-                <>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setShowExtra(!showExtra); }}
-                    className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all border cursor-pointer",
-                      showExtra
-                        ? "bg-violet-500/20 border-violet-400/40 text-violet-300 shadow-sm shadow-violet-500/10"
-                        : "bg-violet-500/10 border-violet-500/25 text-violet-400/80 hover:bg-violet-500/20 hover:text-violet-300 hover:border-violet-400/40"
-                    )}
-                  >
-                    <ChevronDown className={cn("w-3 h-3 transition-transform", showExtra && "rotate-180")} />
-                    Tags entonación · Feedback
-                  </button>
-                  {showExtra && (
-                    <div className="flex gap-1.5">
-                      {scene.elevenlabs_text_v3_enhanced && (
-                        <div className="flex-1 min-w-0 bg-violet-500/10 rounded px-2 py-1.5">
-                          <RenderTaggedText text={scene.elevenlabs_text_v3_enhanced} />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0 relative">
-                        <textarea
-                          ref={feedbackRef}
-                          value={feedbackValue}
-                          onChange={handleFeedbackChange}
-                          onClick={(e) => e.stopPropagation()}
-                          onFocus={() => { feedbackFocusedRef.current = true; }}
-                          onBlur={() => { feedbackFocusedRef.current = false; }}
-                          onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); saveFeedback(feedbackValue); e.currentTarget.blur(); } }}
-                          className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-500/20 resize-none text-[11px] leading-snug"
-                          rows={2}
-                          placeholder="Feedback audio..."
-                        />
-                        {savingFeedback && <Loader2 className="w-3 h-3 animate-spin text-amber-400 absolute top-1.5 right-1.5" />}
-                        {savedFeedback && !savingFeedback && <CheckCircle2 className="w-3 h-3 text-emerald-400 absolute top-1.5 right-1.5" />}
-                      </div>
-                    </div>
+              {/* ── ElevenLabs Text v3 Enhanced + Feedback Audio ── */}
+              <div className="flex gap-1.5">
+                {/* ElevenLabs Text v3 Enhanced (read-only) */}
+                <div
+                  className="flex-1 min-w-0 bg-violet-500/10 rounded px-2 py-1.5"
+                  title="Si es V3 de Elevenlabs, muestra los tags de entonación."
+                >
+                  <p className="text-[9px] uppercase tracking-wider text-violet-400/70 font-semibold mb-0.5">ElevenLabs Text v3</p>
+                  {scene.elevenlabs_text_v3_enhanced ? (
+                    <RenderTaggedText text={scene.elevenlabs_text_v3_enhanced} />
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground/30 italic">Sin tags de entonación</p>
                   )}
-                </>
-              )}
+                </div>
+
+                {/* Feedback Audio Elevenlabs (editable) */}
+                <div
+                  className="flex-1 min-w-0 relative"
+                  title="Si se usa la Voz V3 de Elevenlabs, se le puede dar indicaciones de la emoción o entonación"
+                >
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <p className="text-[9px] uppercase tracking-wider text-amber-400/70 font-semibold">Feedback Audio</p>
+                    {savingFeedback && <Loader2 className="w-3 h-3 animate-spin text-amber-400" />}
+                    {savedFeedback && !savingFeedback && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                  </div>
+                  <textarea
+                    ref={feedbackRef}
+                    value={feedbackValue}
+                    onChange={handleFeedbackChange}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={() => { feedbackFocusedRef.current = true; }}
+                    onBlur={() => { feedbackFocusedRef.current = false; }}
+                    onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); saveFeedback(feedbackValue); e.currentTarget.blur(); } }}
+                    className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-500/20 resize-none text-[11px] leading-snug"
+                    rows={2}
+                    placeholder="Indicaciones de emoción o entonación..."
+                  />
+                </div>
+              </div>
 
             </div>
           </td>
