@@ -1866,6 +1866,22 @@ function extractEmoji(text: string | null): string {
   return match ? match[0] : "—";
 }
 
+/** Render emoji with explicit color — ⚠ renders white on some systems */
+function ColoredEmoji({ text }: { text: string | null }) {
+  const emoji = extractEmoji(text);
+  if (emoji === "—") return <span className="text-muted-foreground/30">—</span>;
+  // Warning emojis: force amber
+  if (emoji === "⚠" || emoji === "⚠️" || emoji === "🟡" || emoji === "🟠")
+    return <span className="text-amber-400 text-base leading-none drop-shadow-[0_0_3px_rgba(251,191,36,0.4)]">{emoji}</span>;
+  // Error emojis: force red
+  if (emoji === "❌" || emoji === "🔴")
+    return <span className="text-red-400 text-base leading-none">{emoji}</span>;
+  // OK emojis: force green
+  if (emoji === "✅" || emoji === "🟢")
+    return <span className="text-emerald-400 text-base leading-none">{emoji}</span>;
+  return <span>{emoji}</span>;
+}
+
 // Parse "RESUMEN\n✅\n\nANÁLISIS DETALLADO\ntext..." → "✅ text..."
 function parseVozCompact(text: string | null): string | null {
   if (!text) return null;
@@ -2218,18 +2234,18 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSi
             {audioRevisado ? (
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             ) : (
-              <XCircle className="w-3.5 h-3.5 text-amber-400/60 hover:text-amber-400" />
+              <XCircle className="w-3.5 h-3.5 text-muted-foreground/30 hover:text-red-400/60" />
             )}
           </button>
         </td>
-        <td className="px-1 py-2.5 text-center text-sm" title={generatingAudio ? undefined : scene.analisis_voz_1 || undefined}>
-          {generatingAudio ? <span className="text-blue-400/50 text-xs">…</span> : extractEmoji(scene.analisis_voz_1)}
+        <td className="px-1 py-2.5 text-center" title={generatingAudio ? undefined : scene.analisis_voz_1 || undefined}>
+          {generatingAudio ? <span className="text-blue-400/50 text-xs">…</span> : <ColoredEmoji text={scene.analisis_voz_1} />}
         </td>
-        <td className="px-1 py-2.5 text-center text-sm" title={generatingAudio ? undefined : scene.analisis_voz_2 || undefined}>
-          {generatingAudio ? <span className="text-blue-400/50 text-xs">…</span> : extractEmoji(scene.analisis_voz_2)}
+        <td className="px-1 py-2.5 text-center" title={generatingAudio ? undefined : scene.analisis_voz_2 || undefined}>
+          {generatingAudio ? <span className="text-blue-400/50 text-xs">…</span> : <ColoredEmoji text={scene.analisis_voz_2} />}
         </td>
-        <td className="px-1 py-2.5 text-center text-sm" title={generatingAudio ? undefined : scene.analisis_voz_3 || undefined}>
-          {generatingAudio ? <span className="text-blue-400/50 text-xs">…</span> : extractEmoji(scene.analisis_voz_3)}
+        <td className="px-1 py-2.5 text-center" title={generatingAudio ? undefined : scene.analisis_voz_3 || undefined}>
+          {generatingAudio ? <span className="text-blue-400/50 text-xs">…</span> : <ColoredEmoji text={scene.analisis_voz_3} />}
         </td>
         <td className="px-0.5 py-2.5">
           <ChevronDown className={cn(
@@ -2718,9 +2734,9 @@ function StatusIndicator({ active }: { active: boolean }) {
   return (
     <span className={cn(
       "inline-flex items-center gap-1.5 text-xs font-medium",
-      active ? "text-emerald-400" : "text-amber-400/70"
+      active ? "text-emerald-400" : "text-muted-foreground"
     )}>
-      {active ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+      {active ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5 opacity-40" />}
       {active ? "Completado" : "Pendiente"}
     </span>
   );
