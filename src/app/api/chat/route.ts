@@ -172,8 +172,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 13. Stream AI response
+    const chatModel = process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5";
+    console.log("[Chat] Using model:", chatModel, "| OPENROUTER_API_KEY set:", !!process.env.OPENROUTER_API_KEY);
     const result = streamText({
-      model: openrouter.chat(process.env.CHAT_MODEL || "anthropic/claude-sonnet-4.5"),
+      model: openrouter.chat(chatModel),
       system: systemPrompt,
       messages: windowed.messages,
       tools,
