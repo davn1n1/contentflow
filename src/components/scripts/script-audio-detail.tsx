@@ -2305,7 +2305,11 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                   const parsed = parseVozCompact(raw);
                   if (!parsed) return null;
                   return (
-                    <div key={i} className="flex-1 bg-muted/25 rounded px-2 py-1.5 min-w-0">
+                    <div
+                      key={i}
+                      className="flex-1 bg-muted/25 rounded px-2 py-1.5 min-w-0 animate-[analysis-enter_0.7s_ease-out_both]"
+                      style={{ animationDelay: `${i * 120}ms` }}
+                    >
                       <p className="text-[11px] whitespace-pre-wrap leading-snug text-foreground/80">{parsed}</p>
                     </div>
                   );
