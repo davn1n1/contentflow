@@ -10,8 +10,10 @@ import {
   Link2,
   X,
   User,
+  Maximize2,
 } from "lucide-react";
 import type { LinkedFieldDef } from "@/lib/constants/linked-fields";
+import { LinkedRecordDetail } from "@/components/app-data/linked-record-detail";
 
 interface ResolvedRecord {
   id: string;
@@ -98,6 +100,7 @@ export function LinkedRecordSelector({
   const [options, setOptions] = useState<ResolvedRecord[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -310,12 +313,26 @@ export function LinkedRecordSelector({
               </>
             )}
           </div>
-          <ChevronDown
-            className={cn(
-              "w-4 h-4 text-muted-foreground transition-transform flex-shrink-0",
-              isOpen && "rotate-180"
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {recordIds.length > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedRecordId(recordIds[0]);
+                }}
+                className="p-1 rounded-md hover:bg-muted transition-colors"
+                title="Expandir registro"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
             )}
-          />
+            <ChevronDown
+              className={cn(
+                "w-4 h-4 text-muted-foreground transition-transform",
+                isOpen && "rotate-180"
+              )}
+            />
+          </div>
         </div>
       </div>
 
@@ -426,6 +443,20 @@ export function LinkedRecordSelector({
             </div>
           )}
         </div>
+      )}
+
+      {/* Expand record detail dialog */}
+      {expandedRecordId && (
+        <LinkedRecordDetail
+          recordId={expandedRecordId}
+          table={config.table}
+          accountId={accountId}
+          onClose={() => setExpandedRecordId(null)}
+          onSaved={() => {
+            // Clear resolved cache so it re-fetches with updated data
+            setResolvedRecords({});
+          }}
+        />
       )}
     </div>
   );
