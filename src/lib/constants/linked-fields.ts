@@ -56,6 +56,7 @@ export const LINKED_FIELD_CONFIG: Record<string, Record<string, LinkedFieldDef>>
       table: "broll",
       nameFields: ["Id And Tags Summary"],
       imageField: "Broll Thumb",
+      filter: "AND({Status}='Activo',{Custom}=TRUE(),FIND('INTRO',ARRAYJOIN({Tags},',')))",
       hasAccount: true,
       detailFields: [
         { field: "Tags", type: "tags" },
@@ -65,6 +66,7 @@ export const LINKED_FIELD_CONFIG: Record<string, Record<string, LinkedFieldDef>>
       table: "broll",
       nameFields: ["Id And Tags Summary"],
       imageField: "Broll Thumb",
+      filter: "AND({Status}='Activo',{Custom}=TRUE(),FIND('CTA',ARRAYJOIN({Tags},',')))",
       hasAccount: true,
       detailFields: [
         { field: "Tags", type: "tags" },
@@ -145,6 +147,7 @@ export const LINKED_FIELD_CONFIG: Record<string, Record<string, LinkedFieldDef>>
       table: "broll",
       nameFields: ["Id And Tags Summary"],
       imageField: "Broll Thumb",
+      filter: "AND({Status}='Activo',{Custom}=TRUE(),FIND('INTRO',ARRAYJOIN({Tags},',')))",
       hasAccount: true,
       detailFields: [
         { field: "Tags", type: "tags" },
@@ -154,6 +157,7 @@ export const LINKED_FIELD_CONFIG: Record<string, Record<string, LinkedFieldDef>>
       table: "broll",
       nameFields: ["Id And Tags Summary"],
       imageField: "Broll Thumb",
+      filter: "AND({Status}='Activo',{Custom}=TRUE(),FIND('CTA',ARRAYJOIN({Tags},',')))",
       hasAccount: true,
       detailFields: [
         { field: "Tags", type: "tags" },
