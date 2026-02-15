@@ -4,7 +4,9 @@ import { Play, Clock, Check, AlertCircle, Image } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRenders } from "@/lib/hooks/use-renders";
 import { ActionButton } from "@/components/scripts/script-audio-detail";
+import { getEngineColor } from "@/lib/constants/engine-colors";
 import type { VideoWithScenes } from "@/lib/hooks/use-video-detail";
+import type { AeRender } from "@/types/database";
 
 function statusIcon(status: string | null) {
   if (!status) return <Clock className="w-3.5 h-3.5 text-muted-foreground" />;
@@ -13,6 +15,11 @@ function statusIcon(status: string | null) {
   if (status.toLowerCase().includes("error"))
     return <AlertCircle className="w-3.5 h-3.5 text-destructive" />;
   return <Clock className="w-3.5 h-3.5 text-warning animate-pulse" />;
+}
+
+function getRenderVideoUrl(render: AeRender): string | null {
+  if (render.render_engine === "Remotion") return render.url_s3_remotion;
+  return render.url_s3_plainly;
 }
 
 export function RenderTabPanel({ video }: { video: VideoWithScenes }) {
@@ -84,9 +91,21 @@ export function RenderTabPanel({ video }: { video: VideoWithScenes }) {
           {renders.map((render) => (
             <div key={render.id} className="glass-card rounded-xl p-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-bold text-foreground">
-                  Render #{render.n_render}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-foreground">
+                    Render #{render.n_render}
+                  </span>
+                  {render.render_engine && (
+                    <span className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded-full border",
+                      getEngineColor(render.render_engine).text,
+                      getEngineColor(render.render_engine).bg,
+                      getEngineColor(render.render_engine).border,
+                    )}>
+                      {render.render_engine}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-1.5">
                   {statusIcon(render.status)}
                   <span className="text-xs text-muted-foreground">
@@ -116,6 +135,17 @@ export function RenderTabPanel({ video }: { video: VideoWithScenes }) {
                   {render.duration_total_escena?.toFixed(1)}s
                 </span>
               </div>
+
+              {getRenderVideoUrl(render) && (
+                <a
+                  href={getRenderVideoUrl(render)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 block text-xs text-primary hover:underline truncate"
+                >
+                  Ver video renderizado
+                </a>
+              )}
             </div>
           ))}
         </div>

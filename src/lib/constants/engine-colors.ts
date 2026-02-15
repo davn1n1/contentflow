@@ -15,6 +15,7 @@ export const ENGINE_COLORS: Record<string, { text: string; bg: string; border: s
   Flux: { text: "text-pink-400", bg: "bg-pink-400/10", border: "border-pink-400/30" },
   Midjourney: { text: "text-cyan-400", bg: "bg-cyan-400/10", border: "border-cyan-400/30" },
   "DALL-E": { text: "text-teal-400", bg: "bg-teal-400/10", border: "border-teal-400/30" },
+  Remotion: { text: "text-emerald-400", bg: "bg-emerald-400/10", border: "border-emerald-400/30" },
 };
 
 export function getEngineColor(engine: string) {

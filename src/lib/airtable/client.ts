@@ -31,6 +31,7 @@ export const TABLES = {
   MONTAJE_VIDEO: "tblWxMWmOPH1ji5td",
   FORMATO_DISENO_SLIDES: "tblfVdoehsdbjxmoq",
   ESTILOS_MUSICALES: "tblb9FDBMdxF6IFjT",
+  AE_TEMPLATES: "tblLEkwWRBR9H7UDy",
 } as const;
 
 interface AirtableResponse<T = Record<string, unknown>> {

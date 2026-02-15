@@ -155,6 +155,10 @@ export interface AeRender {
   ae_template_ids: string[];
   ae_template_estilo: string[];
   muestra_ae: string | null;
+  // Remotion render engine fields
+  url_s3_remotion: string | null;
+  render_engine: string | null;
+  remotion_template_id: string | null;
 }
 
 export interface Timeline {

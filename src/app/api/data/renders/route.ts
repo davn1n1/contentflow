@@ -10,6 +10,9 @@ const RENDER_FIELDS = [
   "Feedback Render", "Estado Render", "Copy_ES",
   "After Effects Templates", "Estilo (from After Effects Templates)",
   "Muestra (From After Effects Template)",
+  "URL S3 Remotion",
+  "Render Engine (from After Effects Templates)",
+  "Remotion Template ID (from After Effects Templates)",
 ];
 
 interface RenderFields {
@@ -33,6 +36,9 @@ interface RenderFields {
   "After Effects Templates"?: string[];
   "Estilo (from After Effects Templates)"?: string[];
   "Muestra (From After Effects Template)"?: unknown[];
+  "URL S3 Remotion"?: string;
+  "Render Engine (from After Effects Templates)"?: string[];
+  "Remotion Template ID (from After Effects Templates)"?: string[];
 }
 
 // Extract URL from an Airtable attachment value (array of {url, thumbnails, ...})
@@ -96,6 +102,13 @@ export async function GET(request: NextRequest) {
           ? r.fields["Estilo (from After Effects Templates)"]
           : [],
         muestra_ae: extractAttachmentUrl(r.fields["Muestra (From After Effects Template)"]),
+        url_s3_remotion: r.fields["URL S3 Remotion"] || null,
+        render_engine: Array.isArray(r.fields["Render Engine (from After Effects Templates)"])
+          ? r.fields["Render Engine (from After Effects Templates)"][0] || null
+          : null,
+        remotion_template_id: Array.isArray(r.fields["Remotion Template ID (from After Effects Templates)"])
+          ? r.fields["Remotion Template ID (from After Effects Templates)"][0] || null
+          : null,
       }))
       .sort((a, b) => a.n_render - b.n_render);
 
