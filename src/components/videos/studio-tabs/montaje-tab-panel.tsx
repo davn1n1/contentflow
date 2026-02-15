@@ -17,6 +17,8 @@ import { useRenders } from "@/lib/hooks/use-renders";
 import type { AeRender } from "@/types/database";
 import type { VideoWithScenes, SceneDetail } from "@/lib/hooks/use-video-detail";
 import { LinkedRecordSelector } from "@/components/app-data/linked-record-selector";
+import { RecordEditDrawer } from "@/components/app-data/record-edit-drawer";
+import type { AppDataRecord } from "@/lib/hooks/use-app-data";
 import { getLinkedFieldDef } from "@/lib/constants/linked-fields";
 import { useAccountStore } from "@/lib/stores/account-store";
 
@@ -1343,6 +1345,19 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
   const { currentAccount } = useAccountStore();
   const accountId = currentAccount?.id;
 
+  // Expand linked record state
+  const [expandedLinked, setExpandedLinked] = useState<{ recordId: string; table: string } | null>(null);
+  const [expandedLinkedData, setExpandedLinkedData] = useState<AppDataRecord | null>(null);
+
+  const handleExpandRecord = useCallback((recordId: string, table: string) => {
+    setExpandedLinked({ recordId, table });
+    setExpandedLinkedData(null);
+    fetch(`/api/data/app-data?table=${encodeURIComponent(table)}&id=${encodeURIComponent(recordId)}`)
+      .then((r) => { if (!r.ok) throw new Error("Failed"); return r.json(); })
+      .then((data) => setExpandedLinkedData(data as AppDataRecord))
+      .catch(() => setExpandedLinked(null));
+  }, []);
+
   const handleLinkedUpdate = useCallback(
     async (field: string, ids: string[]) => {
       try {
@@ -1397,6 +1412,7 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
   }, [needsPolling, queryClient]);
 
   return (
+    <>
     <div
       className="h-full overflow-y-auto px-6 py-6 space-y-6"
       onKeyDown={(e) => { if (e.key === " " && (e.target as HTMLElement).tagName !== "TEXTAREA" && (e.target as HTMLElement).tagName !== "INPUT") e.preventDefault(); }}
@@ -1410,6 +1426,7 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
             config={formatoConfig}
             accountId={accountId}
             onChange={(ids) => handleLinkedUpdate("Formato Diseño Slides", ids)}
+            onExpandRecord={handleExpandRecord}
           />
         )}
         {estiloConfig && (
@@ -1419,6 +1436,7 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
             config={estiloConfig}
             accountId={accountId}
             onChange={(ids) => handleLinkedUpdate("Estilos Musicales", ids)}
+            onExpandRecord={handleExpandRecord}
           />
         )}
       </div>
@@ -1472,5 +1490,14 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
         )}
       </div>
     </div>
+    {expandedLinked && expandedLinkedData && (
+      <RecordEditDrawer
+        record={expandedLinkedData}
+        table={expandedLinked.table}
+        accountId={accountId}
+        onClose={() => { setExpandedLinked(null); setExpandedLinkedData(null); }}
+      />
+    )}
+    </>
   );
 }

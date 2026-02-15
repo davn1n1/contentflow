@@ -14,6 +14,8 @@ import {
 import type { VideoWithScenes, LinkedIdea, LinkedIdeaFull, SceneDetail } from "@/lib/hooks/use-video-detail";
 import { WaveformAudioPlayer, SyncedCaptions } from "@/components/shared/waveform-audio-player";
 import { LinkedRecordSelector } from "@/components/app-data/linked-record-selector";
+import { RecordEditDrawer } from "@/components/app-data/record-edit-drawer";
+import type { AppDataRecord } from "@/lib/hooks/use-app-data";
 import { getLinkedFieldDef } from "@/lib/constants/linked-fields";
 import { useAccountStore } from "@/lib/stores/account-store";
 
@@ -522,6 +524,10 @@ function LinkedRecordSection({ videoId, video }: { videoId: string; video: Video
   const { currentAccount } = useAccountStore();
   const accountId = currentAccount?.id;
 
+  // Expand linked record state
+  const [expandedLinked, setExpandedLinked] = useState<{ recordId: string; table: string } | null>(null);
+  const [expandedLinkedData, setExpandedLinkedData] = useState<AppDataRecord | null>(null);
+
   const handleUpdate = useCallback(
     async (field: string, ids: string[]) => {
       try {
@@ -540,53 +546,76 @@ function LinkedRecordSection({ videoId, video }: { videoId: string; video: Video
     [videoId, queryClient]
   );
 
+  const handleExpandRecord = useCallback((recordId: string, table: string) => {
+    setExpandedLinked({ recordId, table });
+    setExpandedLinkedData(null);
+    fetch(`/api/data/app-data?table=${encodeURIComponent(table)}&id=${encodeURIComponent(recordId)}`)
+      .then((r) => { if (!r.ok) throw new Error("Failed"); return r.json(); })
+      .then((data) => setExpandedLinkedData(data as AppDataRecord))
+      .catch(() => setExpandedLinked(null));
+  }, []);
+
   const introConfig = getLinkedFieldDef("videos", "Intro");
   const ctaConfig = getLinkedFieldDef("videos", "CTA");
   const introBrollConfig = getLinkedFieldDef("videos", "Intro Broll");
   const ctaBrollConfig = getLinkedFieldDef("videos", "CTA Broll");
 
   return (
-    <div className="glass-card rounded-xl p-5 space-y-4">
-      <h3 className="text-sm font-semibold text-foreground">Intro & CTA</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-        {introConfig && (
-          <LinkedRecordSelector
-            fieldName="Intro (Texto)"
-            recordIds={video.intro_ids || []}
-            config={introConfig}
-            accountId={accountId}
-            onChange={(ids) => handleUpdate("Intro", ids)}
-          />
-        )}
-        {ctaConfig && (
-          <LinkedRecordSelector
-            fieldName="CTA (Texto)"
-            recordIds={video.cta_ids || []}
-            config={ctaConfig}
-            accountId={accountId}
-            onChange={(ids) => handleUpdate("CTA", ids)}
-          />
-        )}
-        {introBrollConfig && (
-          <LinkedRecordSelector
-            fieldName="Intro Broll"
-            recordIds={video.intro_broll_ids || []}
-            config={introBrollConfig}
-            accountId={accountId}
-            onChange={(ids) => handleUpdate("Intro Broll", ids)}
-          />
-        )}
-        {ctaBrollConfig && (
-          <LinkedRecordSelector
-            fieldName="CTA Broll"
-            recordIds={video.cta_broll_ids || []}
-            config={ctaBrollConfig}
-            accountId={accountId}
-            onChange={(ids) => handleUpdate("CTA Broll", ids)}
-          />
-        )}
+    <>
+      <div className="glass-card rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-foreground">Intro & CTA</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+          {introConfig && (
+            <LinkedRecordSelector
+              fieldName="Intro (Texto)"
+              recordIds={video.intro_ids || []}
+              config={introConfig}
+              accountId={accountId}
+              onChange={(ids) => handleUpdate("Intro", ids)}
+              onExpandRecord={handleExpandRecord}
+            />
+          )}
+          {ctaConfig && (
+            <LinkedRecordSelector
+              fieldName="CTA (Texto)"
+              recordIds={video.cta_ids || []}
+              config={ctaConfig}
+              accountId={accountId}
+              onChange={(ids) => handleUpdate("CTA", ids)}
+              onExpandRecord={handleExpandRecord}
+            />
+          )}
+          {introBrollConfig && (
+            <LinkedRecordSelector
+              fieldName="Intro Broll"
+              recordIds={video.intro_broll_ids || []}
+              config={introBrollConfig}
+              accountId={accountId}
+              onChange={(ids) => handleUpdate("Intro Broll", ids)}
+              onExpandRecord={handleExpandRecord}
+            />
+          )}
+          {ctaBrollConfig && (
+            <LinkedRecordSelector
+              fieldName="CTA Broll"
+              recordIds={video.cta_broll_ids || []}
+              config={ctaBrollConfig}
+              accountId={accountId}
+              onChange={(ids) => handleUpdate("CTA Broll", ids)}
+              onExpandRecord={handleExpandRecord}
+            />
+          )}
+        </div>
       </div>
-    </div>
+      {expandedLinked && expandedLinkedData && (
+        <RecordEditDrawer
+          record={expandedLinkedData}
+          table={expandedLinked.table}
+          accountId={accountId}
+          onClose={() => { setExpandedLinked(null); setExpandedLinkedData(null); }}
+        />
+      )}
+    </>
   );
 }
 
@@ -597,6 +626,10 @@ function AvatarPersonaSection({ videoId, video }: { videoId: string; video: Vide
   const { currentAccount } = useAccountStore();
   const accountId = currentAccount?.id;
 
+  // Expand linked record state
+  const [expandedLinked, setExpandedLinked] = useState<{ recordId: string; table: string } | null>(null);
+  const [expandedLinkedData, setExpandedLinkedData] = useState<AppDataRecord | null>(null);
+
   const handleUpdate = useCallback(
     async (field: string, ids: string[]) => {
       try {
@@ -615,30 +648,51 @@ function AvatarPersonaSection({ videoId, video }: { videoId: string; video: Vide
     [videoId, queryClient]
   );
 
+  const handleExpandRecord = useCallback((recordId: string, table: string) => {
+    setExpandedLinked({ recordId, table });
+    setExpandedLinkedData(null);
+    fetch(`/api/data/app-data?table=${encodeURIComponent(table)}&id=${encodeURIComponent(recordId)}`)
+      .then((r) => { if (!r.ok) throw new Error("Failed"); return r.json(); })
+      .then((data) => setExpandedLinkedData(data as AppDataRecord))
+      .catch(() => setExpandedLinked(null));
+  }, []);
+
   const avatarConfig = getLinkedFieldDef("videos", "Avatar Set");
   const personaConfig = getLinkedFieldDef("videos", "Persona");
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {avatarConfig && (
-        <LinkedRecordSelector
-          fieldName="Avatar Set"
-          recordIds={video.avatar_set_ids || []}
-          config={avatarConfig}
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {avatarConfig && (
+          <LinkedRecordSelector
+            fieldName="Avatar Set"
+            recordIds={video.avatar_set_ids || []}
+            config={avatarConfig}
+            accountId={accountId}
+            onChange={(ids) => handleUpdate("Avatar Set", ids)}
+            onExpandRecord={handleExpandRecord}
+          />
+        )}
+        {personaConfig && (
+          <LinkedRecordSelector
+            fieldName="Persona"
+            recordIds={video.persona_ids || []}
+            config={personaConfig}
+            accountId={accountId}
+            onChange={(ids) => handleUpdate("Persona", ids)}
+            onExpandRecord={handleExpandRecord}
+          />
+        )}
+      </div>
+      {expandedLinked && expandedLinkedData && (
+        <RecordEditDrawer
+          record={expandedLinkedData}
+          table={expandedLinked.table}
           accountId={accountId}
-          onChange={(ids) => handleUpdate("Avatar Set", ids)}
+          onClose={() => { setExpandedLinked(null); setExpandedLinkedData(null); }}
         />
       )}
-      {personaConfig && (
-        <LinkedRecordSelector
-          fieldName="Persona"
-          recordIds={video.persona_ids || []}
-          config={personaConfig}
-          accountId={accountId}
-          onChange={(ids) => handleUpdate("Persona", ids)}
-        />
-      )}
-    </div>
+    </>
   );
 }
 

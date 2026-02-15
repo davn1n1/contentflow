@@ -93,6 +93,8 @@ export function LinkedRecordSelector({
   onChange,
   onExpandRecord,
 }: LinkedRecordSelectorProps) {
+  // Optimistic local IDs — immediately reflects user selection before parent updates
+  const [localIds, setLocalIds] = useState<string[]>(recordIds);
   const [resolvedRecords, setResolvedRecords] = useState<
     Record<string, ResolvedRecord>
   >({});
@@ -103,6 +105,12 @@ export function LinkedRecordSelector({
   const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Sync localIds when parent prop changes (e.g., after refetch)
+  useEffect(() => {
+    setLocalIds(recordIds);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordIds.join(",")]);
 
   // Build API params with account + image + hasAccount + detailFields
   const buildParams = useCallback(
@@ -126,8 +134,8 @@ export function LinkedRecordSelector({
 
   // Resolve current linked record names + images + extras
   useEffect(() => {
-    if (recordIds.length === 0) return;
-    const idsToResolve = recordIds.filter((id) => !resolvedRecords[id]);
+    if (localIds.length === 0) return;
+    const idsToResolve = localIds.filter((id) => !resolvedRecords[id]);
     if (idsToResolve.length === 0) return;
 
     setLoadingNames(true);
@@ -148,7 +156,7 @@ export function LinkedRecordSelector({
       .catch(console.error)
       .finally(() => setLoadingNames(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recordIds.join(","), config.table, buildParams]);
+  }, [localIds.join(","), config.table, buildParams]);
 
   // Fetch available options when dropdown opens
   const fetchOptions = useCallback(async () => {
@@ -198,23 +206,26 @@ export function LinkedRecordSelector({
     return () => document.removeEventListener("mousedown", handler);
   }, [isOpen]);
 
-  // Select a record
+  // Select a record (optimistic + notify parent)
   const handleSelect = (id: string) => {
+    let newIds: string[];
     if (config.multiple) {
-      if (recordIds.includes(id)) {
-        onChange(recordIds.filter((r) => r !== id));
-      } else {
-        onChange([...recordIds, id]);
-      }
+      newIds = localIds.includes(id)
+        ? localIds.filter((r) => r !== id)
+        : [...localIds, id];
     } else {
-      onChange([id]);
+      newIds = [id];
       setIsOpen(false);
     }
+    setLocalIds(newIds);
+    onChange(newIds);
   };
 
   // Remove a record (for multi-select)
   const handleRemove = (id: string) => {
-    onChange(recordIds.filter((r) => r !== id));
+    const newIds = localIds.filter((r) => r !== id);
+    setLocalIds(newIds);
+    onChange(newIds);
   };
 
   // Filter options by search
@@ -225,7 +236,7 @@ export function LinkedRecordSelector({
     : options;
 
   const currentRecord =
-    recordIds.length > 0 ? resolvedRecords[recordIds[0]] : null;
+    localIds.length > 0 ? resolvedRecords[localIds[0]] : null;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -268,13 +279,13 @@ export function LinkedRecordSelector({
                   Cargando...
                 </span>
               </div>
-            ) : recordIds.length === 0 ? (
+            ) : localIds.length === 0 ? (
               <p className="text-sm text-muted-foreground/60 mt-0.5">
                 Sin asignar
               </p>
             ) : config.multiple ? (
               <div className="flex flex-wrap gap-1 mt-1">
-                {recordIds.map((id) => {
+                {localIds.map((id) => {
                   const rec = resolvedRecords[id];
                   return (
                     <span
@@ -307,18 +318,18 @@ export function LinkedRecordSelector({
               <>
                 <p className="text-sm font-medium text-foreground truncate mt-0.5">
                   {currentRecord?.name ||
-                    recordIds[0]?.slice(0, 12) + "..."}
+                    localIds[0]?.slice(0, 12) + "..."}
                 </p>
                 {currentRecord && <DetailExtras record={currentRecord} config={config} />}
               </>
             )}
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            {recordIds.length > 0 && onExpandRecord && (
+            {localIds.length > 0 && onExpandRecord && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onExpandRecord(recordIds[0], config.table);
+                  onExpandRecord(localIds[0], config.table);
                 }}
                 className="p-1 rounded-md hover:bg-muted transition-colors"
                 title="Expandir registro"
@@ -369,7 +380,7 @@ export function LinkedRecordSelector({
               </div>
             ) : (
               filteredOptions.map((option) => {
-                const isSelected = recordIds.includes(option.id);
+                const isSelected = localIds.includes(option.id);
                 return (
                   <button
                     key={option.id}
@@ -428,10 +439,11 @@ export function LinkedRecordSelector({
           </div>
 
           {/* Clear option */}
-          {recordIds.length > 0 && (
+          {localIds.length > 0 && (
             <div className="p-1 border-t border-border">
               <button
                 onClick={() => {
+                  setLocalIds([]);
                   onChange([]);
                   setIsOpen(false);
                 }}
