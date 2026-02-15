@@ -265,6 +265,11 @@ export default function RemotionPreviewPage() {
 
   useEffect(() => {
     async function fetchTimeline() {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        setError("ID de timeline invalido");
+        setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`/api/remotion/convert?id=${id}`);
         if (!res.ok) throw new Error("Timeline not found");

@@ -62,6 +62,12 @@ export default function QuickRenderPage() {
   // Fetch timeline record (minimal fields)
   useEffect(() => {
     async function load() {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        setError("ID de timeline invalido");
+        setLoading(false);
+        return;
+      }
+
       const supabase = createClient();
       const { data, error: dbErr } = await supabase
         .from("remotion_timelines")
