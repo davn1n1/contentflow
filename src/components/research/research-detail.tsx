@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Loader2, TrendingUp, Lightbulb, LayoutGrid, Globe, Link2, Calendar } from "lucide-react";
+import { Loader2, TrendingUp, Lightbulb, LayoutGrid, Globe, Link2, Calendar, Sparkles, Brain, FileText, type LucideIcon } from "lucide-react";
 import type { ResearchDetail } from "@/lib/hooks/use-research";
 import { SelectedIdeaCard } from "./selected-idea-card";
 import { useIdea } from "@/lib/hooks/use-ideas";
@@ -13,13 +13,13 @@ interface ResearchDetailProps {
   isLoading: boolean;
 }
 
-const TABS = [
-  { key: "seleccionadas", label: "💡Ideas Seleccionadas" },
-  { key: "research24h", label: "🤖Research Últimas 24 Horas" },
-  { key: "conclusion", label: "Conclusión Research" },
-] as const;
+const TABS: { key: string; label: string; icon: LucideIcon; activeColor: string }[] = [
+  { key: "seleccionadas", label: "Ideas Seleccionadas", icon: Sparkles, activeColor: "text-amber-400" },
+  { key: "research24h", label: "Research 24h", icon: Brain, activeColor: "text-blue-400" },
+  { key: "conclusion", label: "Conclusión", icon: FileText, activeColor: "text-emerald-400" },
+];
 
-type TabKey = (typeof TABS)[number]["key"];
+type TabKey = string;
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "";
@@ -64,21 +64,26 @@ export function ResearchDetailPanel({ research, isLoading }: ResearchDetailProps
         </h1>
 
         {/* Tabs — pill style */}
-        <div className="flex gap-1.5 p-1 bg-muted/40 rounded-lg">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium whitespace-nowrap rounded-md transition-all duration-200",
-                activeTab === tab.key
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex gap-1 p-1 bg-muted/40 rounded-xl">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium whitespace-nowrap rounded-lg transition-all duration-200",
+                  isActive
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                )}
+              >
+                <Icon className={cn("w-3.5 h-3.5", isActive && tab.activeColor)} />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
