@@ -1924,6 +1924,7 @@ function RenderTaggedText({ text }: { text: string }) {
 
 function AudioSceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [fontSize, setFontSize] = useState(12);
 
   // Keyboard navigation: up/down arrows to move between scenes, space to play/pause
   const handleKeyNav = useCallback(
@@ -2025,6 +2026,8 @@ function AudioSceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
                   isExpanded={isExpanded}
                   onToggle={() => setExpandedId(isExpanded ? null : scene.id)}
                   expandedRef={isExpanded ? expandedRowRef : undefined}
+                  fontSize={fontSize}
+                  onFontSizeChange={setFontSize}
                 />
               );
             })}
@@ -2035,11 +2038,13 @@ function AudioSceneSummaryTable({ scenes }: { scenes: SceneDetail[] }) {
   );
 }
 
-function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
+function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSize, onFontSizeChange }: {
   scene: SceneDetail;
   isExpanded: boolean;
   onToggle: () => void;
   expandedRef?: React.RefObject<HTMLTableRowElement | null>;
+  fontSize: number;
+  onFontSizeChange: (size: number) => void;
 }) {
   const [scriptValue, setScriptValue] = useState(scene.script || "");
   const { save: saveScript, saving: savingScript, saved: savedScript } = useSceneAutoSave(scene.id, "Script", 1500);
@@ -2071,13 +2076,13 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
     setAudioRevisado(scene.audio_revisado_ok);
   }, [scene.audio_revisado_ok]);
 
-  // Auto-resize textareas
+  // Auto-resize textareas (reacts to content, fontSize, and expand state)
   useEffect(() => {
     if (isExpanded && textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
     }
-  }, [isExpanded, scriptValue]);
+  }, [isExpanded, scriptValue, fontSize]);
   useEffect(() => {
     if (isExpanded && feedbackRef.current) {
       feedbackRef.current.style.height = "auto";
@@ -2267,6 +2272,23 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                   {audioRevisado ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
                   {audioRevisado ? "OK" : "No"}
                 </button>
+                <div className="flex items-center rounded-md border border-border/60 overflow-hidden shrink-0">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onFontSizeChange(Math.max(10, fontSize - 2)); }}
+                    className="px-1.5 py-0.5 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    title="Reducir texto"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <span className="text-[9px] text-muted-foreground/60 tabular-nums px-1 border-x border-border/40">{fontSize}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onFontSizeChange(Math.min(24, fontSize + 2)); }}
+                    className="px-1.5 py-0.5 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    title="Aumentar texto"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                </div>
                 <SceneActionButton sceneId={scene.id} currentVoiceS3={scene.voice_s3} onGenerating={() => setGeneratingAudio(true)} onAudioReady={() => setGeneratingAudio(false)} />
               </div>
 
@@ -2292,8 +2314,9 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                     onClick={(e) => e.stopPropagation()}
                     onFocus={() => { scriptFocusedRef.current = true; }}
                     onBlur={() => { scriptFocusedRef.current = false; }}
-                    className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none text-[11px] leading-snug"
-                    rows={3}
+                    style={{ fontSize: `${fontSize}px` }}
+                    className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none leading-snug overflow-hidden"
+                    rows={2}
                     placeholder="Script..."
                   />
                   {savingScript && <Loader2 className="w-3 h-3 animate-spin text-amber-400 absolute top-1.5 right-1.5" />}
