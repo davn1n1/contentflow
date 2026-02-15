@@ -262,6 +262,16 @@ export function GenericDataTable({ table, title, icon, description, preferredIma
     }
   }, [autoOpenSingle, allRecords]);
 
+  // Keep selectedRecord in sync with latest query data (e.g., after save + refetch)
+  useEffect(() => {
+    if (selectedRecord && allRecords.length > 0) {
+      const fresh = allRecords.find((r) => r.id === selectedRecord.id);
+      if (fresh && fresh !== selectedRecord) {
+        setSelectedRecord(fresh);
+      }
+    }
+  }, [allRecords, selectedRecord]);
+
   // Client-side search filter
   const searchFiltered = useMemo(() => {
     if (!deferredSearch) return allRecords;

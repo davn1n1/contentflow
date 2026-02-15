@@ -236,8 +236,10 @@ export function RecordEditDrawer({ record, table, accountId, onClose }: RecordEd
       });
       if (!res.ok) throw new Error("Update failed");
       setSaveStatus("success");
+      // Wait for refetch to complete before clearing local edits,
+      // so the parent's selectedRecord syncs with fresh data first
+      await queryClient.invalidateQueries({ queryKey: ["app-data", table] });
       setEditedFields({});
-      queryClient.invalidateQueries({ queryKey: ["app-data", table] });
     } catch {
       setSaveStatus("error");
     } finally {
