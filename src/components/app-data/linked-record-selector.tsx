@@ -13,7 +13,6 @@ import {
   Maximize2,
 } from "lucide-react";
 import type { LinkedFieldDef } from "@/lib/constants/linked-fields";
-import { LinkedRecordDetail } from "@/components/app-data/linked-record-detail";
 
 interface ResolvedRecord {
   id: string;
@@ -28,6 +27,7 @@ interface LinkedRecordSelectorProps {
   config: LinkedFieldDef;
   accountId: string | undefined;
   onChange: (newIds: string[]) => void;
+  onExpandRecord?: (recordId: string, table: string) => void;
 }
 
 // Tag color palette for detail tags
@@ -91,6 +91,7 @@ export function LinkedRecordSelector({
   config,
   accountId,
   onChange,
+  onExpandRecord,
 }: LinkedRecordSelectorProps) {
   const [resolvedRecords, setResolvedRecords] = useState<
     Record<string, ResolvedRecord>
@@ -100,7 +101,6 @@ export function LinkedRecordSelector({
   const [options, setOptions] = useState<ResolvedRecord[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -314,11 +314,11 @@ export function LinkedRecordSelector({
             )}
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            {recordIds.length > 0 && (
+            {recordIds.length > 0 && onExpandRecord && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setExpandedRecordId(recordIds[0]);
+                  onExpandRecord(recordIds[0], config.table);
                 }}
                 className="p-1 rounded-md hover:bg-muted transition-colors"
                 title="Expandir registro"
@@ -445,19 +445,6 @@ export function LinkedRecordSelector({
         </div>
       )}
 
-      {/* Expand record detail dialog */}
-      {expandedRecordId && (
-        <LinkedRecordDetail
-          recordId={expandedRecordId}
-          table={config.table}
-          accountId={accountId}
-          onClose={() => setExpandedRecordId(null)}
-          onSaved={() => {
-            // Clear resolved cache so it re-fetches with updated data
-            setResolvedRecords({});
-          }}
-        />
-      )}
     </div>
   );
 }

@@ -196,9 +196,11 @@ interface RecordEditDrawerProps {
   table: string;
   accountId?: string;
   onClose: () => void;
+  /** When true, renders with higher z-index for nested (expand linked record) drawers */
+  nested?: boolean;
 }
 
-export function RecordEditDrawer({ record, table, accountId, onClose }: RecordEditDrawerProps) {
+export function RecordEditDrawer({ record, table, accountId, onClose, nested = false }: RecordEditDrawerProps) {
   const queryClient = useQueryClient();
   const [editedFields, setEditedFields] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
@@ -206,10 +208,17 @@ export function RecordEditDrawer({ record, table, accountId, onClose }: RecordEd
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
 
+  // Nested linked record expansion
+  const [expandedLinked, setExpandedLinked] = useState<{ recordId: string; table: string } | null>(null);
+  const [expandedLinkedData, setExpandedLinkedData] = useState<AppDataRecord | null>(null);
+  const [loadingExpanded, setLoadingExpanded] = useState(false);
+
   useEffect(() => {
     setEditedFields({});
     setSaveStatus("idle");
     setShowUnsavedWarning(false);
+    setExpandedLinked(null);
+    setExpandedLinkedData(null);
   }, [record?.id]);
 
   const hasChanges = Object.keys(editedFields).length > 0;
@@ -246,6 +255,29 @@ export function RecordEditDrawer({ record, table, accountId, onClose }: RecordEd
       setSaving(false);
     }
   };
+
+  // Expand a linked record into a nested drawer
+  const handleExpandLinkedRecord = useCallback((recordId: string, linkedTable: string) => {
+    setExpandedLinked({ recordId, table: linkedTable });
+    setExpandedLinkedData(null);
+    setLoadingExpanded(true);
+    fetch(`/api/data/app-data?table=${encodeURIComponent(linkedTable)}&recordId=${encodeURIComponent(recordId)}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch");
+        return r.json();
+      })
+      .then((data) => setExpandedLinkedData(data as AppDataRecord))
+      .catch((err) => {
+        console.error("Failed to fetch linked record:", err);
+        setExpandedLinked(null);
+      })
+      .finally(() => setLoadingExpanded(false));
+  }, []);
+
+  const closeExpandedLinked = useCallback(() => {
+    setExpandedLinked(null);
+    setExpandedLinkedData(null);
+  }, []);
 
   const attemptClose = () => {
     if (hasChanges) {
@@ -508,6 +540,7 @@ export function RecordEditDrawer({ record, table, accountId, onClose }: RecordEd
               config={linkedConfig}
               accountId={accountId}
               onChange={(newIds) => handleFieldChange(key, newIds)}
+              onExpandRecord={!nested ? handleExpandLinkedRecord : undefined}
             />
           );
         }
@@ -710,16 +743,21 @@ export function RecordEditDrawer({ record, table, accountId, onClose }: RecordEd
     }
   }
 
+  const zBackdrop = nested ? "z-[60]" : "z-50";
+  const zModal = nested ? "z-[60]" : "z-50";
+  const zWarningOverlay = nested ? "z-[70]" : "z-[60]";
+  const zImageViewer = nested ? "z-[80]" : "z-[70]";
+
   return (
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-150"
+        className={cn("fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150", zBackdrop)}
         onClick={attemptClose}
       />
 
       {/* Centered modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+      <div className={cn("fixed inset-0 flex items-center justify-center p-4 sm:p-6 pointer-events-none", zModal)}>
         <div
           className="pointer-events-auto w-full max-w-4xl max-h-[92vh] bg-background rounded-2xl border border-border shadow-2xl shadow-black/30 flex flex-col animate-in zoom-in-95 fade-in duration-200"
           onClick={(e) => e.stopPropagation()}
@@ -808,8 +846,8 @@ export function RecordEditDrawer({ record, table, accountId, onClose }: RecordEd
       {/* Unsaved changes warning */}
       {showUnsavedWarning && (
         <>
-          <div className="fixed inset-0 bg-black/40 z-[60]" />
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className={cn("fixed inset-0 bg-black/40", zWarningOverlay)} />
+          <div className={cn("fixed inset-0 flex items-center justify-center p-4", zWarningOverlay)}>
             <div className="bg-background rounded-xl border border-border shadow-2xl p-6 max-w-sm w-full space-y-4 animate-in zoom-in-95 fade-in duration-150">
               <div className="flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500 flex-shrink-0">
@@ -839,6 +877,30 @@ export function RecordEditDrawer({ record, table, accountId, onClose }: RecordEd
             </div>
           </div>
         </>
+      )}
+
+      {/* Loading spinner for expanded linked record */}
+      {expandedLinked && loadingExpanded && (
+        <>
+          <div className={cn("fixed inset-0 bg-black/40", nested ? "z-[70]" : "z-[60]")} />
+          <div className={cn("fixed inset-0 flex items-center justify-center", nested ? "z-[70]" : "z-[60]")}>
+            <div className="bg-background rounded-xl border border-border shadow-2xl p-8 flex flex-col items-center gap-3 animate-in zoom-in-95 fade-in duration-150">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Cargando registro...</p>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Nested drawer for expanded linked record */}
+      {expandedLinked && expandedLinkedData && (
+        <RecordEditDrawer
+          record={expandedLinkedData}
+          table={expandedLinked.table}
+          accountId={accountId}
+          onClose={closeExpandedLinked}
+          nested
+        />
       )}
     </>
   );
