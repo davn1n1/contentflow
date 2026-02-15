@@ -99,6 +99,13 @@ function formatDuration(frames: number, fps: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 // ─── Preview Page ──────────────────────────────────────
 
 export default function PreviewPage() {
@@ -110,6 +117,8 @@ export default function PreviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cfProxies, setCfProxies] = useState<Map<string, string>>(new Map());
+  const [assetSizes, setAssetSizes] = useState<Map<string, number>>(new Map());
+  const [sizesLoading, setSizesLoading] = useState(false);
 
   // Fetch timeline + CF proxies in parallel
   useEffect(() => {
@@ -168,6 +177,32 @@ export default function PreviewPage() {
       }
 
       setLoading(false);
+
+      // Fetch asset sizes in background
+      const allUrls: string[] = [];
+      for (const track of tl.tracks) {
+        for (const clip of track.clips) {
+          if (clip.type !== "template") allUrls.push(clip.src);
+        }
+      }
+      if (allUrls.length > 0) {
+        setSizesLoading(true);
+        fetch("/api/proxy/media/info", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ urls: allUrls }),
+        })
+          .then((r) => r.json())
+          .then((data: Record<string, { size: number | null }>) => {
+            const map = new Map<string, number>();
+            for (const [url, info] of Object.entries(data)) {
+              if (info.size) map.set(url, info.size);
+            }
+            setAssetSizes(map);
+          })
+          .catch(() => {})
+          .finally(() => setSizesLoading(false));
+      }
     }
     load();
   }, [id]);
@@ -228,6 +263,19 @@ export default function PreviewPage() {
   const clipCount = tl.tracks.reduce((sum, t) => sum + t.clips.length, 0);
   const totalAssets = stats.videos.total + stats.images.total + stats.audios.total;
   const totalProxied = stats.videos.proxied + stats.images.proxied + stats.audios.proxied;
+
+  // Calculate sizes by type
+  const sizeByType = { video: 0, image: 0, audio: 0, total: 0 };
+  for (const track of tl.tracks) {
+    for (const clip of track.clips) {
+      if (clip.type === "template") continue;
+      const size = assetSizes.get(clip.src) || 0;
+      if (clip.type === "video") sizeByType.video += size;
+      else if (clip.type === "image") sizeByType.image += size;
+      else if (clip.type === "audio") sizeByType.audio += size;
+      sizeByType.total += size;
+    }
+  }
 
   // Parse #NUM — Title
   const nameMatch = record.video_name?.match(/^#(\d+)\s*[—–-]\s*(.+)$/);
@@ -295,6 +343,8 @@ export default function PreviewPage() {
             </h2>
             <span className="ml-auto text-xs text-cyan-400/70 font-mono">
               {totalProxied}/{totalAssets} proxiados
+              {sizeByType.total > 0 && ` · ${formatSize(sizeByType.total)}`}
+              {sizesLoading && " ..."}
             </span>
           </div>
 
@@ -309,8 +359,8 @@ export default function PreviewPage() {
                 {stats.videos.total}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                {cfProxies.size > 0
-                  ? `${cfProxies.size} CF Stream + ${stats.videos.total - cfProxies.size} Vercel`
+                {sizeByType.video > 0 ? formatSize(sizeByType.video) : cfProxies.size > 0
+                  ? `${cfProxies.size} CF + ${stats.videos.total - cfProxies.size} Vercel`
                   : "Via Vercel CDN"}
               </p>
             </div>
@@ -324,7 +374,9 @@ export default function PreviewPage() {
               <p className="text-lg font-semibold text-foreground">
                 {stats.images.total}
               </p>
-              <p className="text-[10px] text-muted-foreground">Via Vercel CDN</p>
+              <p className="text-[10px] text-muted-foreground">
+                {sizeByType.image > 0 ? formatSize(sizeByType.image) : "Via Vercel CDN"}
+              </p>
             </div>
 
             {/* Audio */}
@@ -336,7 +388,9 @@ export default function PreviewPage() {
               <p className="text-lg font-semibold text-foreground">
                 {stats.audios.total}
               </p>
-              <p className="text-[10px] text-muted-foreground">Via Vercel CDN</p>
+              <p className="text-[10px] text-muted-foreground">
+                {sizeByType.audio > 0 ? formatSize(sizeByType.audio) : "Via Vercel CDN"}
+              </p>
             </div>
           </div>
 
@@ -394,6 +448,7 @@ export default function PreviewPage() {
                 <tr className="border-b border-border/30 text-muted-foreground">
                   <th className="text-left px-4 py-2 font-medium">Tipo</th>
                   <th className="text-left px-4 py-2 font-medium">Nombre</th>
+                  <th className="text-right px-4 py-2 font-medium">Peso</th>
                   <th className="text-left px-4 py-2 font-medium">Proxy</th>
                 </tr>
               </thead>
@@ -421,6 +476,11 @@ export default function PreviewPage() {
                         </td>
                         <td className="px-4 py-1.5 text-foreground truncate max-w-[200px]">
                           {clip.name}
+                        </td>
+                        <td className="px-4 py-1.5 text-right font-mono text-muted-foreground">
+                          {assetSizes.has(clip.src)
+                            ? formatSize(assetSizes.get(clip.src)!)
+                            : sizesLoading ? "..." : "—"}
                         </td>
                         <td className="px-4 py-1.5">
                           <span className="flex items-center gap-1 text-cyan-400">
