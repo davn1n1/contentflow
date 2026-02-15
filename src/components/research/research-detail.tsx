@@ -241,7 +241,7 @@ function TabSeleccionadas({ research, onIdeaClick }: { research: ResearchDetail;
       {ideas.length === 0 ? (
         <p className="text-sm text-muted-foreground">No hay ideas seleccionadas</p>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {ideas.map((idea) => (
             <SelectedIdeaCard key={idea.id} idea={idea} onClick={() => onIdeaClick(idea.id)} />
           ))}

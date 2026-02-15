@@ -271,6 +271,15 @@ body {
   100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(124, 131, 252, 0); }
 }
 
+/* Research card shimmer — horizontal sweep glow */
+@keyframes shimmer {
+  0% { transform: translateX(-200%); }
+  100% { transform: translateX(200%); }
+}
+.animate-shimmer {
+  animation: shimmer 3s ease-in-out infinite;
+}
+
 /* Pipeline tab halo pulse — subtle breathing glow */
 @keyframes halo-pulse {
   0%, 100% {
