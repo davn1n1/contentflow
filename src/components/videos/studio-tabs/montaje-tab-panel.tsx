@@ -371,7 +371,8 @@ function MontajeSceneRow({ scene, isExpanded, onToggle, expandedRef }: {
         onClick={onToggle}
         className={cn(
           "border-b border-border/40 cursor-pointer transition-colors",
-          isExpanded ? "bg-muted/20" : "hover:bg-muted/10"
+          "sticky top-[41px] z-10 bg-background",
+          isExpanded ? "shadow-md shadow-black/10" : "hover:bg-muted/30"
         )}
       >
         {/* # */}
@@ -1006,11 +1007,11 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
 
   return (
     <div
-      className="-mx-6 overflow-hidden border-y border-border/40 bg-background/30"
+      className="-mx-6 border-y border-border/40 bg-background/30"
       onKeyDown={handleKeyNav}
       tabIndex={0}
     >
-      <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+      <div className="sticky top-0 z-20 px-5 py-3 border-b border-border bg-background/95 backdrop-blur-sm flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
           <ImageLucide className="w-4 h-4 text-violet-400" />
           Escenas — Montaje
@@ -1027,8 +1028,7 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <table className="w-full text-sm">
           <thead>
             {/* Group header row */}
             <tr className="border-b border-border/30">
@@ -1099,7 +1099,6 @@ function MontajeSceneTable({ scenes }: { scenes: SceneDetail[] }) {
             })}
           </tbody>
         </table>
-      </div>
     </div>
   );
 }

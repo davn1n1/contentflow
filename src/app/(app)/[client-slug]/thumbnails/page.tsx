@@ -170,7 +170,14 @@ export default function ThumbnailsPage() {
 
   const allDrafts = [...drafts].sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
   const favoriteDrafts = allDrafts.filter((d) => d.favorita);
-  const portadaDrafts = allDrafts.filter((d) => d.portada);
+  const portadaDrafts = allDrafts
+    .filter((d) => d.portada)
+    .sort((a, b) => {
+      const order = { A: 0, B: 1, C: 2 } as Record<string, number>;
+      const oa = order[a.portada_youtube_abc || ""] ?? 99;
+      const ob = order[b.portada_youtube_abc || ""] ?? 99;
+      return oa - ob;
+    });
 
   if (!videoId) {
     return (
