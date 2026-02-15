@@ -1,8 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useAccountStore } from "@/lib/stores/account-store";
 import { useTheme } from "next-themes";
-import { Mic, User, Image, Music, Shield, Sun, Moon, Monitor } from "lucide-react";
+import {
+  Sun, Moon, Monitor, SlidersHorizontal, Users, UserCircle, Megaphone,
+  Film, Mic, BookOpen, Fingerprint, FileText, Target, Shield,
+  MessageSquare, Handshake, Tag, Palette, Share2, Sparkles, Music,
+  ChevronRight,
+} from "lucide-react";
 
 const themeOptions = [
   { value: "light", label: "Light", icon: Sun },
@@ -10,43 +16,36 @@ const themeOptions = [
   { value: "system", label: "System", icon: Monitor },
 ] as const;
 
+const appDataPages = [
+  { href: "/app-data/default-settings", title: "Default Settings", description: "Configuracion por defecto de la cuenta", icon: SlidersHorizontal, color: "text-primary" },
+  { href: "/app-data/avatares", title: "Avatares", description: "Avatares HeyGen para produccion de video", icon: Users, color: "text-violet-400" },
+  { href: "/app-data/avatares-set", title: "Avatares Set", description: "Sets de avatares combinados", icon: Users, color: "text-violet-400" },
+  { href: "/app-data/persona", title: "Persona", description: "Identidad del presentador IA", icon: UserCircle, color: "text-blue-400" },
+  { href: "/app-data/ctas", title: "CTAs", description: "Plantillas de Call to Action", icon: Megaphone, color: "text-orange-400" },
+  { href: "/app-data/broll", title: "Broll Custom", description: "Libreria de B-roll personalizado", icon: Film, color: "text-emerald-400" },
+  { href: "/app-data/voices", title: "Voices", description: "Perfiles de voz ElevenLabs", icon: Mic, color: "text-pink-400" },
+  { href: "/app-data/fuentes", title: "Fuentes Inspiracion", description: "Fuentes y canales de inspiracion", icon: BookOpen, color: "text-cyan-400" },
+  { href: "/app-data/voicedna", title: "VoiceDNA", description: "ADN de voz y estilo de escritura", icon: Fingerprint, color: "text-rose-400" },
+  { href: "/app-data/voicedna-sources", title: "VoiceDNA Sources", description: "Material de referencia para VoiceDNA", icon: FileText, color: "text-rose-300" },
+  { href: "/app-data/audiencia", title: "Audiencia", description: "Definicion del publico objetivo", icon: Target, color: "text-amber-400" },
+  { href: "/app-data/guardarails", title: "GuardaRails", description: "Reglas y restricciones del contenido IA", icon: Shield, color: "text-red-400" },
+  { href: "/app-data/comentario-pineado", title: "Comentario Pineado", description: "Comentarios fijados en videos", icon: MessageSquare, color: "text-sky-400" },
+  { href: "/app-data/sponsors", title: "Sponsors", description: "Integraciones de patrocinadores", icon: Handshake, color: "text-yellow-400" },
+  { href: "/app-data/brands", title: "Brands", description: "Marcas y cuentas asociadas", icon: Tag, color: "text-indigo-400" },
+  { href: "/app-data/identidad-visual", title: "Identidad Visual", description: "Colores, tipografia y branding", icon: Palette, color: "text-fuchsia-400" },
+  { href: "/app-data/social-profiles", title: "Social Profiles", description: "Perfiles de redes sociales", icon: Share2, color: "text-teal-400" },
+  { href: "/app-data/expresiones", title: "Expresiones Miniaturas", description: "Expresiones para thumbnails", icon: Sparkles, color: "text-lime-400" },
+  { href: "/app-data/formato-diseno-slides", title: "Formato Diseno Slides", description: "Formatos y disenos de slides", icon: Palette, color: "text-purple-400" },
+  { href: "/app-data/estilos-musicales", title: "Estilos Musicales", description: "Preferencias de musica y efectos", icon: Music, color: "text-green-400" },
+];
+
 export default function SettingsPage() {
   const { currentAccount } = useAccountStore();
   const { theme, setTheme } = useTheme();
-  const settings = null; // TODO: fetch from Airtable when needed
 
-  const settingSections = [
-    {
-      title: "Avatar Sets",
-      description: "Configure avatar sets for YouTube and Reels production",
-      icon: User,
-      href: "#avatars",
-    },
-    {
-      title: "Voices",
-      description: "ElevenLabs voice profiles and VoiceDNA configuration",
-      icon: Mic,
-      href: "#voices",
-    },
-    {
-      title: "Visual Identity",
-      description: "Colors, fonts, and branding guidelines",
-      icon: Image,
-      href: "#brand",
-    },
-    {
-      title: "Music Styles",
-      description: "Background music and sound effect preferences",
-      icon: Music,
-      href: "#music",
-    },
-    {
-      title: "GuardaRails",
-      description: "AI guardrails and content generation rules",
-      icon: Shield,
-      href: "#guardrails",
-    },
-  ];
+  const slug = (currentAccount?.nameapp || currentAccount?.name || "")
+    .toLowerCase()
+    .replace(/\s+/g, "-");
 
   return (
     <div className="space-y-6">
@@ -103,51 +102,35 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Settings sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {settingSections.map((section) => (
-          <div
-            key={section.title}
-            className="glass-card rounded-xl p-5 hover:border-primary/20 transition-all cursor-pointer"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                <section.icon className="w-5 h-5 text-primary" />
+      {/* App Data Pages */}
+      <div>
+        <h3 className="text-lg font-semibold text-foreground mb-1">Datos de la App</h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          Tablas de configuracion y datos asociados a la cuenta
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {appDataPages.map((page) => (
+            <Link
+              key={page.href}
+              href={slug ? `/${slug}${page.href}` : "#"}
+              className="glass-card rounded-xl p-4 hover:border-primary/20 transition-all group flex items-center gap-3"
+            >
+              <div className={`w-9 h-9 rounded-lg bg-muted/50 border border-border/50 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/10 group-hover:border-primary/20 transition-colors ${page.color}`}>
+                <page.icon className="w-4.5 h-4.5" />
               </div>
-              <div>
-                <h3 className="font-semibold text-sm text-foreground">
-                  {section.title}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {section.description}
+              <div className="min-w-0 flex-1">
+                <h4 className="font-medium text-sm text-foreground truncate">
+                  {page.title}
+                </h4>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {page.description}
                 </p>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Raw settings data */}
-      {settings && (
-        <div className="glass-card rounded-xl p-6">
-          <h3 className="text-sm font-semibold text-foreground mb-3">
-            Current Settings
-          </h3>
-          <div className="space-y-2">
-            {Object.entries(settings)
-              .filter(([key]) => !["id", "account_id", "airtable_id", "created_at", "updated_at"].includes(key))
-              .filter(([, value]) => value !== null)
-              .map(([key, value]) => (
-                <div key={key} className="flex items-center justify-between py-1 border-b border-border/50">
-                  <span className="text-xs text-muted-foreground">{key}</span>
-                  <span className="text-xs text-foreground font-mono truncate max-w-xs">
-                    {String(value)}
-                  </span>
-                </div>
-              ))}
-          </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary/60 transition-colors flex-shrink-0" />
+            </Link>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }
