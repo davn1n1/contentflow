@@ -2061,6 +2061,19 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSi
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
 
+  // Track when analysis data arrives for the first time (empty → populated)
+  const prevHadVoz = useRef([scene.analisis_voz_1, scene.analisis_voz_2, scene.analisis_voz_3].some(Boolean));
+  const [vozJustArrived, setVozJustArrived] = useState(false);
+  useEffect(() => {
+    const hasNow = [scene.analisis_voz_1, scene.analisis_voz_2, scene.analisis_voz_3].some(Boolean);
+    if (hasNow && !prevHadVoz.current) {
+      setVozJustArrived(true);
+      const t = setTimeout(() => setVozJustArrived(false), 1200);
+      return () => clearTimeout(t);
+    }
+    prevHadVoz.current = hasNow;
+  }, [scene.analisis_voz_1, scene.analisis_voz_2, scene.analisis_voz_3]);
+
   // Sync local state when scene data changes from server (skip if user is editing)
   useEffect(() => {
     if (!scriptFocusedRef.current) {
@@ -2330,8 +2343,11 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef, fontSi
                   return (
                     <div
                       key={i}
-                      className="flex-1 bg-muted/25 rounded px-2 py-1.5 min-w-0 animate-[analysis-enter_0.7s_ease-out_both]"
-                      style={{ animationDelay: `${i * 120}ms` }}
+                      className={cn(
+                        "flex-1 bg-muted/25 rounded px-2 py-1.5 min-w-0",
+                        vozJustArrived && "animate-[analysis-enter_0.7s_ease-out_both]"
+                      )}
+                      style={vozJustArrived ? { animationDelay: `${i * 120}ms` } : undefined}
                     >
                       <p className="text-[11px] whitespace-pre-wrap leading-snug text-foreground/80">{parsed}</p>
                     </div>
