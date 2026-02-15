@@ -3,7 +3,7 @@ const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || "https://fxforaliving.app
 export type PipelineAction =
   | "GenerateCopy"
   | "GenerateAudio"
-  | "GenerateAvatars"
+  | "GenerateFullVideo"
   | "ProcesoFinalRender";
 
 export async function triggerN8nWorkflow(action: PipelineAction, recordId: string) {

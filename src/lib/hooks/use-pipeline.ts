@@ -8,7 +8,7 @@ import type { PipelineStep } from "@/types/database";
 const ACTION_MAP: Record<PipelineStep, string> = {
   copy: "GenerateCopy",
   audio: "GenerateAudio",
-  video: "GenerateAvatars",
+  video: "GenerateFullVideo",
   render: "ProcesoFinalRender",
 };
 

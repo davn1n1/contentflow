@@ -6,7 +6,7 @@ import { searchArticlesSemantic, searchArticlesWithEmbedding } from "@/lib/rag/s
 const PIPELINE_ACTION_MAP: Record<string, string> = {
   copy: "GenerateCopy",
   audio: "GenerateAudio",
-  video: "GenerateAvatars",
+  video: "GenerateFullVideo",
   render: "ProcesoFinalRender",
 };
 

@@ -52,9 +52,9 @@ const steps: {
   {
     key: "video",
     label: "Create Video",
-    sublabel: "Avatar Generation",
+    sublabel: "Full Video Generation",
     icon: VideoIcon,
-    action: "GenerateAvatars",
+    action: "GenerateFullVideo",
   },
   {
     key: "render",

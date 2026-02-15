@@ -716,11 +716,11 @@ const ACTION_POLL_CONFIG: Record<string, {
     readyLabel: "Audio generado!",
     maxTimeout: 600000,
   },
-  GenerateAvatars: {
+  GenerateFullVideo: {
     pollEndpoint: "video",
     detectReady: (d) => d.status_avatares === true,
-    generatingLabel: "Generando avatares…",
-    readyLabel: "Avatares generados!",
+    generatingLabel: "Generando video completo…",
+    readyLabel: "Video completo generado!",
     maxTimeout: 600000,
   },
   ProcesoFinalRender: {

@@ -1199,12 +1199,12 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
         />
       </div>
 
-      {/* Action: Crear Video (GenerateAvatars) */}
+      {/* Action: Crear Video (GenerateFullVideo) */}
       <ActionButton
         videoId={video.id}
-        action="GenerateAvatars"
-        label="Crear Video (Avatares)"
-        confirmLabel="Confirmar creación de video"
+        action="GenerateFullVideo"
+        label="Crear Video Completo"
+        confirmLabel="Confirmar creación de video completo"
         icon={<Play className="w-5 h-5" />}
         color="amber"
       />

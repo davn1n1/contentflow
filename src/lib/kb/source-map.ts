@@ -193,7 +193,7 @@ para cada escena. El proceso:
 2. HeyGen genera un video de avatar sincronizado con el audio por escena
 3. Se puede usar un avatar individual o un set de avatares (rotacion automatica)
 4. El video del avatar incluye lip-sync y gestos naturales
-Tiempo estimado: 5-15 minutos. Accion: GenerateAvatars.
+Tiempo estimado: 5-15 minutos. Accion: GenerateFullVideo.
 Importante: Verificar creditos de HeyGen antes de generar.`,
       },
     ],
