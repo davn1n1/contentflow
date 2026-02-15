@@ -6,5 +6,5 @@ export default async function ClientSlugPage({
   params: Promise<{ "client-slug": string }>;
 }) {
   const { "client-slug": slug } = await params;
-  redirect(`/${slug}/videos`);
+  redirect(`/dashboard`);
 }
