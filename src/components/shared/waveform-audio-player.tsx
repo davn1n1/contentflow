@@ -13,6 +13,9 @@ interface WaveformAudioPlayerProps {
   /** Compact mode for table cells */
   compact?: boolean;
   className?: string;
+  /** Playback callbacks for synced captions */
+  onTimeUpdate?: (currentTime: number, duration: number) => void;
+  onPlayStateChange?: (playing: boolean) => void;
 }
 
 const COLOR_MAP = {
@@ -36,6 +39,8 @@ export function WaveformAudioPlayer({
   height: _height = 48,
   compact = false,
   className,
+  onTimeUpdate,
+  onPlayStateChange,
 }: WaveformAudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -45,22 +50,31 @@ export function WaveformAudioPlayer({
   const [isDragging, setIsDragging] = useState(false);
   const colors = COLOR_MAP[color];
 
+  // Stable refs for callbacks (avoid re-registering listeners)
+  const onTimeUpdateCbRef = useRef(onTimeUpdate);
+  const onPlayStateCbRef = useRef(onPlayStateChange);
+  onTimeUpdateCbRef.current = onTimeUpdate;
+  onPlayStateCbRef.current = onPlayStateChange;
+
   // Sync play state with audio element
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-    const onEnded = () => { setIsPlaying(false); setCurrentTime(0); };
-    const onTimeUpdate = () => { if (!isDragging) setCurrentTime(audio.currentTime); };
+    const onPlay = () => { setIsPlaying(true); onPlayStateCbRef.current?.(true); };
+    const onPause = () => { setIsPlaying(false); onPlayStateCbRef.current?.(false); };
+    const onEnded = () => { setIsPlaying(false); setCurrentTime(0); onPlayStateCbRef.current?.(false); onTimeUpdateCbRef.current?.(0, audio.duration); };
+    const handleTimeUpdate = () => {
+      if (!isDragging) setCurrentTime(audio.currentTime);
+      onTimeUpdateCbRef.current?.(audio.currentTime, audio.duration);
+    };
     const onLoadedMetadata = () => setDuration(audio.duration);
     const onDurationChange = () => setDuration(audio.duration);
 
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
-    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("timeupdate", handleTimeUpdate);
     audio.addEventListener("loadedmetadata", onLoadedMetadata);
     audio.addEventListener("durationchange", onDurationChange);
 
@@ -68,7 +82,7 @@ export function WaveformAudioPlayer({
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);
-      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("loadedmetadata", onLoadedMetadata);
       audio.removeEventListener("durationchange", onDurationChange);
     };
@@ -79,6 +93,7 @@ export function WaveformAudioPlayer({
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(false);
+    onPlayStateCbRef.current?.(false);
   }, [url]);
 
   const onPlayPause = useCallback((e: React.MouseEvent) => {
@@ -269,6 +284,128 @@ export function WaveformMini({ url, color = "rose" }: { url: string; color?: Wav
           style={{ width: `${progress}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+// ─── Synced Captions ─────────────────────────────────────────
+// Highlights words proportionally as audio plays — like social media captions
+
+interface WordTiming {
+  word: string;
+  start: number;
+  end: number;
+}
+
+function buildWordTimings(text: string, duration: number): WordTiming[] {
+  if (!text || !duration || duration <= 0) return [];
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+
+  // Weight each word by character length (longer words take longer to speak)
+  const totalChars = words.reduce((sum, w) => sum + w.length, 0);
+  const timings: WordTiming[] = [];
+  let cursor = 0;
+
+  for (const word of words) {
+    const wordDuration = (word.length / totalChars) * duration;
+    timings.push({ word, start: cursor, end: cursor + wordDuration });
+    cursor += wordDuration;
+  }
+
+  return timings;
+}
+
+interface SyncedCaptionsProps {
+  text: string;
+  currentTime: number;
+  duration: number;
+  isPlaying: boolean;
+  /** Color accent for highlighted word */
+  color?: "rose" | "violet" | "sky" | "amber" | "emerald";
+}
+
+export function SyncedCaptions({ text, currentTime, duration, isPlaying, color = "emerald" }: SyncedCaptionsProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const activeWordRef = useRef<HTMLSpanElement>(null);
+  const timings = useRef<WordTiming[]>([]);
+
+  // Rebuild timings when text or duration changes
+  useEffect(() => {
+    timings.current = buildWordTimings(text, duration);
+  }, [text, duration]);
+
+  // Auto-scroll to keep active word visible
+  useEffect(() => {
+    if (isPlaying && activeWordRef.current && containerRef.current) {
+      const container = containerRef.current;
+      const word = activeWordRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const wordRect = word.getBoundingClientRect();
+
+      // Scroll if word is below visible area
+      if (wordRect.top > containerRect.bottom - 20 || wordRect.bottom < containerRect.top + 20) {
+        word.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [currentTime, isPlaying]);
+
+  const highlightColors = {
+    rose: "bg-rose-500/30 text-rose-100",
+    violet: "bg-violet-500/30 text-violet-100",
+    sky: "bg-sky-500/30 text-sky-100",
+    amber: "bg-amber-500/30 text-amber-100",
+    emerald: "bg-emerald-500/30 text-emerald-100",
+  };
+
+  const pastColors = {
+    rose: "text-rose-300/80",
+    violet: "text-violet-300/80",
+    sky: "text-sky-300/80",
+    amber: "text-amber-300/80",
+    emerald: "text-emerald-300/80",
+  };
+
+  if (!text || timings.current.length === 0) return null;
+
+  // Find current word index
+  let activeIdx = -1;
+  for (let i = 0; i < timings.current.length; i++) {
+    if (currentTime >= timings.current[i].start && currentTime < timings.current[i].end) {
+      activeIdx = i;
+      break;
+    }
+  }
+  // If past the last word, highlight last
+  if (activeIdx === -1 && currentTime > 0 && currentTime >= (timings.current[timings.current.length - 1]?.end ?? 0)) {
+    activeIdx = timings.current.length - 1;
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="max-h-[120px] overflow-y-auto rounded-lg bg-muted/30 px-3 py-2 text-[12px] leading-relaxed"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {timings.current.map((t, i) => {
+        const isActive = i === activeIdx && isPlaying;
+        const isPast = isPlaying && i < activeIdx;
+
+        return (
+          <span
+            key={i}
+            ref={isActive ? activeWordRef : undefined}
+            className={cn(
+              "inline-block transition-all duration-150",
+              isActive && cn("rounded px-0.5 -mx-0.5 font-semibold scale-105", highlightColors[color]),
+              isPast && pastColors[color],
+              !isActive && !isPast && "text-foreground/60",
+            )}
+          >
+            {t.word}{" "}
+          </span>
+        );
+      })}
     </div>
   );
 }

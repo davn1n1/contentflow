@@ -1144,7 +1144,10 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-6 space-y-6">
+    <div
+      className="h-full overflow-y-auto px-6 py-6 space-y-6"
+      onKeyDown={(e) => { if (e.key === " " && (e.target as HTMLElement).tagName !== "TEXTAREA" && (e.target as HTMLElement).tagName !== "INPUT") e.preventDefault(); }}
+    >
       {/* Linked Record Cards: Formato Slides + Estilo Musical */}
       <div className="grid grid-cols-2 gap-4">
         <LinkedRecordCard

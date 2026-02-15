@@ -12,7 +12,7 @@ import {
   ChevronDown, Twitter, Newspaper, ImageIcon, AlertTriangle, Edit3, Minus, Plus,
 } from "lucide-react";
 import type { VideoWithScenes, LinkedIdea, LinkedIdeaFull, SceneDetail } from "@/lib/hooks/use-video-detail";
-import { WaveformAudioPlayer } from "@/components/shared/waveform-audio-player";
+import { WaveformAudioPlayer, SyncedCaptions } from "@/components/shared/waveform-audio-player";
 import { LinkedRecordPicker } from "./linked-record-picker";
 
 interface ScriptAudioDetailProps {
@@ -2050,8 +2050,11 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
   const feedbackRef = useRef<HTMLTextAreaElement>(null);
   const feedbackFocusedRef = useRef(false);
   const [audioRevisado, setAudioRevisado] = useState(scene.audio_revisado_ok);
-  const { save: saveRevisado } = useSceneAutoSave(scene.id, "Audio Revisado OK");
   const [showExtra, setShowExtra] = useState(false);
+  // Audio playback state for synced captions
+  const [audioTime, setAudioTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioPlaying, setAudioPlaying] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
 
   // Sync local state when scene data changes from server (skip if user is editing)
@@ -2099,7 +2102,12 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
     e.stopPropagation();
     const next = !audioRevisado;
     setAudioRevisado(next);
-    saveRevisado(next);
+    // Save directly without query invalidation — keeps audio playing
+    fetch("/api/data/scenes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: scene.id, fields: { "Audio Revisado OK": next } }),
+    }).catch(() => {});
   };
 
   // Handle keyboard in textarea
@@ -2227,7 +2235,15 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                     <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generando nuevo audio…
                   </div>
                 ) : scene.voice_s3 ? (
-                  <WaveformAudioPlayer url={scene.voice_s3} color="emerald" height={32} compact className="flex-1 border-emerald-500/20" />
+                  <WaveformAudioPlayer
+                    url={scene.voice_s3}
+                    color="emerald"
+                    height={32}
+                    compact
+                    className="flex-1 border-emerald-500/20"
+                    onTimeUpdate={(t, d) => { setAudioTime(t); setAudioDuration(d); }}
+                    onPlayStateChange={setAudioPlaying}
+                  />
                 ) : (
                   <div className="flex-1 flex items-center gap-1.5 text-muted-foreground/40 text-[10px]">
                     <Volume2 className="w-3.5 h-3.5" /> Sin audio
@@ -2255,24 +2271,35 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                 <SceneActionButton sceneId={scene.id} currentVoiceS3={scene.voice_s3} onGenerating={() => setGeneratingAudio(true)} onAudioReady={() => setGeneratingAudio(false)} />
               </div>
 
-              {/* ── Script (editable) + V1/V2/V3 análisis ── */}
+              {/* ── Script: Synced captions when playing, editable when not ── */}
               <div className="flex gap-1.5">
-                {/* Script (editable) */}
                 <div className="flex-1 min-w-0 relative">
-                  <textarea
-                    ref={textareaRef}
-                    value={scriptValue}
-                    onChange={handleScriptChange}
-                    onKeyDown={handleTextareaKeyDown}
-                    onClick={(e) => e.stopPropagation()}
-                    onFocus={() => { scriptFocusedRef.current = true; }}
-                    onBlur={() => { scriptFocusedRef.current = false; }}
-                    className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none text-[11px] leading-snug"
-                    rows={3}
-                    placeholder="Script..."
-                  />
-                  {savingScript && <Loader2 className="w-3 h-3 animate-spin text-amber-400 absolute top-1.5 right-1.5" />}
-                  {savedScript && !savingScript && <CheckCircle2 className="w-3 h-3 text-emerald-400 absolute top-1.5 right-1.5" />}
+                  {audioPlaying && scriptValue && audioDuration > 0 ? (
+                    <SyncedCaptions
+                      text={scriptValue}
+                      currentTime={audioTime}
+                      duration={audioDuration}
+                      isPlaying={audioPlaying}
+                      color="emerald"
+                    />
+                  ) : (
+                    <>
+                      <textarea
+                        ref={textareaRef}
+                        value={scriptValue}
+                        onChange={handleScriptChange}
+                        onKeyDown={handleTextareaKeyDown}
+                        onClick={(e) => e.stopPropagation()}
+                        onFocus={() => { scriptFocusedRef.current = true; }}
+                        onBlur={() => { scriptFocusedRef.current = false; }}
+                        className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none text-[11px] leading-snug"
+                        rows={3}
+                        placeholder="Script..."
+                      />
+                      {savingScript && <Loader2 className="w-3 h-3 animate-spin text-amber-400 absolute top-1.5 right-1.5" />}
+                      {savedScript && !savingScript && <CheckCircle2 className="w-3 h-3 text-emerald-400 absolute top-1.5 right-1.5" />}
+                    </>
+                  )}
                 </div>
 
                 {/* V1/V2/V3 análisis inline */}

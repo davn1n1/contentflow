@@ -65,7 +65,10 @@ export function CopyTabPanel({ video }: { video: VideoWithScenes }) {
       </div>
 
       {/* Sub-tab content */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
+      <div
+        className="flex-1 overflow-y-auto px-6 py-6"
+        onKeyDown={(e) => { if (e.key === " " && (e.target as HTMLElement).tagName !== "TEXTAREA" && (e.target as HTMLElement).tagName !== "INPUT") e.preventDefault(); }}
+      >
         {subtab === "script" && <TabScript video={video} />}
         {subtab === "ideas" && (
           video.linkedIdeas && video.linkedIdeas.length > 0 ? (
