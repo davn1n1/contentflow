@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import { DynamicVideo } from "@/lib/remotion/compositions/DynamicVideo";
 import Link from "next/link";
@@ -19,13 +19,23 @@ import {
   Shield,
   Pencil,
   Rocket,
+  Zap,
+  ArrowDown,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type {
   RemotionTimelineRecord,
   RemotionTimeline,
-  RemotionClip,
 } from "@/lib/remotion/types";
+
+// ─── Quality Presets ───────────────────────────────────
+
+type QualityPreset = "lite" | "hd";
+
+const QUALITY_PRESETS: Record<QualityPreset, { imgWidth: number; imgQuality: number; label: string; desc: string }> = {
+  lite: { imgWidth: 480, imgQuality: 50, label: "Lite", desc: "480p · WebP q50 — carga ultra rapida" },
+  hd:   { imgWidth: 720, imgQuality: 75, label: "HD",   desc: "720p · WebP q75 — calidad media" },
+};
 
 // ─── Proxy Timeline Transformer ────────────────────────
 
@@ -40,7 +50,7 @@ interface AssetStats {
  * through our CDN for fast preview playback.
  *
  * - Video: uses CF Stream proxy_url if available, otherwise /api/proxy/media
- * - Image: always /api/proxy/media
+ * - Image: Next.js Image Optimization (WebP/AVIF auto) with quality preset
  * - Audio: always /api/proxy/media
  * - Template: no change (local code)
  *
@@ -48,9 +58,11 @@ interface AssetStats {
  */
 function createProxyTimeline(
   timeline: RemotionTimeline,
-  cfProxies?: Map<string, string>
+  cfProxies?: Map<string, string>,
+  quality: QualityPreset = "lite"
 ): { proxied: RemotionTimeline; stats: AssetStats } {
   const proxied = JSON.parse(JSON.stringify(timeline)) as RemotionTimeline;
+  const preset = QUALITY_PRESETS[quality];
 
   const stats: AssetStats = {
     videos: { total: 0, proxied: 0, urls: [] },
@@ -77,8 +89,8 @@ function createProxyTimeline(
         }
       } else if (clip.type === "image") {
         stats.images.total++;
-        // Use Next.js Image Optimization: auto WebP/AVIF + resize to 720p
-        clip.proxySrc = `/_next/image?url=${encodeURIComponent(clip.src)}&w=720&q=75`;
+        // Next.js Image Optimization: auto WebP/AVIF + resize based on quality preset
+        clip.proxySrc = `/_next/image?url=${encodeURIComponent(clip.src)}&w=${preset.imgWidth}&q=${preset.imgQuality}`;
         stats.images.proxied++;
       } else if (clip.type === "audio") {
         stats.audios.total++;
@@ -118,8 +130,13 @@ export default function PreviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cfProxies, setCfProxies] = useState<Map<string, string>>(new Map());
-  const [assetSizes, setAssetSizes] = useState<Map<string, number>>(new Map());
+  const [quality, setQuality] = useState<QualityPreset>("lite");
+  // Original asset sizes (from source URLs)
+  const [originalSizes, setOriginalSizes] = useState<Map<string, number>>(new Map());
+  // Optimized asset sizes (from proxied/CDN URLs)
+  const [optimizedSizes, setOptimizedSizes] = useState<Map<string, number>>(new Map());
   const [sizesLoading, setSizesLoading] = useState(false);
+  const [optimizedSizesLoading, setOptimizedSizesLoading] = useState(false);
 
   // Fetch timeline + CF proxies in parallel
   useEffect(() => {
@@ -179,7 +196,7 @@ export default function PreviewPage() {
 
       setLoading(false);
 
-      // Fetch asset sizes in background
+      // Fetch original asset sizes in background
       const allUrls: string[] = [];
       for (const track of tl.tracks) {
         for (const clip of track.clips) {
@@ -199,7 +216,7 @@ export default function PreviewPage() {
             for (const [url, info] of Object.entries(data)) {
               if (info.size) map.set(url, info.size);
             }
-            setAssetSizes(map);
+            setOriginalSizes(map);
           })
           .catch(() => {})
           .finally(() => setSizesLoading(false));
@@ -212,7 +229,7 @@ export default function PreviewPage() {
     | RemotionTimeline
     | undefined;
 
-  // Create proxied timeline
+  // Create proxied timeline (depends on quality preset)
   const { proxiedTimeline, stats } = useMemo(() => {
     if (!rawTimeline)
       return {
@@ -223,9 +240,60 @@ export default function PreviewPage() {
           audios: { total: 0, proxied: 0, urls: [] },
         },
       };
-    const { proxied, stats } = createProxyTimeline(rawTimeline, cfProxies);
+    const { proxied, stats } = createProxyTimeline(rawTimeline, cfProxies, quality);
     return { proxiedTimeline: proxied, stats };
-  }, [rawTimeline, cfProxies]);
+  }, [rawTimeline, cfProxies, quality]);
+
+  // Fetch optimized sizes for images after timeline is proxied
+  const fetchOptimizedSizes = useCallback(async () => {
+    if (!proxiedTimeline) return;
+
+    setOptimizedSizesLoading(true);
+    const imageProxies: { src: string; proxySrc: string }[] = [];
+    for (const track of proxiedTimeline.tracks) {
+      for (const clip of track.clips) {
+        if (clip.type === "image" && clip.proxySrc) {
+          imageProxies.push({ src: clip.src, proxySrc: clip.proxySrc });
+        }
+      }
+    }
+
+    if (imageProxies.length === 0) {
+      setOptimizedSizesLoading(false);
+      return;
+    }
+
+    // Fetch each /_next/image URL via HEAD to get Content-Length
+    // (Next.js generates optimized image on first request)
+    const map = new Map<string, number>();
+    const chunks: typeof imageProxies[] = [];
+    for (let i = 0; i < imageProxies.length; i += 5) {
+      chunks.push(imageProxies.slice(i, i + 5));
+    }
+
+    for (const chunk of chunks) {
+      const results = await Promise.allSettled(
+        chunk.map(async ({ src, proxySrc }) => {
+          // GET request (not HEAD) because /_next/image needs to generate the image first
+          const res = await fetch(proxySrc);
+          const blob = await res.blob();
+          map.set(src, blob.size);
+        })
+      );
+      // Ignore individual failures
+      void results;
+    }
+
+    setOptimizedSizes(map);
+    setOptimizedSizesLoading(false);
+  }, [proxiedTimeline]);
+
+  // Auto-fetch optimized sizes when quality changes and original sizes are loaded
+  useEffect(() => {
+    if (proxiedTimeline && originalSizes.size > 0) {
+      fetchOptimizedSizes();
+    }
+  }, [proxiedTimeline, originalSizes.size, fetchOptimizedSizes]);
 
   // Memoize inputProps for Player
   const inputProps = useMemo(() => {
@@ -265,18 +333,31 @@ export default function PreviewPage() {
   const totalAssets = stats.videos.total + stats.images.total + stats.audios.total;
   const totalProxied = stats.videos.proxied + stats.images.proxied + stats.audios.proxied;
 
-  // Calculate sizes by type
-  const sizeByType = { video: 0, image: 0, audio: 0, total: 0 };
+  // Calculate original sizes by type
+  const originalByType = { video: 0, image: 0, audio: 0, total: 0 };
+  const optimizedByType = { video: 0, image: 0, audio: 0, total: 0 };
   for (const track of tl.tracks) {
     for (const clip of track.clips) {
       if (clip.type === "template") continue;
-      const size = assetSizes.get(clip.src) || 0;
-      if (clip.type === "video") sizeByType.video += size;
-      else if (clip.type === "image") sizeByType.image += size;
-      else if (clip.type === "audio") sizeByType.audio += size;
-      sizeByType.total += size;
+      const origSize = originalSizes.get(clip.src) || 0;
+      const optSize = optimizedSizes.get(clip.src) || 0;
+      if (clip.type === "video") {
+        originalByType.video += origSize;
+        optimizedByType.video += origSize; // Video: same (no transcoding)
+      } else if (clip.type === "image") {
+        originalByType.image += origSize;
+        optimizedByType.image += optSize || origSize; // Fallback to original if not measured yet
+      } else if (clip.type === "audio") {
+        originalByType.audio += origSize;
+        optimizedByType.audio += origSize; // Audio: same (no transcoding)
+      }
+      originalByType.total += origSize;
+      optimizedByType.total += (clip.type === "image" ? (optSize || origSize) : origSize);
     }
   }
+  const totalSavings = originalByType.total > 0
+    ? Math.round((1 - optimizedByType.total / originalByType.total) * 100)
+    : 0;
 
   // Parse #NUM — Title
   const nameMatch = record.video_name?.match(/^#(\d+)\s*[—–-]\s*(.+)$/);
@@ -335,18 +416,57 @@ export default function PreviewPage() {
           </div>
         </div>
 
-        {/* CDN Proxy Status */}
+        {/* CDN Proxy Status + Quality Toggle */}
         <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-cyan-400" />
             <h2 className="text-sm font-medium text-cyan-400">
               CDN Proxy Preview
             </h2>
-            <span className="ml-auto text-xs text-cyan-400/70 font-mono">
+
+            {/* Quality toggle */}
+            <div className="ml-auto flex items-center gap-1 rounded-lg border border-border/30 bg-background/50 p-0.5">
+              {(Object.keys(QUALITY_PRESETS) as QualityPreset[]).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setQuality(key)}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                    quality === key
+                      ? "bg-cyan-500/20 text-cyan-300 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title={QUALITY_PRESETS[key].desc}
+                >
+                  {QUALITY_PRESETS[key].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Summary line with savings */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-cyan-400/70 font-mono">
               {totalProxied}/{totalAssets} proxiados
-              {sizeByType.total > 0 && ` · ${formatSize(sizeByType.total)}`}
-              {sizesLoading && " ..."}
             </span>
+            {originalByType.total > 0 && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground font-mono">
+                  {formatSize(originalByType.total)}
+                </span>
+                {totalSavings > 0 && (
+                  <>
+                    <ArrowDown className="h-3 w-3 text-green-400" />
+                    <span className="text-green-400 font-mono font-medium">
+                      {formatSize(optimizedByType.total)} (−{totalSavings}%)
+                    </span>
+                  </>
+                )}
+              </>
+            )}
+            {(sizesLoading || optimizedSizesLoading) && (
+              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -360,7 +480,7 @@ export default function PreviewPage() {
                 {stats.videos.total}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                {sizeByType.video > 0 ? formatSize(sizeByType.video) : cfProxies.size > 0
+                {originalByType.video > 0 ? formatSize(originalByType.video) : cfProxies.size > 0
                   ? `${cfProxies.size} CF + ${stats.videos.total - cfProxies.size} Vercel`
                   : "Via Vercel CDN"}
               </p>
@@ -375,9 +495,21 @@ export default function PreviewPage() {
               <p className="text-lg font-semibold text-foreground">
                 {stats.images.total}
               </p>
-              <p className="text-[10px] text-muted-foreground">
-                {sizeByType.image > 0 ? formatSize(sizeByType.image) : "Via Vercel CDN"}
-              </p>
+              {originalByType.image > 0 && optimizedByType.image > 0 && optimizedByType.image < originalByType.image ? (
+                <div className="text-[10px] space-y-0.5">
+                  <p className="text-muted-foreground line-through">
+                    {formatSize(originalByType.image)}
+                  </p>
+                  <p className="text-green-400 font-medium flex items-center gap-0.5">
+                    <Zap className="h-2.5 w-2.5" />
+                    {formatSize(optimizedByType.image)} (−{Math.round((1 - optimizedByType.image / originalByType.image) * 100)}%)
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  {originalByType.image > 0 ? formatSize(originalByType.image) : `WebP ${QUALITY_PRESETS[quality].imgWidth}p`}
+                </p>
+              )}
             </div>
 
             {/* Audio */}
@@ -390,14 +522,14 @@ export default function PreviewPage() {
                 {stats.audios.total}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                {sizeByType.audio > 0 ? formatSize(sizeByType.audio) : "Via Vercel CDN"}
+                {originalByType.audio > 0 ? formatSize(originalByType.audio) : "Via Vercel CDN"}
               </p>
             </div>
           </div>
 
           <p className="text-[10px] text-cyan-400/50">
-            Todos los assets se sirven desde CDN edge (Vercel / Cloudflare).
-            El render en Lambda usa URLs originales a full quality.
+            Imagenes: WebP/AVIF via Next.js ({QUALITY_PRESETS[quality].imgWidth}p q{QUALITY_PRESETS[quality].imgQuality}).
+            Video/Audio: CDN passthrough. Lambda render usa URLs originales full quality.
           </p>
         </div>
 
@@ -417,6 +549,7 @@ export default function PreviewPage() {
             autoPlay={false}
             loop={false}
             clickToPlay
+            bufferStateDelayInMilliseconds={300}
           />
         </div>
 
@@ -443,13 +576,14 @@ export default function PreviewPage() {
           <summary className="px-5 py-3 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
             Detalle de assets proxiados ({totalAssets})
           </summary>
-          <div className="border-t border-border/30 max-h-64 overflow-y-auto">
+          <div className="border-t border-border/30 max-h-80 overflow-y-auto">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-card">
                 <tr className="border-b border-border/30 text-muted-foreground">
                   <th className="text-left px-4 py-2 font-medium">Tipo</th>
                   <th className="text-left px-4 py-2 font-medium">Nombre</th>
-                  <th className="text-right px-4 py-2 font-medium">Peso</th>
+                  <th className="text-right px-4 py-2 font-medium">Original</th>
+                  <th className="text-right px-4 py-2 font-medium">Optimizado</th>
                   <th className="text-left px-4 py-2 font-medium">Proxy</th>
                 </tr>
               </thead>
@@ -457,42 +591,65 @@ export default function PreviewPage() {
                 {tl.tracks.flatMap((track) =>
                   track.clips
                     .filter((clip) => clip.type !== "template")
-                    .map((clip) => (
-                      <tr
-                        key={clip.id}
-                        className="border-b border-border/20 hover:bg-muted/20"
-                      >
-                        <td className="px-4 py-1.5">
-                          <span
-                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                              clip.type === "video"
-                                ? "bg-blue-500/10 text-blue-400"
+                    .map((clip) => {
+                      const origSize = originalSizes.get(clip.src);
+                      const optSize = clip.type === "image" ? optimizedSizes.get(clip.src) : origSize;
+                      const hasSavings = origSize && optSize && optSize < origSize;
+                      const savingPct = hasSavings ? Math.round((1 - optSize / origSize) * 100) : 0;
+
+                      return (
+                        <tr
+                          key={clip.id}
+                          className="border-b border-border/20 hover:bg-muted/20"
+                        >
+                          <td className="px-4 py-1.5">
+                            <span
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                clip.type === "video"
+                                  ? "bg-blue-500/10 text-blue-400"
+                                  : clip.type === "image"
+                                    ? "bg-green-500/10 text-green-400"
+                                    : "bg-amber-500/10 text-amber-400"
+                              }`}
+                            >
+                              {clip.type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-1.5 text-foreground truncate max-w-[180px]">
+                            {clip.name}
+                          </td>
+                          <td className="px-4 py-1.5 text-right font-mono text-muted-foreground">
+                            {origSize
+                              ? formatSize(origSize)
+                              : sizesLoading ? "..." : "—"}
+                          </td>
+                          <td className="px-4 py-1.5 text-right font-mono">
+                            {optSize && hasSavings ? (
+                              <span className="text-green-400">
+                                {formatSize(optSize)}
+                                <span className="text-green-500/70 ml-1">−{savingPct}%</span>
+                              </span>
+                            ) : optSize ? (
+                              <span className="text-muted-foreground">{formatSize(optSize)}</span>
+                            ) : optimizedSizesLoading && clip.type === "image" ? (
+                              <span className="text-muted-foreground">...</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-1.5">
+                            <span className="flex items-center gap-1 text-cyan-400">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {clip.type === "video" && cfProxies.has(clip.src)
+                                ? "CF Stream"
                                 : clip.type === "image"
-                                  ? "bg-green-500/10 text-green-400"
-                                  : "bg-amber-500/10 text-amber-400"
-                            }`}
-                          >
-                            {clip.type}
-                          </span>
-                        </td>
-                        <td className="px-4 py-1.5 text-foreground truncate max-w-[200px]">
-                          {clip.name}
-                        </td>
-                        <td className="px-4 py-1.5 text-right font-mono text-muted-foreground">
-                          {assetSizes.has(clip.src)
-                            ? formatSize(assetSizes.get(clip.src)!)
-                            : sizesLoading ? "..." : "—"}
-                        </td>
-                        <td className="px-4 py-1.5">
-                          <span className="flex items-center gap-1 text-cyan-400">
-                            <CheckCircle2 className="h-3 w-3" />
-                            {clip.type === "video" && cfProxies.has(clip.src)
-                              ? "CF Stream"
-                              : "Vercel CDN"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                                  ? `WebP ${QUALITY_PRESETS[quality].imgWidth}p`
+                                  : "Vercel CDN"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
                 )}
               </tbody>
             </table>
