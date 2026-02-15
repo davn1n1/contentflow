@@ -392,17 +392,19 @@ export function SyncedCaptions({ text, currentTime, duration, isPlaying, color =
         const isPast = isPlaying && i < activeIdx;
 
         return (
-          <span
-            key={i}
-            ref={isActive ? activeWordRef : undefined}
-            className={cn(
-              "inline-block transition-all duration-150",
-              isActive && cn("rounded px-0.5 -mx-0.5 font-semibold scale-105", highlightColors[color]),
-              isPast && pastColors[color],
-              !isActive && !isPast && "text-foreground/60",
-            )}
-          >
-            {t.word}{" "}
+          <span key={i}>
+            <span
+              ref={isActive ? activeWordRef : undefined}
+              className={cn(
+                "transition-all duration-150",
+                isActive && cn("rounded px-0.5 font-semibold", highlightColors[color]),
+                isPast && pastColors[color],
+                !isActive && !isPast && "text-foreground/60",
+              )}
+            >
+              {t.word}
+            </span>
+            {" "}
           </span>
         );
       })}

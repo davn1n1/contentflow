@@ -2270,35 +2270,34 @@ function AudioSceneSummaryRow({ scene, isExpanded, onToggle, expandedRef }: {
                 <SceneActionButton sceneId={scene.id} currentVoiceS3={scene.voice_s3} onGenerating={() => setGeneratingAudio(true)} onAudioReady={() => setGeneratingAudio(false)} />
               </div>
 
-              {/* ── Script: Synced captions when playing, editable when not ── */}
+              {/* ── Synced captions (read-only, only while playing) ── */}
+              {audioPlaying && scriptValue && audioDuration > 0 && (
+                <SyncedCaptions
+                  text={scriptValue}
+                  currentTime={audioTime}
+                  duration={audioDuration}
+                  isPlaying={audioPlaying}
+                  color="emerald"
+                />
+              )}
+
+              {/* ── Script (always editable) + V1/V2/V3 análisis ── */}
               <div className="flex gap-1.5">
                 <div className="flex-1 min-w-0 relative">
-                  {audioPlaying && scriptValue && audioDuration > 0 ? (
-                    <SyncedCaptions
-                      text={scriptValue}
-                      currentTime={audioTime}
-                      duration={audioDuration}
-                      isPlaying={audioPlaying}
-                      color="emerald"
-                    />
-                  ) : (
-                    <>
-                      <textarea
-                        ref={textareaRef}
-                        value={scriptValue}
-                        onChange={handleScriptChange}
-                        onKeyDown={handleTextareaKeyDown}
-                        onClick={(e) => e.stopPropagation()}
-                        onFocus={() => { scriptFocusedRef.current = true; }}
-                        onBlur={() => { scriptFocusedRef.current = false; }}
-                        className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none text-[11px] leading-snug"
-                        rows={3}
-                        placeholder="Script..."
-                      />
-                      {savingScript && <Loader2 className="w-3 h-3 animate-spin text-amber-400 absolute top-1.5 right-1.5" />}
-                      {savedScript && !savingScript && <CheckCircle2 className="w-3 h-3 text-emerald-400 absolute top-1.5 right-1.5" />}
-                    </>
-                  )}
+                  <textarea
+                    ref={textareaRef}
+                    value={scriptValue}
+                    onChange={handleScriptChange}
+                    onKeyDown={handleTextareaKeyDown}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={() => { scriptFocusedRef.current = true; }}
+                    onBlur={() => { scriptFocusedRef.current = false; }}
+                    className="w-full bg-muted/25 rounded px-2 py-1.5 border border-transparent focus:border-emerald-500/30 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none text-[11px] leading-snug"
+                    rows={3}
+                    placeholder="Script..."
+                  />
+                  {savingScript && <Loader2 className="w-3 h-3 animate-spin text-amber-400 absolute top-1.5 right-1.5" />}
+                  {savedScript && !savingScript && <CheckCircle2 className="w-3 h-3 text-emerald-400 absolute top-1.5 right-1.5" />}
                 </div>
 
                 {/* V1/V2/V3 análisis inline */}
