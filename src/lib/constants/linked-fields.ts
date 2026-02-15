@@ -6,10 +6,14 @@ export interface LinkedFieldDef {
   table: string;
   /** Primary field name(s) to display as the record name */
   nameFields: string[];
+  /** Image field name to show as thumbnail (attachment or S3 URL field) */
+  imageField?: string;
   /** Optional Airtable formula filter for listing options */
   filter?: string;
   /** Whether this field allows multiple linked records */
   multiple?: boolean;
+  /** Whether this table has 🏢Account for filtering (false = global/shared table) */
+  hasAccount?: boolean;
 }
 
 /**
@@ -21,48 +25,64 @@ export const LINKED_FIELD_CONFIG: Record<string, Record<string, LinkedFieldDef>>
     Persona: {
       table: "persona",
       nameFields: ["Name"],
+      imageField: "Attachments",
+      hasAccount: true,
     },
     VoiceDNA: {
       table: "voicedna",
       nameFields: ["VoiceName"],
+      hasAccount: true,
     },
     "Avatares Sets Youtube": {
       table: "avatares-set",
       nameFields: ["Name"],
+      imageField: "Attachments (from Avatar)",
+      hasAccount: true,
     },
     "Avatares Sets Reels": {
       table: "avatares-set",
       nameFields: ["Name"],
+      imageField: "Attachments (from Avatar)",
+      hasAccount: true,
     },
     Intro: {
       table: "ctas",
       nameFields: ["Name", "Texto CTA"],
       filter: "OR({CTA/Intro}='Intro',{CTA/Intro}='')",
+      hasAccount: true,
     },
     CTA: {
       table: "ctas",
       nameFields: ["Name", "Texto CTA"],
       filter: "OR({CTA/Intro}='CTA',{CTA/Intro}='')",
+      hasAccount: true,
     },
     "Intro Broll": {
       table: "broll",
       nameFields: ["Id And Tags Summary"],
+      imageField: "Broll Thumb",
+      hasAccount: true,
     },
     "CTA Broll": {
       table: "broll",
       nameFields: ["Id And Tags Summary"],
+      imageField: "Broll Thumb",
+      hasAccount: true,
     },
     "Formato Diseño Slides": {
       table: "formato-diseno-slides",
       nameFields: ["Formato Diseño"],
+      hasAccount: false, // Global table, no account filter
     },
     "Estilos Musicales": {
       table: "estilos-musicales",
       nameFields: ["style_en", "Descripción Principal"],
+      hasAccount: false, // Global table, no account filter
     },
     "Cometario Pineado": {
       table: "comentario-pineado",
       nameFields: ["Name", "Texto"],
+      hasAccount: true,
     },
   },
 };

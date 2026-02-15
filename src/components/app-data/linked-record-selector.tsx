@@ -9,12 +9,14 @@ import {
   Loader2,
   Link2,
   X,
+  User,
 } from "lucide-react";
 import type { LinkedFieldDef } from "@/lib/constants/linked-fields";
 
 interface ResolvedRecord {
   id: string;
   name: string;
+  image: string | null;
 }
 
 interface LinkedRecordSelectorProps {
@@ -32,8 +34,8 @@ export function LinkedRecordSelector({
   accountId,
   onChange,
 }: LinkedRecordSelectorProps) {
-  const [resolvedNames, setResolvedNames] = useState<
-    Record<string, string>
+  const [resolvedRecords, setResolvedRecords] = useState<
+    Record<string, ResolvedRecord>
   >({});
   const [loadingNames, setLoadingNames] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -43,23 +45,39 @@ export function LinkedRecordSelector({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Resolve current linked record names
+  // Build API params with account + image + hasAccount info
+  const buildParams = useCallback(
+    (extra?: Record<string, string>) => {
+      const params = new URLSearchParams({ table: config.table });
+      if (accountId && config.hasAccount !== false)
+        params.set("accountId", accountId);
+      if (config.hasAccount === false) params.set("hasAccount", "false");
+      if (config.filter) params.set("filter", config.filter);
+      if (config.imageField) params.set("imageField", config.imageField);
+      if (extra) {
+        for (const [k, v] of Object.entries(extra)) params.set(k, v);
+      }
+      return params;
+    },
+    [config, accountId]
+  );
+
+  // Resolve current linked record names + images
   useEffect(() => {
     if (recordIds.length === 0) return;
-    const idsToResolve = recordIds.filter((id) => !resolvedNames[id]);
+    const idsToResolve = recordIds.filter((id) => !resolvedRecords[id]);
     if (idsToResolve.length === 0) return;
 
     setLoadingNames(true);
-    fetch(
-      `/api/data/resolve-links?table=${config.table}&ids=${idsToResolve.join(",")}`
-    )
+    const params = buildParams({ ids: idsToResolve.join(",") });
+    fetch(`/api/data/resolve-links?${params}`)
       .then((r) => r.json())
       .then((data: ResolvedRecord[]) => {
         if (Array.isArray(data)) {
-          setResolvedNames((prev) => {
+          setResolvedRecords((prev) => {
             const next = { ...prev };
             for (const item of data) {
-              next[item.id] = item.name;
+              next[item.id] = item;
             }
             return next;
           });
@@ -68,25 +86,22 @@ export function LinkedRecordSelector({
       .catch(console.error)
       .finally(() => setLoadingNames(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recordIds.join(","), config.table]);
+  }, [recordIds.join(","), config.table, buildParams]);
 
   // Fetch available options when dropdown opens
   const fetchOptions = useCallback(async () => {
     setLoadingOptions(true);
     try {
-      const params = new URLSearchParams({ table: config.table });
-      if (accountId) params.set("accountId", accountId);
-      if (config.filter) params.set("filter", config.filter);
-
+      const params = buildParams();
       const res = await fetch(`/api/data/resolve-links?${params}`);
       const data: ResolvedRecord[] = await res.json();
       if (Array.isArray(data)) {
         setOptions(data);
-        // Also update resolved names cache
-        setResolvedNames((prev) => {
+        // Also update resolved records cache
+        setResolvedRecords((prev) => {
           const next = { ...prev };
           for (const item of data) {
-            next[item.id] = item.name;
+            next[item.id] = item;
           }
           return next;
         });
@@ -96,7 +111,7 @@ export function LinkedRecordSelector({
     } finally {
       setLoadingOptions(false);
     }
-  }, [config.table, config.filter, accountId]);
+  }, [buildParams]);
 
   // Open dropdown
   const openDropdown = () => {
@@ -147,10 +162,8 @@ export function LinkedRecordSelector({
       )
     : options;
 
-  const currentName =
-    recordIds.length > 0 && resolvedNames[recordIds[0]]
-      ? resolvedNames[recordIds[0]]
-      : null;
+  const currentRecord =
+    recordIds.length > 0 ? resolvedRecords[recordIds[0]] : null;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -165,9 +178,23 @@ export function LinkedRecordSelector({
         onClick={() => (isOpen ? setIsOpen(false) : openDropdown())}
       >
         <div className="flex items-center gap-3 p-3">
-          <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center flex-shrink-0">
-            <Link2 className="w-4 h-4 text-muted-foreground/50" />
-          </div>
+          {/* Thumbnail */}
+          {currentRecord?.image ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={currentRecord.image}
+              alt={currentRecord.name}
+              className="w-10 h-10 rounded-lg object-cover border border-border/50 flex-shrink-0"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-muted border border-border flex items-center justify-center flex-shrink-0">
+              {config.imageField ? (
+                <User className="w-4 h-4 text-muted-foreground/50" />
+              ) : (
+                <Link2 className="w-4 h-4 text-muted-foreground/50" />
+              )}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
               {fieldName}
@@ -185,27 +212,39 @@ export function LinkedRecordSelector({
               </p>
             ) : config.multiple ? (
               <div className="flex flex-wrap gap-1 mt-1">
-                {recordIds.map((id) => (
-                  <span
-                    key={id}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20"
-                  >
-                    {resolvedNames[id] || id.slice(0, 8) + "..."}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemove(id);
-                      }}
-                      className="hover:bg-primary/20 rounded-full p-0.5"
+                {recordIds.map((id) => {
+                  const rec = resolvedRecords[id];
+                  return (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20"
                     >
-                      <X className="w-2.5 h-2.5" />
-                    </button>
-                  </span>
-                ))}
+                      {rec?.image && (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          src={rec.image}
+                          alt=""
+                          className="w-4 h-4 rounded-full object-cover"
+                        />
+                      )}
+                      {rec?.name || id.slice(0, 8) + "..."}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemove(id);
+                        }}
+                        className="hover:bg-primary/20 rounded-full p-0.5"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm font-medium text-foreground truncate mt-0.5">
-                {currentName || recordIds[0]?.slice(0, 12) + "..."}
+                {currentRecord?.name ||
+                  recordIds[0]?.slice(0, 12) + "..."}
               </p>
             )}
           </div>
@@ -263,18 +302,40 @@ export function LinkedRecordSelector({
                         : "hover:bg-muted/80 text-foreground"
                     )}
                   >
-                    <div
-                      className={cn(
-                        "w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0",
-                        isSelected
-                          ? "bg-primary border-primary"
-                          : "border-border"
-                      )}
-                    >
-                      {isSelected && (
-                        <Check className="w-3 h-3 text-primary-foreground" />
-                      )}
-                    </div>
+                    {/* Thumbnail or checkbox */}
+                    {option.image ? (
+                      <div className="relative flex-shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={option.image}
+                          alt=""
+                          className={cn(
+                            "w-8 h-8 rounded-lg object-cover border",
+                            isSelected
+                              ? "border-primary"
+                              : "border-border/50"
+                          )}
+                        />
+                        {isSelected && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        className={cn(
+                          "w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0",
+                          isSelected
+                            ? "bg-primary border-primary"
+                            : "border-border"
+                        )}
+                      >
+                        {isSelected && (
+                          <Check className="w-3 h-3 text-primary-foreground" />
+                        )}
+                      </div>
+                    )}
                     <span className="text-sm font-medium truncate">
                       {option.name}
                     </span>

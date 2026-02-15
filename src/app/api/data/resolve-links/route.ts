@@ -34,6 +34,34 @@ const PRIMARY_FIELDS: Record<string, string[]> = {
   voices: ["Name"],
 };
 
+// Image fields to fetch as thumbnail for each table
+const IMAGE_FIELDS: Record<string, string> = {
+  persona: "Attachments",
+  "avatares-set": "Attachments (from Avatar)",
+  broll: "Broll Thumb",
+  "comentario-pineado": "Attachments",
+};
+
+// Which tables have 🏢Account for filtering
+const TABLES_WITH_ACCOUNT = new Set([
+  "persona",
+  "voicedna",
+  "avatares-set",
+  "ctas",
+  "broll",
+  "comentario-pineado",
+  "brands",
+  "voices",
+]);
+
+interface AirtableAttachment {
+  url?: string;
+  thumbnails?: {
+    small?: { url: string };
+    large?: { url: string };
+  };
+}
+
 function getPrimaryName(
   fields: Record<string, unknown>,
   primaryFields: string[]
@@ -52,6 +80,24 @@ function getPrimaryName(
   return "Sin nombre";
 }
 
+function getImageUrl(
+  fields: Record<string, unknown>,
+  imageField: string | undefined
+): string | null {
+  if (!imageField) return null;
+  const val = fields[imageField];
+  if (!Array.isArray(val) || val.length === 0) return null;
+  const first = val[0] as AirtableAttachment;
+  if (typeof first !== "object" || first === null) return null;
+  // Prefer small thumbnail for performance
+  return (
+    first.thumbnails?.small?.url ||
+    first.thumbnails?.large?.url ||
+    first.url ||
+    null
+  );
+}
+
 async function resolveAccountName(
   accountId: string
 ): Promise<string | null> {
@@ -66,11 +112,14 @@ async function resolveAccountName(
 /**
  * GET /api/data/resolve-links
  *
- * Modes:
- *   1. ?table=ctas&ids=recXXX,recYYY         → Resolve specific IDs to names
- *   2. ?table=ctas&accountId=recZZZ           → List all available records (for dropdown)
- *   3. ?table=ctas&accountId=recZZZ&search=X  → Search available records
- *   4. ?table=ctas&accountId=recZZZ&filter=X  → Filter with extra formula
+ * Params:
+ *   table       - Required: table key (e.g., "persona", "ctas")
+ *   ids         - Resolve specific record IDs to names + images
+ *   accountId   - Filter by account (required for tables with 🏢Account)
+ *   filter      - Extra Airtable formula
+ *   search      - Client-side text search
+ *   imageField  - Override image field name (from linked-fields config)
+ *   hasAccount  - "false" to skip account filtering (for global tables)
  */
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest();
@@ -83,6 +132,8 @@ export async function GET(request: NextRequest) {
     const accountId = searchParams.get("accountId");
     const search = searchParams.get("search");
     const filter = searchParams.get("filter");
+    const imageFieldOverride = searchParams.get("imageField");
+    const hasAccountParam = searchParams.get("hasAccount");
     const limit = parseInt(searchParams.get("limit") || "100");
 
     if (!table || !LINKABLE_TABLES[table]) {
@@ -95,33 +146,50 @@ export async function GET(request: NextRequest) {
     }
 
     const tableId = LINKABLE_TABLES[table];
-    const fields = PRIMARY_FIELDS[table] || ["Name"];
+    const nameFields = PRIMARY_FIELDS[table] || ["Name"];
+    const imageField =
+      imageFieldOverride || IMAGE_FIELDS[table] || undefined;
+
+    // Determine which fields to fetch
+    const fetchFields = [...nameFields];
+    if (imageField) fetchFields.push(imageField);
+
+    // Determine if this table should be filtered by account
+    const shouldFilterByAccount =
+      hasAccountParam !== "false" && TABLES_WITH_ACCOUNT.has(table);
+
+    // Helper to map records to response format
+    function mapRecord(r: { id: string; fields: Record<string, unknown> }) {
+      return {
+        id: r.id,
+        name: getPrimaryName(r.fields, nameFields),
+        image: getImageUrl(r.fields, imageField),
+      };
+    }
 
     // ── Mode 1: Resolve specific record IDs ──
     if (ids) {
       const recordIds = ids.split(",").filter(Boolean);
       if (recordIds.length === 0) return NextResponse.json([]);
 
-      const records = await airtableFetchByIds(tableId, recordIds, fields);
+      const records = await airtableFetchByIds(tableId, recordIds, fetchFields);
       return NextResponse.json(
-        records.map((r) => ({
-          id: r.id,
-          name: getPrimaryName(r.fields as Record<string, unknown>, fields),
-        }))
+        records.map((r) =>
+          mapRecord({ id: r.id, fields: r.fields as Record<string, unknown> })
+        )
       );
     }
 
-    // ── Mode 2/3/4: List available records ──
+    // ── Mode 2: List available records for dropdown ──
     let accountName: string | null = null;
-    if (accountId) {
+    if (accountId && shouldFilterByAccount) {
       accountName = await resolveAccountName(accountId);
     }
 
     const conditions: string[] = [];
     if (accountName) {
-      // Try 🏢Account first (most tables), then Account
       conditions.push(
-        `OR(FIND('${accountName}', ARRAYJOIN({🏢Account}, ',')), FIND('${accountName}', ARRAYJOIN({Account}, ',')))`
+        `FIND('${accountName}', ARRAYJOIN({🏢Account}, ','))`
       );
     }
     if (filter) {
@@ -133,59 +201,106 @@ export async function GET(request: NextRequest) {
       return conds.length === 1 ? conds[0] : `AND(${conds.join(",")})`;
     }
 
-    // Try with formula
+    // Strategy 1: Try with full formula (account + filter)
     const formula = buildFormula(conditions);
-    try {
-      const { records } = await airtableFetch(tableId, {
-        maxRecords: limit,
-        ...(formula ? { filterByFormula: formula } : {}),
-        fields,
-      });
+    if (formula) {
+      try {
+        const { records } = await airtableFetch(tableId, {
+          maxRecords: limit,
+          filterByFormula: formula,
+          fields: fetchFields,
+        });
 
-      let results = records.map((r) => ({
-        id: r.id,
-        name: getPrimaryName(
-          r.fields as Record<string, unknown>,
-          fields
-        ),
-      }));
+        let results = records.map((r) =>
+          mapRecord({ id: r.id, fields: r.fields as Record<string, unknown> })
+        );
 
-      // Client-side search if needed
-      if (search) {
-        const lower = search.toLowerCase();
-        results = results.filter((r) =>
-          r.name.toLowerCase().includes(lower)
+        if (search) {
+          const lower = search.toLowerCase();
+          results = results.filter((r) =>
+            r.name.toLowerCase().includes(lower)
+          );
+        }
+
+        return NextResponse.json(results);
+      } catch (err) {
+        console.warn(
+          `[resolve-links] Strategy 1 failed for ${table}:`,
+          formula,
+          err instanceof Error ? err.message : err
         );
       }
-
-      return NextResponse.json(results);
-    } catch (err) {
-      console.warn(
-        `[resolve-links] Formula failed for ${table}:`,
-        formula,
-        err instanceof Error ? err.message : err
-      );
     }
 
-    // Fallback: fetch without account filter
-    const fallbackConditions = conditions.filter(
-      (c) => !c.includes("Account")
-    );
-    const fallbackFormula = buildFormula(fallbackConditions);
+    // Strategy 2: Try with filter only (no account), then filter account client-side
+    if (filter) {
+      try {
+        const { records } = await airtableFetch(tableId, {
+          maxRecords: limit,
+          filterByFormula: filter,
+          fields: fetchFields,
+        });
 
+        let results = records.map((r) =>
+          mapRecord({ id: r.id, fields: r.fields as Record<string, unknown> })
+        );
+
+        if (search) {
+          const lower = search.toLowerCase();
+          results = results.filter((r) =>
+            r.name.toLowerCase().includes(lower)
+          );
+        }
+
+        return NextResponse.json(results);
+      } catch (err) {
+        console.warn(
+          `[resolve-links] Strategy 2 failed for ${table}:`,
+          filter,
+          err instanceof Error ? err.message : err
+        );
+      }
+    }
+
+    // Strategy 3: Try account-only formula
+    if (accountName) {
+      try {
+        const accountFormula = `FIND('${accountName}', ARRAYJOIN({🏢Account}, ','))`;
+        const { records } = await airtableFetch(tableId, {
+          maxRecords: limit,
+          filterByFormula: accountFormula,
+          fields: fetchFields,
+        });
+
+        let results = records.map((r) =>
+          mapRecord({ id: r.id, fields: r.fields as Record<string, unknown> })
+        );
+
+        if (search) {
+          const lower = search.toLowerCase();
+          results = results.filter((r) =>
+            r.name.toLowerCase().includes(lower)
+          );
+        }
+
+        return NextResponse.json(results);
+      } catch (err) {
+        console.warn(
+          `[resolve-links] Strategy 3 (account-only) failed for ${table}:`,
+          err instanceof Error ? err.message : err
+        );
+      }
+    }
+
+    // Strategy 4: Fetch all (no formula)
     const { records } = await airtableFetch(tableId, {
       maxRecords: limit,
-      ...(fallbackFormula ? { filterByFormula: fallbackFormula } : {}),
-      fields,
+      fields: fetchFields,
     });
 
-    let results = records.map((r) => ({
-      id: r.id,
-      name: getPrimaryName(
-        r.fields as Record<string, unknown>,
-        fields
-      ),
-    }));
+    let results = records.map((r) =>
+      mapRecord({ id: r.id, fields: r.fields as Record<string, unknown> })
+    );
 
     if (search) {
       const lower = search.toLowerCase();
