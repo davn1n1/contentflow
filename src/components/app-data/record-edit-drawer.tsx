@@ -23,7 +23,7 @@ import {
   Info,
   Paperclip,
 } from "lucide-react";
-import { getLinkedFieldDef } from "@/lib/constants/linked-fields";
+import { getLinkedFieldDef, getLinkedFieldGroups } from "@/lib/constants/linked-fields";
 import { LinkedRecordSelector } from "@/components/app-data/linked-record-selector";
 
 // Tag color palette
@@ -487,46 +487,107 @@ export function RecordEditDrawer({ record, table, accountId, onClose }: RecordEd
       });
     }
 
-    // 7. REGISTROS VINCULADOS
+    // 7. REGISTROS VINCULADOS (grouped by section)
     if (fieldGroups.linkedRecords.length > 0) {
-      sections.push({
-        key: "linkedRecords",
-        icon: <Link2 className="w-4 h-4" />,
-        title: "Registros vinculados",
-        content: (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {fieldGroups.linkedRecords.map(([key, value]) => {
-              const linkedConfig = getLinkedFieldDef(table, key);
-              const ids = (value as string[]).filter(
-                (v) => typeof v === "string" && v.startsWith("rec")
-              );
+      const groups = getLinkedFieldGroups(table);
+      const fieldsMap = new Map(fieldGroups.linkedRecords);
 
-              if (linkedConfig) {
+      // Helper to render a single linked record field
+      const renderLinkedField = (key: string, value: unknown) => {
+        const linkedConfig = getLinkedFieldDef(table, key);
+        const ids = (value as string[]).filter(
+          (v) => typeof v === "string" && v.startsWith("rec")
+        );
+
+        if (linkedConfig) {
+          return (
+            <LinkedRecordSelector
+              key={key}
+              fieldName={key}
+              recordIds={key in editedFields ? (editedFields[key] as string[]) : ids}
+              config={linkedConfig}
+              accountId={accountId}
+              onChange={(newIds) => handleFieldChange(key, newIds)}
+            />
+          );
+        }
+
+        return (
+          <LinkedRecordCard
+            key={key}
+            fieldName={key}
+            values={value as unknown[]}
+            lookupImageUrl={findLookupImage(key, record)}
+            lookupName={findLookupName(key, record)}
+          />
+        );
+      };
+
+      if (groups && groups.length > 0) {
+        // Track which fields are assigned to groups
+        const assignedFields = new Set(groups.flatMap((g) => g.fields));
+
+        sections.push({
+          key: "linkedRecords",
+          icon: <Link2 className="w-4 h-4" />,
+          title: "Registros vinculados",
+          content: (
+            <div className="space-y-6">
+              {groups.map((group) => {
+                const groupFields = group.fields.filter((f) => fieldsMap.has(f));
+                if (groupFields.length === 0) return null;
                 return (
-                  <LinkedRecordSelector
-                    key={key}
-                    fieldName={key}
-                    recordIds={key in editedFields ? (editedFields[key] as string[]) : ids}
-                    config={linkedConfig}
-                    accountId={accountId}
-                    onChange={(newIds) => handleFieldChange(key, newIds)}
-                  />
+                  <div key={group.title}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                        {group.title}
+                      </p>
+                      <div className="flex-1 border-t border-dashed border-border/60" />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {groupFields.map((fieldName) =>
+                        renderLinkedField(fieldName, fieldsMap.get(fieldName))
+                      )}
+                    </div>
+                  </div>
                 );
-              }
-
-              return (
-                <LinkedRecordCard
-                  key={key}
-                  fieldName={key}
-                  values={value as unknown[]}
-                  lookupImageUrl={findLookupImage(key, record)}
-                  lookupName={findLookupName(key, record)}
-                />
-              );
-            })}
-          </div>
-        ),
-      });
+              })}
+              {/* Ungrouped fields (if any) */}
+              {fieldGroups.linkedRecords
+                .filter(([key]) => !assignedFields.has(key))
+                .length > 0 && (
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+                      Otros
+                    </p>
+                    <div className="flex-1 border-t border-dashed border-border/60" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {fieldGroups.linkedRecords
+                      .filter(([key]) => !assignedFields.has(key))
+                      .map(([key, value]) => renderLinkedField(key, value))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ),
+        });
+      } else {
+        // No groups defined: flat layout (fallback)
+        sections.push({
+          key: "linkedRecords",
+          icon: <Link2 className="w-4 h-4" />,
+          title: "Registros vinculados",
+          content: (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {fieldGroups.linkedRecords.map(([key, value]) =>
+                renderLinkedField(key, value)
+              )}
+            </div>
+          ),
+        });
+      }
     }
 
     // 8. ETIQUETAS

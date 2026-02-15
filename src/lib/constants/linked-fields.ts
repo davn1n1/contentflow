@@ -88,6 +88,41 @@ export const LINKED_FIELD_CONFIG: Record<string, Record<string, LinkedFieldDef>>
 };
 
 /**
+ * Groups for visually organizing linked record fields in the drawer.
+ * Each group has a title and an ordered list of field names.
+ * Fields not in any group are shown ungrouped at the end.
+ */
+export interface LinkedFieldGroup {
+  title: string;
+  fields: string[];
+}
+
+export const LINKED_FIELD_GROUPS: Record<string, LinkedFieldGroup[]> = {
+  "default-settings": [
+    {
+      title: "Avatar Set y Estilo Redacción (VoiceDNA) por defecto para Youtube",
+      fields: ["Avatares Sets Youtube", "VoiceDNA"],
+    },
+    {
+      title: "Avatar Set por defecto para Reels",
+      fields: ["Avatares Sets Reels"],
+    },
+    {
+      title: "Persona para Reels y Youtube",
+      fields: ["Persona"],
+    },
+    {
+      title: "Textos y Broll por defecto para Intro y CTA de Youtube",
+      fields: ["Intro", "CTA", "Intro Broll", "CTA Broll"],
+    },
+    {
+      title: "Elementos varios por defecto para Youtube",
+      fields: ["Formato Diseño Slides", "Estilos Musicales", "Cometario Pineado"],
+    },
+  ],
+};
+
+/**
  * Get the linked field config for a specific parent table + field name.
  * Returns null if the field is not configured as editable.
  */
@@ -96,4 +131,13 @@ export function getLinkedFieldDef(
   fieldName: string
 ): LinkedFieldDef | null {
   return LINKED_FIELD_CONFIG[parentTable]?.[fieldName] ?? null;
+}
+
+/**
+ * Get the field groups for a parent table (if defined).
+ */
+export function getLinkedFieldGroups(
+  parentTable: string
+): LinkedFieldGroup[] | null {
+  return LINKED_FIELD_GROUPS[parentTable] ?? null;
 }
