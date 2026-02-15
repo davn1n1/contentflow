@@ -50,6 +50,9 @@ const VIDEO_FIELDS = [
   "YT_VideoID",
   "Logo (from Fuentes Inspiracion) (from Ideas Inspiracion)",
   "N. Capitulo Podcast",
+  // Thumbnail fallbacks for Reels/Vertical
+  "Broll Thumb (from Videos Broll)",
+  "Foto (from Fotos) (from Persona)",
 ];
 
 interface VideoFields {
@@ -116,6 +119,8 @@ interface VideoFields {
   "YT_VideoID"?: string;
   "Logo (from Fuentes Inspiracion) (from Ideas Inspiracion)"?: { url: string; thumbnails?: { large?: { url: string } } }[];
   "N. Capitulo Podcast"?: string;
+  "Broll Thumb (from Videos Broll)"?: { url: string; thumbnails?: { large?: { url: string } } }[];
+  "Foto (from Fotos) (from Persona)"?: { url: string; thumbnails?: { large?: { url: string } } }[];
 }
 
 export async function GET(request: NextRequest) {
@@ -332,5 +337,7 @@ function mapVideo(r: { id: string; createdTime: string; fields: VideoFields }) {
     logo_fuentes_inspiracion: r.fields["Logo (from Fuentes Inspiracion) (from Ideas Inspiracion)"]?.[0]?.thumbnails?.large?.url || r.fields["Logo (from Fuentes Inspiracion) (from Ideas Inspiracion)"]?.[0]?.url || null,
     n_capitulo_podcast: r.fields["N. Capitulo Podcast"] || null,
     horizontalvertical: r.fields["Horizontal/Vertical"] || null,
+    broll_thumb: r.fields["Broll Thumb (from Videos Broll)"]?.[0]?.thumbnails?.large?.url || r.fields["Broll Thumb (from Videos Broll)"]?.[0]?.url || null,
+    persona_photo: r.fields["Foto (from Fotos) (from Persona)"]?.[0]?.thumbnails?.large?.url || r.fields["Foto (from Fotos) (from Persona)"]?.[0]?.url || null,
   };
 }

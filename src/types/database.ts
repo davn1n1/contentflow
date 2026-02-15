@@ -97,6 +97,8 @@ export interface Video {
   yt_video_id: string | null;
   logo_fuentes_inspiracion: string | null;
   n_capitulo_podcast: string | null;
+  broll_thumb: string | null;
+  persona_photo: string | null;
 }
 
 export interface Scene {

@@ -18,11 +18,11 @@ export function VideoCard({ video, clientSlug }: VideoCardProps) {
       href={`/${clientSlug}/videos/${video.id}`}
       className="glass-card rounded-xl overflow-hidden hover:border-primary/30 transition-all group block"
     >
-      {/* Thumbnail */}
+      {/* Thumbnail: portada_a → broll_thumb → persona_photo → fallback icon */}
       <div className="relative aspect-video bg-muted">
-        {video.portada_a ? (
+        {(video.portada_a || video.broll_thumb || video.persona_photo) ? (
           <img
-            src={video.portada_a}
+            src={(video.portada_a || video.broll_thumb || video.persona_photo)!}
             alt={video.titulo || "Video thumbnail"}
             className="w-full h-full object-cover"
           />
