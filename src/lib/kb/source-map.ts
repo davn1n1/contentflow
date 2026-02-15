@@ -656,6 +656,58 @@ const troubleshooting: KBSource[] = [
 ];
 
 // =====================================================
+// PRODUCTIVIDAD
+// =====================================================
+
+const productividad: KBSource[] = [
+  {
+    id: "atajos-teclado",
+    title: "Atajos de teclado y tips de productividad",
+    category: "getting-started",
+    tags: ["atajos", "teclado", "keyboard", "shortcuts", "productividad", "tips", "accesos-rapidos"],
+    sources: [
+      { type: "component", path: "src/lib/hooks/useTimelineShortcuts.ts" },
+      { type: "component", path: "src/lib/chat/system-prompt.ts" },
+      {
+        type: "inline",
+        content: `Atajos de teclado disponibles en ContentFlow365:
+
+## Timeline / Editor Remotion
+- Espacio → Play/Pausa
+- ← → → Retroceder/Avanzar 1 frame
+- Shift+← → → Retroceder/Avanzar 1 segundo
+- Ctrl/Cmd+Z → Deshacer
+- Ctrl/Cmd+Y o Ctrl/Cmd+Shift+Z → Rehacer
+- S → Dividir clip en el playhead
+- Delete/Backspace → Eliminar clips seleccionados
+- Ctrl/Cmd+C / V → Copiar/Pegar clips
+- Ctrl/Cmd+=/-/0 → Zoom in/out/reset
+- M → Anadir marcador
+- R → Activar modo ripple edit
+- Escape → Deseleccionar todo
+
+## Tabla de Montaje Video (tab Montaje)
+- ↑ ↓ (flechas) → Navegar entre escenas de la tabla rapidamente
+- Se desactivan al escribir en un campo de texto
+
+## Tablas de Copy y Audio
+- Los campos son editables inline — haz click y escribe directamente
+- Los cambios se guardan automaticamente cada 800ms (auto-save)
+- No hay boton de guardar — todo es automatico
+
+## Chat de Soporte
+- Enter → Enviar mensaje
+- Shift+Enter → Nueva linea
+
+## General
+- Escape → Cerrar modales (lightbox de imagenes, dialogs, etc.)`,
+      },
+    ],
+    priority: 1,
+  },
+];
+
+// =====================================================
 // CHAT IA
 // =====================================================
 
@@ -728,6 +780,7 @@ export const KB_SOURCES: KBSource[] = [
   ...account,
   ...navigation,
   ...troubleshooting,
+  ...productividad,
   ...chatIA,
   ...campanas,
 ];
