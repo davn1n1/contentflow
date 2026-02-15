@@ -97,6 +97,7 @@ const sections: NavSection[] = [
     key: "overview",
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, global: true },
+      { name: "YouTube Stats", href: "/youtube-stats", icon: BarChart3 },
     ],
   },
   {
@@ -142,10 +143,10 @@ const sections: NavSection[] = [
           { name: "Render", tabParam: "render", icon: Clapperboard },
         ],
       },
-      { name: "YouTube Stats", href: "/youtube-stats", icon: BarChart3 },
       { name: "Clips Opus", href: "/clips", icon: Clapperboard },
       { name: "Remotion Pro", href: "/remotion", icon: Film, global: true },
       { name: "Remotion Lite", href: "/remotion-lite", icon: Rocket, global: true },
+      { name: "Remotion Proxy", href: "/remotion-proxy", icon: Shield, global: true },
       { name: "Templates", href: "/remotion/templates", icon: LayoutTemplate, global: true },
     ],
   },
