@@ -18,6 +18,7 @@ const LINKABLE_TABLES: Record<string, string> = {
   "comentario-pineado": TABLES.COMENTARIO_PINEADO,
   brands: TABLES.BRANDS,
   voices: TABLES.VOICES,
+  sponsors: TABLES.SPONSORS,
 };
 
 // Primary fields to fetch and display for each table
@@ -32,6 +33,7 @@ const PRIMARY_FIELDS: Record<string, string[]> = {
   "comentario-pineado": ["Name"],
   brands: ["Name"],
   voices: ["Name"],
+  sponsors: ["Name"],
 };
 
 // Image fields to fetch as thumbnail for each table
@@ -42,6 +44,7 @@ const IMAGE_FIELDS: Record<string, string> = {
   "comentario-pineado": "Attachments",
   "formato-diseno-slides": "Muestra",
   "estilos-musicales": "Muestra",
+  sponsors: "Logo",
 };
 
 // Which tables have 🏢Account for filtering
@@ -54,6 +57,7 @@ const TABLES_WITH_ACCOUNT = new Set([
   "comentario-pineado",
   "brands",
   "voices",
+  "sponsors",
 ]);
 
 interface AirtableAttachment {

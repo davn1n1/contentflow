@@ -96,6 +96,16 @@ export const LINKED_FIELD_CONFIG: Record<string, Record<string, LinkedFieldDef>>
       imageField: "Muestra",
       hasAccount: false,
     },
+    Sponsors: {
+      table: "sponsors",
+      nameFields: ["Name"],
+      imageField: "Logo",
+      multiple: true,
+      hasAccount: true,
+      detailFields: [
+        { field: "Status", type: "tag" },
+      ],
+    },
   },
 
   // ─── Default Settings page ─────────────────────────────

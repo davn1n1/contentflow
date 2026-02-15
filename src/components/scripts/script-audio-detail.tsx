@@ -125,63 +125,27 @@ export function TabScript({ video }: { video: VideoWithScenes }) {
       {/* Pre Feedback — IMPORTANT field */}
       <FeedbackEditor videoId={video.id} initialFeedback={video.feedback_copy} />
 
-      {/* Busca Videos en X */}
-      {(video.busca_videos_x || video.keywords_search) && (
-        <InfoSection title="Busca Videos en X">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            {video.busca_videos_x && (
-              <div>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Buscar</span>
-                <p className="mt-0.5">{video.busca_videos_x}</p>
-              </div>
-            )}
-            {video.keywords_search && (
-              <div>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Keywords</span>
-                <p className="mt-0.5">{video.keywords_search}</p>
-              </div>
-            )}
-          </div>
-        </InfoSection>
-      )}
+      {/* Busca Videos en X + Keywords */}
+      <BuscaVideosEditor videoId={video.id} initialBusca={video.busca_videos_x} initialKeywords={video.keywords_search} />
 
       {/* Avatar Set & Persona — Side by Side with pickers */}
       <AvatarPersonaSection videoId={video.id} video={video} />
 
       {/* Engine Copy & Genera Reels */}
-      {(video.engine_copy || video.genera_reels) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {video.engine_copy && (
-            <InfoSection title="Engine Copy">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 text-rose-400 rounded-lg text-sm font-medium">
-                <Cpu className="w-4 h-4" />
-                {video.engine_copy}
-              </div>
-            </InfoSection>
-          )}
-          {video.genera_reels && (
-            <InfoSection title="Genera Reels">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg text-sm font-medium">
-                <Zap className="w-4 h-4" />
-                {video.genera_reels}
-              </div>
-            </InfoSection>
-          )}
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {video.engine_copy && (
+          <InfoSection title="Engine Copy">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-rose-500/10 text-rose-400 rounded-lg text-sm font-medium">
+              <Cpu className="w-4 h-4" />
+              {video.engine_copy}
+            </div>
+          </InfoSection>
+        )}
+        <GeneraReelsEditor videoId={video.id} initialValue={video.genera_reels} />
+      </div>
 
       {/* Sponsors */}
-      {video.sponsor_ids && video.sponsor_ids.length > 0 && (
-        <InfoSection title="Sponsors">
-          <div className="flex flex-wrap gap-2">
-            {video.sponsor_ids.map((id, i) => (
-              <span key={i} className="px-3 py-1.5 bg-muted rounded-lg text-sm">
-                {id}
-              </span>
-            ))}
-          </div>
-        </InfoSection>
-      )}
+      <SponsorSection videoId={video.id} sponsorIds={video.sponsor_ids || []} />
 
       {/* ── ACTION: Crear Copy ── */}
       <div className="pt-2">
@@ -215,13 +179,7 @@ export function TabScript({ video }: { video: VideoWithScenes }) {
       )}
 
       {/* Post Content / Script */}
-      {video.post_content && (
-        <InfoSection title="Post Content / Copy">
-          <div className="text-sm whitespace-pre-wrap leading-relaxed max-h-[400px] overflow-y-auto">
-            {video.post_content}
-          </div>
-        </InfoSection>
-      )}
+      <PostContentEditor videoId={video.id} initialContent={video.post_content} />
 
       {/* ElevenLabs Text */}
       {video.elevenlabs_text && (
@@ -514,6 +472,285 @@ function InspirationSource({ idea }: { idea: LinkedIdea }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Post Content Editor ─────────────────────────────────
+
+function PostContentEditor({ videoId, initialContent }: { videoId: string; initialContent: string | null }) {
+  const [content, setContent] = useState(initialContent || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      await fetch("/api/data/videos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: videoId, fields: { "Post Content": content } }),
+      });
+      setSaved(true);
+      queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
+      setTimeout(() => setSaved(false), 2000);
+    } catch { /* silent */ } finally {
+      setSaving(false);
+    }
+  }, [content, videoId, queryClient]);
+
+  return (
+    <InfoSection title="Post Content / Copy" actions={
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className={cn(
+          "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors",
+          saved ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground hover:text-foreground",
+          saving && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : saved ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />}
+        {saved ? "Guardado" : "Guardar"}
+      </button>
+    }>
+      <textarea
+        value={content}
+        onChange={(e) => { setContent(e.target.value); setSaved(false); }}
+        rows={6}
+        placeholder="Escribe el contenido del post / copy..."
+        className="w-full bg-muted/50 border border-border rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 resize-y leading-relaxed"
+      />
+    </InfoSection>
+  );
+}
+
+// ─── Busca Videos en X + Keywords Editor ─────────────────
+
+function BuscaVideosEditor({ videoId, initialBusca, initialKeywords }: {
+  videoId: string;
+  initialBusca: string | null;
+  initialKeywords: string | null;
+}) {
+  const [busca, setBusca] = useState(initialBusca || "");
+  const [keywords, setKeywords] = useState(initialKeywords || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleSaveBusca = useCallback(async (value: string) => {
+    setSaving(true);
+    try {
+      await fetch("/api/data/videos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: videoId, fields: { "Busca Videos en X": value } }),
+      });
+      setSaved(true);
+      queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
+      setTimeout(() => setSaved(false), 2000);
+    } catch { /* silent */ } finally {
+      setSaving(false);
+    }
+  }, [videoId, queryClient]);
+
+  const handleSaveKeywords = useCallback(async () => {
+    setSaving(true);
+    try {
+      await fetch("/api/data/videos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: videoId, fields: { "Keywords Search": keywords } }),
+      });
+      setSaved(true);
+      queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
+      setTimeout(() => setSaved(false), 2000);
+    } catch { /* silent */ } finally {
+      setSaving(false);
+    }
+  }, [keywords, videoId, queryClient]);
+
+  return (
+    <div className="glass-card rounded-xl p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Twitter className="w-4 h-4 text-sky-400" />
+          Busca Videos en X
+        </h3>
+        {saved && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-emerald-500/15 text-emerald-400 animate-in fade-in">
+            Guardado
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {/* Busca Videos en X — singleSelect: No / Si */}
+        <div className="space-y-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Buscar en X</span>
+          <div className="flex gap-1.5">
+            {["No", "Si"].map((opt) => (
+              <button
+                key={opt}
+                onClick={() => { setBusca(opt); handleSaveBusca(opt); }}
+                disabled={saving}
+                className={cn(
+                  "flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors border",
+                  busca === opt
+                    ? opt === "Si" ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-red-500/15 text-red-400 border-red-500/30"
+                    : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+                )}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Keywords Search — text input */}
+        <div className="space-y-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Keywords para Buscar</span>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={keywords}
+              onChange={(e) => { setKeywords(e.target.value); setSaved(false); }}
+              placeholder="Keywords..."
+              className="flex-1 bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
+            <button
+              onClick={handleSaveKeywords}
+              disabled={saving}
+              className={cn(
+                "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                "bg-muted text-muted-foreground hover:text-foreground",
+                saving && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Genera Reels Editor ─────────────────────────────────
+
+function GeneraReelsEditor({ videoId, initialValue }: { videoId: string; initialValue: string | null }) {
+  const [value, setValue] = useState(initialValue || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleSave = useCallback(async (newValue: string) => {
+    setSaving(true);
+    try {
+      await fetch("/api/data/videos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: videoId, fields: { "Genera Reels": newValue } }),
+      });
+      setSaved(true);
+      queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
+      setTimeout(() => setSaved(false), 2000);
+    } catch { /* silent */ } finally {
+      setSaving(false);
+    }
+  }, [videoId, queryClient]);
+
+  const options = [
+    { label: "No", value: "No", color: "bg-red-500/15 text-red-400 border-red-500/30" },
+    { label: "Genera Reels", value: "Genera Reels", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  ];
+
+  return (
+    <InfoSection title="Genera Reels" actions={
+      saved ? (
+        <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-emerald-500/15 text-emerald-400 animate-in fade-in">
+          Guardado
+        </span>
+      ) : null
+    }>
+      <div className="flex gap-1.5">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => { setValue(opt.value); handleSave(opt.value); }}
+            disabled={saving}
+            className={cn(
+              "flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors border",
+              value === opt.value ? opt.color : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+            )}
+          >
+            {opt.value === "Genera Reels" && <Zap className="w-3.5 h-3.5" />}
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </InfoSection>
+  );
+}
+
+// ─── Sponsor Section (LinkedRecordSelector) ──────────────
+
+function SponsorSection({ videoId, sponsorIds }: { videoId: string; sponsorIds: string[] }) {
+  const queryClient = useQueryClient();
+  const { currentAccount } = useAccountStore();
+  const accountId = currentAccount?.id;
+
+  const [expandedLinked, setExpandedLinked] = useState<{ recordId: string; table: string } | null>(null);
+  const [expandedLinkedData, setExpandedLinkedData] = useState<AppDataRecord | null>(null);
+
+  const handleUpdate = useCallback(
+    async (ids: string[]) => {
+      try {
+        const res = await fetch("/api/data/videos", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: videoId, fields: { Sponsors: ids } }),
+        });
+        if (!res.ok) {
+          queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
+        }
+      } catch {
+        queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
+      }
+    },
+    [videoId, queryClient]
+  );
+
+  const handleExpandRecord = useCallback((recordId: string, table: string) => {
+    setExpandedLinked({ recordId, table });
+    setExpandedLinkedData(null);
+    fetch(`/api/data/app-data?table=${encodeURIComponent(table)}&id=${encodeURIComponent(recordId)}`)
+      .then((r) => { if (!r.ok) throw new Error("Failed"); return r.json(); })
+      .then((data) => setExpandedLinkedData(data as AppDataRecord))
+      .catch(() => setExpandedLinked(null));
+  }, []);
+
+  const sponsorConfig = getLinkedFieldDef("videos", "Sponsors");
+
+  return (
+    <>
+      {sponsorConfig && (
+        <LinkedRecordSelector
+          fieldName="Sponsors"
+          recordIds={sponsorIds}
+          config={sponsorConfig}
+          accountId={accountId}
+          onChange={handleUpdate}
+          onExpandRecord={handleExpandRecord}
+        />
+      )}
+      {expandedLinked && expandedLinkedData && (
+        <RecordEditDrawer
+          record={expandedLinkedData}
+          table={expandedLinked.table}
+          accountId={accountId}
+          onClose={() => { setExpandedLinked(null); setExpandedLinkedData(null); }}
+        />
+      )}
+    </>
   );
 }
 
@@ -2715,10 +2952,13 @@ export function TabEscenas({ video }: { video: VideoWithScenes }) {
 
 // ─── Shared Components ───────────────────────────────────
 
-function InfoSection({ title, children }: { title: string; children: React.ReactNode }) {
+function InfoSection({ title, children, actions }: { title: string; children: React.ReactNode; actions?: React.ReactNode }) {
   return (
     <div className="glass-card rounded-xl p-5 space-y-3">
-      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {actions}
+      </div>
       {children}
     </div>
   );
