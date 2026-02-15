@@ -70,14 +70,18 @@ export interface YouTubeAnalyticsData {
   impressions: AnalyticsResponse | null;
 }
 
-// Align endDate to last day of a complete month (required for dimensions=month)
+// YouTube Analytics API v2 with dimensions=month requires BOTH dates to be 1st of month.
+// endDate = first of the last COMPLETE month (e.g. Feb 15 → Jan 1, Jan 31 → Jan 1)
 function alignEndToMonth(endDate: string): string {
   const d = new Date(endDate + "T12:00:00");
   const lastOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  if (d.getDate() === lastOfMonth.getDate()) return endDate; // already end of month
-  // Go to end of previous month
-  const prev = new Date(d.getFullYear(), d.getMonth(), 0);
-  return prev.toISOString().split("T")[0];
+  if (d.getDate() === lastOfMonth.getDate()) {
+    // End of month — this month is complete, use 1st of this month
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  }
+  // Mid-month — use 1st of previous month (last complete month)
+  const prev = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+  return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
 function alignStartToMonth(startDate: string): string {
@@ -95,7 +99,7 @@ export async function fetchAllAnalytics(
   // For month-dimension queries, dates must align to month boundaries
   const monthStart = alignStartToMonth(startDate);
   const monthEnd = alignEndToMonth(endDate);
-  const monthRangeValid = monthStart < monthEnd;
+  const monthRangeValid = monthStart <= monthEnd;
 
   debugLog("info", "YT-API", `Month-aligned range: ${monthStart} → ${monthEnd} (valid: ${monthRangeValid})`);
 
