@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
-  Play, Settings2, ChevronDown, Palette, Music, ImageIcon, Image as ImageLucide,
+  Play, Settings2, ChevronDown, ImageIcon, Image as ImageLucide,
   ChevronRight, Loader2, CheckCircle2, XCircle, Wand2, Maximize2, X,
   Film, User2, Tag, Volume2, Star, Headphones, Info, FileText, Shield, AlertTriangle,
   Save, Edit3,
@@ -15,7 +15,10 @@ import { ActionButton } from "@/components/scripts/script-audio-detail";
 import { WaveformAudioPlayer } from "@/components/shared/waveform-audio-player";
 import { useRenders } from "@/lib/hooks/use-renders";
 import type { AeRender } from "@/types/database";
-import type { VideoWithScenes, SceneDetail, LinkedRecord } from "@/lib/hooks/use-video-detail";
+import type { VideoWithScenes, SceneDetail } from "@/lib/hooks/use-video-detail";
+import { LinkedRecordSelector } from "@/components/app-data/linked-record-selector";
+import { getLinkedFieldDef } from "@/lib/constants/linked-fields";
+import { useAccountStore } from "@/lib/stores/account-store";
 
 // ─── Slide Engine Options ─────────────────────────────────
 const SLIDE_ENGINES = ["OpenAI", "NanoBanana", "NanoBanana Pro", "SeeDream4", "z-image"];
@@ -1330,41 +1333,6 @@ function AeRenderTable({ renders }: { renders: AeRender[] }) {
   );
 }
 
-// ─── Linked Record Card ───────────────────────────────────
-function LinkedRecordCard({ label, icon, record, emptyText }: {
-  label: string; icon: React.ReactNode; record: LinkedRecord | null; emptyText: string;
-}) {
-  return (
-    <div className="glass-card rounded-xl overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
-        {icon}
-        <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">{label}</span>
-      </div>
-      {record ? (
-        <div className="flex items-center gap-4 p-4">
-          {record.image_url ? (
-            <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted border border-border/50">
-              <img src={record.image_url} alt={record.name || label} className="w-full h-full object-cover" />
-            </div>
-          ) : (
-            <div className="w-20 h-20 rounded-lg flex-shrink-0 bg-muted/50 border border-border/30 flex items-center justify-center">
-              <ImageIcon className="w-6 h-6 text-muted-foreground/30" />
-            </div>
-          )}
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate">{record.name || "Sin nombre"}</p>
-            <p className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">{String(record.id).slice(0, 12)}…</p>
-          </div>
-        </div>
-      ) : (
-        <div className="px-4 py-6 flex items-center justify-center">
-          <p className="text-xs text-muted-foreground/50">{emptyText}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Main Component ───────────────────────────────────────
 export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -1372,6 +1340,29 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
   const { data: renders = [] } = useRenders(video.id);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(false);
+  const { currentAccount } = useAccountStore();
+  const accountId = currentAccount?.id;
+
+  const handleLinkedUpdate = useCallback(
+    async (field: string, ids: string[]) => {
+      try {
+        const res = await fetch("/api/data/videos", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: video.id, fields: { [field]: ids } }),
+        });
+        if (!res.ok) {
+          queryClient.invalidateQueries({ queryKey: ["video-detail", video.id] });
+        }
+      } catch {
+        queryClient.invalidateQueries({ queryKey: ["video-detail", video.id] });
+      }
+    },
+    [video.id, queryClient]
+  );
+
+  const formatoConfig = getLinkedFieldDef("videos", "Formato Diseño Slides");
+  const estiloConfig = getLinkedFieldDef("videos", "Estilos Musicales");
 
   // On mount: immediately fetch fresh data
   useEffect(() => {
@@ -1410,20 +1401,26 @@ export function MontajeTabPanel({ video }: { video: VideoWithScenes }) {
       className="h-full overflow-y-auto px-6 py-6 space-y-6"
       onKeyDown={(e) => { if (e.key === " " && (e.target as HTMLElement).tagName !== "TEXTAREA" && (e.target as HTMLElement).tagName !== "INPUT") e.preventDefault(); }}
     >
-      {/* Linked Record Cards: Formato Slides + Estilo Musical */}
+      {/* Linked Record Selectors: Formato Slides + Estilo Musical */}
       <div className="grid grid-cols-2 gap-4">
-        <LinkedRecordCard
-          label="Formato Diseño Slides"
-          icon={<Palette className="w-3.5 h-3.5 text-violet-400" />}
-          record={video.linkedFormatoDisenoSlides}
-          emptyText="Sin formato asignado"
-        />
-        <LinkedRecordCard
-          label="Estilo Musical"
-          icon={<Music className="w-3.5 h-3.5 text-pink-400" />}
-          record={video.linkedEstiloMusical}
-          emptyText="Sin estilo asignado"
-        />
+        {formatoConfig && (
+          <LinkedRecordSelector
+            fieldName="Formato Diseño Slides"
+            recordIds={video.formato_diseno_slides_ids || []}
+            config={formatoConfig}
+            accountId={accountId}
+            onChange={(ids) => handleLinkedUpdate("Formato Diseño Slides", ids)}
+          />
+        )}
+        {estiloConfig && (
+          <LinkedRecordSelector
+            fieldName="Estilo Musical"
+            recordIds={video.estilo_musical_ids || []}
+            config={estiloConfig}
+            accountId={accountId}
+            onChange={(ids) => handleLinkedUpdate("Estilos Musicales", ids)}
+          />
+        )}
       </div>
 
       {/* Action: Crear Video (GenerateFullVideo) */}

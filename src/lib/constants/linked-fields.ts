@@ -30,6 +30,73 @@ export interface LinkedFieldDef {
  * Used by LinkedRecordSelector to know which table to query for each linked field.
  */
 export const LINKED_FIELD_CONFIG: Record<string, Record<string, LinkedFieldDef>> = {
+  // ─── Video detail page (Copy tab + Montaje tab) ─────────
+  videos: {
+    Intro: {
+      table: "ctas",
+      nameFields: ["Name"],
+      filter: "OR({CTA/Intro}='Intro',{CTA/Intro}='')",
+      hasAccount: true,
+      detailFields: [
+        { field: "Texto CTA", type: "text" },
+        { field: "Post", type: "tag" },
+      ],
+    },
+    CTA: {
+      table: "ctas",
+      nameFields: ["Name"],
+      filter: "OR({CTA/Intro}='CTA',{CTA/Intro}='')",
+      hasAccount: true,
+      detailFields: [
+        { field: "Texto CTA", type: "text" },
+        { field: "Post", type: "tag" },
+      ],
+    },
+    "Intro Broll": {
+      table: "broll",
+      nameFields: ["Id And Tags Summary"],
+      imageField: "Broll Thumb",
+      hasAccount: true,
+      detailFields: [
+        { field: "Tags", type: "tags" },
+      ],
+    },
+    "CTA Broll": {
+      table: "broll",
+      nameFields: ["Id And Tags Summary"],
+      imageField: "Broll Thumb",
+      hasAccount: true,
+      detailFields: [
+        { field: "Tags", type: "tags" },
+      ],
+    },
+    "Avatar Set": {
+      table: "avatares-set",
+      nameFields: ["Name"],
+      imageField: "Attachments (from Avatar)",
+      hasAccount: true,
+    },
+    Persona: {
+      table: "persona",
+      nameFields: ["Name"],
+      imageField: "Attachments",
+      hasAccount: true,
+    },
+    "Formato Diseño Slides": {
+      table: "formato-diseno-slides",
+      nameFields: ["Formato Diseño"],
+      imageField: "Muestra",
+      hasAccount: false,
+    },
+    "Estilos Musicales": {
+      table: "estilos-musicales",
+      nameFields: ["style_en", "Descripción Principal"],
+      imageField: "Muestra",
+      hasAccount: false,
+    },
+  },
+
+  // ─── Default Settings page ─────────────────────────────
   "default-settings": {
     Persona: {
       table: "persona",

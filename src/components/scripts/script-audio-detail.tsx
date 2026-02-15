@@ -7,13 +7,15 @@ import {
   Loader2, FileText, Headphones, Clapperboard,
   CheckCircle2, XCircle, Clock, Hash,
   Volume2, Calendar, ExternalLink, Lightbulb,
-  Save, AlertCircle, Users, UserCog,
+  Save, AlertCircle,
   Cpu, Zap, Shield, Play, Info,
   ChevronDown, Twitter, Newspaper, ImageIcon, AlertTriangle, Edit3, Minus, Plus,
 } from "lucide-react";
 import type { VideoWithScenes, LinkedIdea, LinkedIdeaFull, SceneDetail } from "@/lib/hooks/use-video-detail";
 import { WaveformAudioPlayer, SyncedCaptions } from "@/components/shared/waveform-audio-player";
-import { LinkedRecordPicker } from "./linked-record-picker";
+import { LinkedRecordSelector } from "@/components/app-data/linked-record-selector";
+import { getLinkedFieldDef } from "@/lib/constants/linked-fields";
+import { useAccountStore } from "@/lib/stores/account-store";
 
 interface ScriptAudioDetailProps {
   video: VideoWithScenes | undefined;
@@ -517,11 +519,11 @@ function InspirationSource({ idea }: { idea: LinkedIdea }) {
 
 function LinkedRecordSection({ videoId, video }: { videoId: string; video: VideoWithScenes }) {
   const queryClient = useQueryClient();
-  const [saving, setSaving] = useState<string | null>(null);
+  const { currentAccount } = useAccountStore();
+  const accountId = currentAccount?.id;
 
   const handleUpdate = useCallback(
     async (field: string, ids: string[]) => {
-      setSaving(field);
       try {
         const res = await fetch("/api/data/videos", {
           method: "PATCH",
@@ -529,79 +531,60 @@ function LinkedRecordSection({ videoId, video }: { videoId: string; video: Video
           body: JSON.stringify({ id: videoId, fields: { [field]: ids } }),
         });
         if (!res.ok) {
-          // PATCH failed — force refetch to restore correct state
           queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
         }
-        // On success: DON'T invalidate immediately — Airtable cache (60s) would
-        // return stale data and wipe the optimistic selection. The picker's
-        // optimistic state handles the visual update. Data syncs on next navigation.
       } catch {
         queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
-      } finally {
-        setSaving(null);
       }
     },
     [videoId, queryClient]
   );
 
+  const introConfig = getLinkedFieldDef("videos", "Intro");
+  const ctaConfig = getLinkedFieldDef("videos", "CTA");
+  const introBrollConfig = getLinkedFieldDef("videos", "Intro Broll");
+  const ctaBrollConfig = getLinkedFieldDef("videos", "CTA Broll");
+
   return (
     <div className="glass-card rounded-xl p-5 space-y-4">
       <h3 className="text-sm font-semibold text-foreground">Intro & CTA</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-        {/* Intro Text */}
-        <LinkedRecordPicker
-          label="Intro (Texto)"
-          table="ctas"
-          selected={video.linkedIntros}
-          onSelectionChange={(ids) => handleUpdate("Intro", ids)}
-          multiple={false}
-          color="emerald"
-          showImages={false}
-          isSaving={saving === "Intro"}
-          clientFilters={[{ field: "CTA/Intro", values: ["Intro"] }]}
-        />
-        {/* CTA Text */}
-        <LinkedRecordPicker
-          label="CTA (Texto)"
-          table="ctas"
-          selected={video.linkedCtas}
-          onSelectionChange={(ids) => handleUpdate("CTA", ids)}
-          multiple={false}
-          color="blue"
-          showImages={false}
-          isSaving={saving === "CTA"}
-          clientFilters={[{ field: "CTA/Intro", values: ["CTA"] }]}
-        />
-        {/* Intro Broll: Account + Status active + Custom true + Tags INTRO */}
-        <LinkedRecordPicker
-          label="Intro Broll"
-          table="broll"
-          selected={video.linkedIntroBrolls}
-          onSelectionChange={(ids) => handleUpdate("Intro Broll", ids)}
-          color="emerald"
-          largePreview
-          isSaving={saving === "Intro Broll"}
-          clientFilters={[
-            { field: "Status", values: ["Activo"] },
-            { field: "Custom", values: [true, "true"] },
-            { field: "Tags", values: ["INTRO", "Intro"] },
-          ]}
-        />
-        {/* CTA Broll: Account + Status Activo + Custom true + Tags CTA */}
-        <LinkedRecordPicker
-          label="CTA Broll"
-          table="broll"
-          selected={video.linkedCtaBrolls}
-          onSelectionChange={(ids) => handleUpdate("CTA Broll", ids)}
-          color="blue"
-          largePreview
-          isSaving={saving === "CTA Broll"}
-          clientFilters={[
-            { field: "Status", values: ["Activo"] },
-            { field: "Custom", values: [true, "true"] },
-            { field: "Tags", values: ["CTA", "Cta"] },
-          ]}
-        />
+        {introConfig && (
+          <LinkedRecordSelector
+            fieldName="Intro (Texto)"
+            recordIds={video.intro_ids || []}
+            config={introConfig}
+            accountId={accountId}
+            onChange={(ids) => handleUpdate("Intro", ids)}
+          />
+        )}
+        {ctaConfig && (
+          <LinkedRecordSelector
+            fieldName="CTA (Texto)"
+            recordIds={video.cta_ids || []}
+            config={ctaConfig}
+            accountId={accountId}
+            onChange={(ids) => handleUpdate("CTA", ids)}
+          />
+        )}
+        {introBrollConfig && (
+          <LinkedRecordSelector
+            fieldName="Intro Broll"
+            recordIds={video.intro_broll_ids || []}
+            config={introBrollConfig}
+            accountId={accountId}
+            onChange={(ids) => handleUpdate("Intro Broll", ids)}
+          />
+        )}
+        {ctaBrollConfig && (
+          <LinkedRecordSelector
+            fieldName="CTA Broll"
+            recordIds={video.cta_broll_ids || []}
+            config={ctaBrollConfig}
+            accountId={accountId}
+            onChange={(ids) => handleUpdate("CTA Broll", ids)}
+          />
+        )}
       </div>
     </div>
   );
@@ -611,11 +594,11 @@ function LinkedRecordSection({ videoId, video }: { videoId: string; video: Video
 
 function AvatarPersonaSection({ videoId, video }: { videoId: string; video: VideoWithScenes }) {
   const queryClient = useQueryClient();
-  const [saving, setSaving] = useState<string | null>(null);
+  const { currentAccount } = useAccountStore();
+  const accountId = currentAccount?.id;
 
   const handleUpdate = useCallback(
     async (field: string, ids: string[]) => {
-      setSaving(field);
       try {
         const res = await fetch("/api/data/videos", {
           method: "PATCH",
@@ -625,58 +608,36 @@ function AvatarPersonaSection({ videoId, video }: { videoId: string; video: Vide
         if (!res.ok) {
           queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
         }
-        // On success: DON'T invalidate — optimistic state handles the visual update
       } catch {
         queryClient.invalidateQueries({ queryKey: ["video-detail", videoId] });
-      } finally {
-        setSaving(null);
       }
     },
     [videoId, queryClient]
   );
 
-  // Convert linked avatar/persona to PickerRecord format
-  const avatarSelected = video.linkedAvatarSet
-    ? [{ id: video.linkedAvatarSet.id, name: video.linkedAvatarSet.name, image_url: video.linkedAvatarSet.image_url, status: video.linkedAvatarSet.status }]
-    : [];
-  const personaSelected = video.linkedPersona
-    ? [{ id: video.linkedPersona.id, name: video.linkedPersona.name, image_url: video.linkedPersona.image_url, status: video.linkedPersona.status }]
-    : [];
+  const avatarConfig = getLinkedFieldDef("videos", "Avatar Set");
+  const personaConfig = getLinkedFieldDef("videos", "Persona");
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="glass-card rounded-xl p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Users className="w-4 h-4 text-violet-400" />
-          Avatar Set
-        </h3>
-        <LinkedRecordPicker
-          label="Avatar Set"
-          table="avatares-set"
-          selected={avatarSelected}
-          onSelectionChange={(ids) => handleUpdate("Avatar Set", ids)}
-          multiple={false}
-          color="violet"
-          largePreview
-          isSaving={saving === "Avatar Set"}
+      {avatarConfig && (
+        <LinkedRecordSelector
+          fieldName="Avatar Set"
+          recordIds={video.avatar_set_ids || []}
+          config={avatarConfig}
+          accountId={accountId}
+          onChange={(ids) => handleUpdate("Avatar Set", ids)}
         />
-      </div>
-      <div className="glass-card rounded-xl p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <UserCog className="w-4 h-4 text-cyan-400" />
-          Persona
-        </h3>
-        <LinkedRecordPicker
-          label="Persona"
-          table="persona"
-          selected={personaSelected}
-          onSelectionChange={(ids) => handleUpdate("Persona", ids)}
-          multiple={false}
-          color="cyan"
-          largePreview
-          isSaving={saving === "Persona"}
+      )}
+      {personaConfig && (
+        <LinkedRecordSelector
+          fieldName="Persona"
+          recordIds={video.persona_ids || []}
+          config={personaConfig}
+          accountId={accountId}
+          onChange={(ids) => handleUpdate("Persona", ids)}
         />
-      </div>
+      )}
     </div>
   );
 }
