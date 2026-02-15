@@ -13,45 +13,64 @@ import { STATIC_ASSETS } from "../constants";
 
 // ─── Input Props ────────────────────────────────────────
 export interface TextRevealProps {
-  /** Main title text (line 1) */
+  // Content
   title: string;
-  /** Subtitle text (line 2, optional) */
   subtitle?: string;
-  /** Background color */
+
+  // Colors
   bgColor?: string;
-  /** Accent color for decorative elements */
   accentColor?: string;
-  /** Text color */
   textColor?: string;
+
+  // Timing (seconds) — all adjustable via sliders
+  titleEntryAt?: number;
+  subtitleEntryAt?: number;
+  lineDrawAt?: number;
+  outroAt?: number;
+
+  // Audio FX timing (seconds) + volume
+  whooshInAt?: number;
+  whooshInVolume?: number;
+  whooshOutAt?: number;
+  whooshOutVolume?: number;
 }
 
-// ─── Text Reveal Template ───────────────────────────────
-// 4-second animated text template with:
-//   0.0s-0.8s  → Background gradient sweep
-//   0.3s-1.0s  → Title slides up + fades in with spring
-//   0.6s-1.3s  → Subtitle fades in + tracking expands
-//   1.0s-1.5s  → Accent line draws in from center
-//   1.5s-3.2s  → Hold
-//   3.2s-4.0s  → Everything fades out + scales down
+// Default timing values (exported for registry + editor)
+export const TEXT_REVEAL_DEFAULTS: Required<TextRevealProps> = {
+  title: "Tu Título Aquí",
+  subtitle: "Subtítulo opcional",
+  bgColor: "#0a0a0a",
+  accentColor: "#3b82f6",
+  textColor: "#ffffff",
+  titleEntryAt: 0.3,
+  subtitleEntryAt: 0.6,
+  lineDrawAt: 1.0,
+  outroAt: 3.2,
+  whooshInAt: 0.3,
+  whooshInVolume: 0.5,
+  whooshOutAt: 3.2,
+  whooshOutVolume: 0.4,
+};
 
-export const TextReveal: React.FC<TextRevealProps> = ({
-  title = "Tu Título Aquí",
-  subtitle,
-  bgColor = "#0a0a0a",
-  accentColor = "#3b82f6",
-  textColor = "#ffffff",
-}) => {
+// ─── Text Reveal Template ───────────────────────────────
+// 4-second animated text with spring physics, accent line,
+// letter-spacing animation, floating particles, and synced audio FX.
+
+export const TextReveal: React.FC<TextRevealProps> = (props) => {
+  const p = { ...TEXT_REVEAL_DEFAULTS, ...props };
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // ── Phase timing (in frames) ──
+  // ── Convert seconds → frames ──
   const bgSweepEnd = Math.round(fps * 0.8);
-  const titleStart = Math.round(fps * 0.3);
-  const subtitleStart = Math.round(fps * 0.6);
-  const lineStart = Math.round(fps * 1.0);
-  const lineEnd = Math.round(fps * 1.5);
-  const outStart = Math.round(fps * 3.2);
+  const titleStart = Math.round(fps * p.titleEntryAt);
+  const subtitleStart = Math.round(fps * p.subtitleEntryAt);
+  const lineStart = Math.round(fps * p.lineDrawAt);
+  const lineEnd = lineStart + Math.round(fps * 0.5);
+  const outStart = Math.round(fps * p.outroAt);
   const totalFrames = Math.round(fps * 4);
+  const whooshInFrame = Math.round(fps * p.whooshInAt);
+  const whooshOutFrame = Math.round(fps * p.whooshOutAt);
 
   // ── Background gradient sweep ──
   const sweepProgress = interpolate(frame, [0, bgSweepEnd], [0, 1], {
@@ -98,7 +117,7 @@ export const TextReveal: React.FC<TextRevealProps> = ({
   const outOpacity = 1 - outProgress;
   const outScale = interpolate(outProgress, [0, 1], [1, 0.92]);
 
-  // ── Floating particles (decorative) ──
+  // ── Floating particles ──
   const particles = Array.from({ length: 6 }, (_, i) => {
     const angle = (i / 6) * Math.PI * 2;
     const radius = 280 + i * 40;
@@ -118,7 +137,7 @@ export const TextReveal: React.FC<TextRevealProps> = ({
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: bgColor,
+        backgroundColor: p.bgColor,
         justifyContent: "center",
         alignItems: "center",
         overflow: "hidden",
@@ -129,26 +148,26 @@ export const TextReveal: React.FC<TextRevealProps> = ({
         style={{
           position: "absolute",
           inset: 0,
-          background: `radial-gradient(ellipse at 50% 50%, ${accentColor}22 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse at 50% 50%, ${p.accentColor}22 0%, transparent 70%)`,
           opacity: sweepProgress,
           transform: `scale(${1 + sweepProgress * 0.3})`,
         }}
       />
 
       {/* Floating particles */}
-      {particles.map((p) => (
+      {particles.map((pt) => (
         <div
-          key={p.key}
+          key={pt.key}
           style={{
             position: "absolute",
             left: "50%",
             top: "50%",
-            width: p.size,
-            height: p.size,
+            width: pt.size,
+            height: pt.size,
             borderRadius: "50%",
-            backgroundColor: accentColor,
-            opacity: p.opacity,
-            transform: `translate(${p.x}px, ${p.y}px)`,
+            backgroundColor: p.accentColor,
+            opacity: pt.opacity,
+            transform: `translate(${pt.x}px, ${pt.y}px)`,
           }}
         />
       ))}
@@ -169,7 +188,7 @@ export const TextReveal: React.FC<TextRevealProps> = ({
           style={{
             fontSize: 72,
             fontWeight: 800,
-            color: textColor,
+            color: p.textColor,
             fontFamily: "Inter, system-ui, sans-serif",
             textAlign: "center",
             lineHeight: 1.1,
@@ -178,7 +197,7 @@ export const TextReveal: React.FC<TextRevealProps> = ({
             transform: `translateY(${titleY}px)`,
           }}
         >
-          {title}
+          {p.title}
         </div>
 
         {/* Accent line */}
@@ -186,18 +205,18 @@ export const TextReveal: React.FC<TextRevealProps> = ({
           style={{
             width: `${lineWidth}px`,
             height: 3,
-            backgroundColor: accentColor,
+            backgroundColor: p.accentColor,
             borderRadius: 2,
           }}
         />
 
         {/* Subtitle */}
-        {subtitle && (
+        {p.subtitle && (
           <div
             style={{
               fontSize: 28,
               fontWeight: 400,
-              color: textColor,
+              color: p.textColor,
               fontFamily: "Inter, system-ui, sans-serif",
               textAlign: "center",
               textTransform: "uppercase",
@@ -205,21 +224,19 @@ export const TextReveal: React.FC<TextRevealProps> = ({
               letterSpacing: `${letterSpacing}px`,
             }}
           >
-            {subtitle}
+            {p.subtitle}
           </div>
         )}
       </div>
 
       {/* ── Audio FX synced to animations ── */}
 
-      {/* Whoosh IN → synced with title slide-up (frame 9 = 0.3s) */}
-      <Sequence from={titleStart} durationInFrames={30} name="SFX: Whoosh In">
-        <Audio src={STATIC_ASSETS.WHOOSH_IN} volume={0.5} />
+      <Sequence from={whooshInFrame} durationInFrames={30} name="SFX: Whoosh In">
+        <Audio src={STATIC_ASSETS.WHOOSH_IN} volume={p.whooshInVolume} />
       </Sequence>
 
-      {/* Whoosh OUT → synced with outro fade (frame 96 = 3.2s) */}
-      <Sequence from={outStart} durationInFrames={24} name="SFX: Whoosh Out">
-        <Audio src={STATIC_ASSETS.WHOOSH_OUT} volume={0.4} />
+      <Sequence from={whooshOutFrame} durationInFrames={24} name="SFX: Whoosh Out">
+        <Audio src={STATIC_ASSETS.WHOOSH_OUT} volume={p.whooshOutVolume} />
       </Sequence>
     </AbsoluteFill>
   );
